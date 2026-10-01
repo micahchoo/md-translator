@@ -13,7 +13,7 @@ Design record and measurements: `.brainstorm/sessions/0001-md-translator.md`.
 - Phase 5: `vite.config.ts` (base './'), `.github/workflows/pages.yml` (bun test + build + deploy). Verified in headless Chromium against :8086.
 
 ## Next
-- User reviews the app at `http://localhost:4173` (`npx vite preview`) or `npm run dev`. Nothing committed, nothing pushed.
-- On approval: commit, create the GitHub repo, enable Pages (source: GitHub Actions), push.
+- Live: https://micahchoo.github.io/md-translator/ (deployed 2026-10-01, repo micahchoo/md-translator). Pages workflow deploys on push to main.
+
 - Known gap: code-mixed output (English words inside Kannada/Hindi sentences) is not flagged.
 - Parked: user glossary (first try made the model bold every glossary term).
