@@ -28,6 +28,8 @@ export interface UnitResult {
   flags: Flag[]
   attempts: number
   status: 'waiting' | 'running' | 'done'
+  /** The owner wrote this output by hand. */
+  edited?: boolean
 }
 
 export interface Progress {
@@ -41,60 +43,140 @@ const WEIGHT: Record<Flag, number> = {
 }
 const cost = (flags: Flag[]) => flags.reduce((s, f) => s + WEIGHT[f], 0)
 
+/** The document as it stands: finished units translated, the rest still in English. */
+export function progressOf(md: string, units: UnitResult[]): Progress {
+  return { markdown: assemble(md, units.map((u) => u.unit), units.map((u) => u.output || u.unit.text)), units }
+}
+
+interface Attempts {
+  /** Sampling only, as for a retry the owner asked for; otherwise greedy first. */
+  sampleFirst: boolean
+}
+
+/**
+ * Translates one unit piece by piece, streaming into `u.output` through
+ * `onText`, and returns the best answer. Clean pieces are appended to `history`.
+ */
+async function translateUnit(
+  u: UnitResult,
+  history: Pair[],
+  opts: TranslateOptions,
+  complete: Complete,
+  onText: () => void,
+  signal: AbortSignal | undefined,
+  how: Attempts,
+): Promise<{ output: string; flags: Flag[] }> {
+  const done: string[] = []
+  const flags = new Set<Flag>()
+  for (const piece of splitPassage(u.unit.text, opts.passageLength)) {
+    const prompt = buildPrompt({
+      language: opts.language,
+      preamble: opts.preamble,
+      examples: opts.examples,
+      context: opts.contextBlocks > 0 ? history.slice(-opts.contextBlocks) : [],
+      source: piece,
+    })
+    let best: { output: string; flags: Flag[] } | null = null
+    for (let attempt = 0; attempt <= opts.retries; attempt++) {
+      if (signal?.aborted) throw new Error('stopped')
+      const greedy = attempt === 0 && !how.sampleFirst
+      const raw = await complete(
+        { prompt, temperature: greedy ? 0 : 0.6, seed: u.attempts, maxTokens: Math.max(256, piece.length * 2), stop: STOP },
+        (soFar) => {
+          u.output = [...done, cleanOutput(soFar, opts.language)].join(' ')
+          onText()
+        },
+        signal,
+      )
+      u.attempts++
+      const output = cleanOutput(raw, opts.language)
+      const f = check(piece, output, opts.language)
+      if (!best || cost(f) < cost(best.flags)) best = { output, flags: f }
+      if (f.length === 0) break
+    }
+    done.push(best!.output)
+    best!.flags.forEach((f) => flags.add(f))
+    if (best!.flags.length === 0) history.push([piece, best!.output])
+  }
+  return { output: done.join(' '), flags: [...flags] }
+}
+
+/** The clean pairs a unit at `index` may use as context: the finished units before it. */
+const historyBefore = (units: UnitResult[], index: number): Pair[] =>
+  units.slice(0, index).filter((u) => u.status === 'done' && !u.flags.length && u.output).map((u) => [u.unit.text, u.output])
+
+const sameUnits = (a: UnitResult[], b: Unit[]) =>
+  a.length === b.length && a.every((u, i) => u.unit.text === b[i].text && u.unit.start === b[i].start)
+
 export async function translateDocument(
   md: string,
   opts: TranslateOptions,
   complete: Complete,
   onProgress: (p: Progress) => void,
   signal?: AbortSignal,
+  /** Units from an earlier run of the same source; finished ones are kept. */
+  previous?: UnitResult[],
 ): Promise<Progress> {
-  const units: UnitResult[] = segment(md, { skipKeys: opts.skipKeys }).map((unit) => ({
-    unit, output: '', flags: [], attempts: 0, status: 'waiting',
-  }))
-  const snapshot = (): Progress => ({
-    markdown: assemble(md, units.map((u) => u.unit), units.map((u) => u.output || u.unit.text)),
-    units,
-  })
+  const fresh = segment(md, { skipKeys: opts.skipKeys })
+  const units: UnitResult[] =
+    previous && sameUnits(previous, fresh)
+      ? previous.map((u) => (u.status === 'done' ? { ...u } : { unit: u.unit, output: '', flags: [], attempts: 0, status: 'waiting' }))
+      : fresh.map((unit) => ({ unit, output: '', flags: [], attempts: 0, status: 'waiting' }))
   const history: Pair[] = []
 
   for (const u of units) {
+    if (u.status === 'done') {
+      if (!u.flags.length && u.output) history.push([u.unit.text, u.output])
+      continue
+    }
     if (signal?.aborted) throw new Error('stopped')
     u.status = 'running'
-    const done: string[] = []
-    const flags = new Set<Flag>()
-    for (const piece of splitPassage(u.unit.text, opts.passageLength)) {
-      const prompt = buildPrompt({
-        language: opts.language,
-        preamble: opts.preamble,
-        examples: opts.examples,
-        context: opts.contextBlocks > 0 ? history.slice(-opts.contextBlocks) : [],
-        source: piece,
-      })
-      let best: { output: string; flags: Flag[] } | null = null
-      for (let attempt = 0; attempt <= opts.retries; attempt++) {
-        if (signal?.aborted) throw new Error('stopped')
-        u.attempts++
-        const raw = await complete(
-          { prompt, temperature: attempt === 0 ? 0 : 0.6, seed: attempt, maxTokens: Math.max(256, piece.length * 2), stop: STOP },
-          (soFar) => {
-            u.output = [...done, cleanOutput(soFar, opts.language)].join(' ')
-            onProgress(snapshot())
-          },
-          signal,
-        )
-        const output = cleanOutput(raw, opts.language)
-        const f = check(piece, output, opts.language)
-        if (!best || cost(f) < cost(best.flags)) best = { output, flags: f }
-        if (f.length === 0) break
-      }
-      done.push(best!.output)
-      best!.flags.forEach((f) => flags.add(f))
-      if (best!.flags.length === 0) history.push([piece, best!.output])
-      u.output = done.join(' ')
-    }
-    u.flags = [...flags]
+    const r = await translateUnit(u, history, opts, complete, () => onProgress(progressOf(md, units)), signal, { sampleFirst: false })
+    u.output = r.output
+    u.flags = r.flags
     u.status = 'done'
-    onProgress(snapshot())
+    onProgress(progressOf(md, units))
   }
-  return snapshot()
+  return progressOf(md, units)
+}
+
+/**
+ * Asks again for one block, by sampling: the greedy answer is what is there
+ * already. The new answer replaces the block unless every attempt was worse.
+ */
+export async function retryUnit(
+  md: string,
+  units: UnitResult[],
+  index: number,
+  opts: TranslateOptions,
+  complete: Complete,
+  onProgress: (p: Progress) => void,
+  signal?: AbortSignal,
+): Promise<Progress> {
+  const u = units[index]
+  const before = { output: u.output, flags: u.flags, edited: u.edited }
+  u.status = 'running'
+  try {
+    const r = await translateUnit(u, historyBefore(units, index), opts, complete, () => onProgress(progressOf(md, units)), signal, {
+      sampleFirst: true,
+    })
+    if (cost(r.flags) > cost(before.flags)) Object.assign(u, before)
+    else Object.assign(u, { output: r.output, flags: r.flags, edited: false })
+  } catch (e) {
+    Object.assign(u, before)
+    throw e
+  } finally {
+    u.status = 'done'
+  }
+  return progressOf(md, units)
+}
+
+/** The owner's own text for one block. It is still checked, so a lost link shows. */
+export function editUnit(md: string, units: UnitResult[], index: number, text: string, language: Language): Progress {
+  const u = units[index]
+  u.output = text.trim()
+  u.flags = check(u.unit.text, u.output, language)
+  u.edited = true
+  u.status = 'done'
+  return progressOf(md, units)
 }

@@ -1,59 +1,46 @@
 // The page: documents in, translations out. Every decision about the text
 // lives in translate.ts and the modules under it; this file only shows state
 // and turns clicks into calls.
-import type { Flag } from './checks'
+import { BlockList } from './blocks'
 import { LANGUAGES } from './languages'
 import { createClient, listModels } from './llm'
-import { unmask } from './segment'
 import { DEFAULTS, formatExamples, loadSettings, parseExamples, saveSettings, toOptions, type Settings } from './settings'
-import { translateDocument, type Progress } from './translate'
+import { loadDocs, saveDocs, type SavedDoc } from './store'
+import { editUnit, progressOf, retryUnit, translateDocument } from './translate'
 
-interface Doc {
-  id: number
-  name: string
-  source: string
-  status: 'idle' | 'running' | 'done' | 'stopped' | 'error'
-  result?: Progress
-  /** Language the result is in, for the download name. */
-  lang?: string
+type View = 'source' | 'blocks' | 'markdown'
+
+interface Doc extends SavedDoc {
+  view: View
   error?: string
-  seconds?: number
-}
-
-const FLAG_TEXT: Record<Flag, string> = {
-  empty: 'Nothing came back',
-  untranslated: 'Left in English',
-  partial: 'Partly in English',
-  markup: 'Formatting changed',
-  numbers: 'Numbers changed',
-  short: 'May be missing text',
-  long: 'May have added text',
-  truncated: 'Cut off',
 }
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T
 const el = {
   lang: $<HTMLSelectElement>('lang'),
   docs: $('docs'),
-  source: $<HTMLTextAreaElement>('source'),
-  sourcePane: $('source-pane'),
   file: $<HTMLInputElement>('file'),
+  source: $<HTMLTextAreaElement>('source'),
+  output: $<HTMLTextAreaElement>('output'),
+  blocks: $('blocks'),
   translate: $<HTMLButtonElement>('translate'),
   translateAll: $<HTMLButtonElement>('translate-all'),
   stop: $<HTMLButtonElement>('stop'),
-  status: $('status'),
-  output: $<HTMLTextAreaElement>('output'),
   copy: $<HTMLButtonElement>('copy'),
   download: $<HTMLButtonElement>('download'),
-  flags: $<HTMLDetailsElement>('flags'),
-  flagsTitle: $('flags-title'),
-  flagList: $('flag-list'),
+  status: $('status'),
+  meter: $<HTMLProgressElement>('meter'),
+  onlyFlagged: $<HTMLInputElement>('only-flagged'),
+  onlyFlaggedText: $('only-flagged-text'),
+  follow: $<HTMLButtonElement>('follow'),
   dialog: $<HTMLDialogElement>('settings'),
   form: $<HTMLFormElement>('settings-form'),
   connection: $('connection'),
   settingsError: $('settings-error'),
   examplesLabel: $('examples-label'),
 }
+const viewTabs = [...document.querySelectorAll<HTMLButtonElement>('.views [data-view]')]
+const viewPanes = [...document.querySelectorAll<HTMLElement>('section.view')]
 
 const storage: Pick<Storage, 'getItem' | 'setItem'> = (() => {
   try {
@@ -64,13 +51,26 @@ const storage: Pick<Storage, 'getItem' | 'setItem'> = (() => {
 })()
 
 let settings: Settings = loadSettings(storage)
-let nextId = 1
-const docs: Doc[] = [{ id: nextId++, name: 'Untitled', source: '', status: 'idle' }]
+const docs: Doc[] = loadDocs(storage).map((d) => ({ ...d, view: d.units?.length ? 'blocks' : 'source' }))
+let nextId = Math.max(0, ...docs.map((d) => d.id)) + 1
+const blank = (): Doc => ({ id: nextId++, name: 'Untitled', source: '', status: 'idle', view: 'source' })
+if (!docs.length) docs.push(blank())
 let current = docs[0].id
 let controller: AbortController | null = null
 
 const doc = () => docs.find((d) => d.id === current)!
-const running = () => docs.some((d) => d.status === 'running')
+const busy = () => controller !== null
+
+// ---- saving ---------------------------------------------------------------
+
+let saveTimer = 0
+function persist() {
+  clearTimeout(saveTimer)
+  saveTimer = window.setTimeout(() => {
+    const ok = saveDocs(storage, docs.map(({ view, error, ...d }) => d))
+    if (!ok) console.warn('Documents could not be saved in this browser.')
+  }, 800)
+}
 
 // ---- rendering ------------------------------------------------------------
 
@@ -79,26 +79,58 @@ function schedule() {
   if (!frame) frame = requestAnimationFrame(() => ((frame = 0), render()))
 }
 
+const blocks = new BlockList(el.blocks, {
+  retry: (i) => retry(i),
+  edit: (i, text) => {
+    const d = doc()
+    if (!d.units) return
+    editUnit(d.source, d.units, i, text, LANGUAGES[d.lang ?? settings.language])
+    persist()
+    render()
+  },
+})
+
 function render() {
   const d = doc()
+  const units = d.units ?? []
+  const md = units.length ? progressOf(d.source, units).markdown : ''
+  const running = d.status === 'running'
+
   if (document.activeElement !== el.source && el.source.value !== d.source) el.source.value = d.source
-  el.source.readOnly = d.status === 'running'
+  el.source.readOnly = running
+  if (el.output.value !== md) el.output.value = md
+  el.output.lang = units.length ? (d.lang ?? '') : ''
 
   el.docs.replaceChildren(...(docs.length > 1 || d.name !== 'Untitled' ? docs.map(docTab) : []))
 
-  const busy = running()
-  el.translate.hidden = busy
+  for (const t of viewTabs) {
+    t.setAttribute('aria-selected', String(t.dataset.view === d.view))
+    t.disabled = t.dataset.view !== 'source' && !units.length
+  }
+  for (const p of viewPanes) p.hidden = p.dataset.view !== d.view
+
+  const isBusy = busy()
+  el.translate.hidden = isBusy
   el.translate.disabled = !d.source.trim()
-  el.translateAll.hidden = busy || docs.filter((x) => x.source.trim()).length < 2
-  el.stop.hidden = !busy
+  el.translate.textContent = d.status === 'stopped' && units.some((u) => u.status === 'done') ? 'Resume' : units.length ? 'Translate again' : 'Translate'
+  el.translateAll.hidden = isBusy || docs.filter((x) => x.source.trim()).length < 2
+  el.stop.hidden = !isBusy
+  el.copy.disabled = el.download.disabled = !md || running
 
-  const md = d.result?.markdown ?? ''
-  if (el.output.value !== md) el.output.value = md
-  el.copy.disabled = el.download.disabled = !md || d.status === 'running'
+  const flagged = units.filter((u) => u.status === 'done' && u.flags.length).length
+  el.onlyFlagged.parentElement!.hidden = !flagged || d.view !== 'blocks'
+  el.onlyFlaggedText.textContent = `Show only the ${flagged} to check`
+  if (!flagged) el.onlyFlagged.checked = false
 
+  const done = units.filter((u) => u.status === 'done').length
+  el.meter.hidden = !running
+  el.meter.max = Math.max(1, units.length)
+  el.meter.value = done
   el.status.classList.toggle('error', d.status === 'error')
-  el.status.textContent = statusLine(d)
-  renderFlags(d)
+  el.status.textContent = statusLine(d, done, flagged)
+
+  if (d.view === 'blocks' && units.length) blocks.show(units, d.lang ?? settings.language, isBusy, el.onlyFlagged.checked)
+  el.follow.hidden = !(running && d.view === 'blocks' && !blocks.follow)
 }
 
 function docTab(d: Doc): HTMLElement {
@@ -117,12 +149,13 @@ function docTab(d: Doc): HTMLElement {
     const x = document.createElement('span')
     x.className = 'x'
     x.textContent = '×'
-    x.setAttribute('aria-label', `Remove ${d.name}`)
+    x.title = `Remove ${d.name}`
     x.onclick = (e) => {
       e.stopPropagation()
       if (d.status === 'running') return
       docs.splice(docs.indexOf(d), 1)
       if (current === d.id) current = docs[0].id
+      persist()
       render()
     }
     tab.append(x)
@@ -134,48 +167,30 @@ function docTab(d: Doc): HTMLElement {
   return tab
 }
 
-function statusLine(d: Doc): string {
-  const units = d.result?.units ?? []
-  const done = units.filter((u) => u.status === 'done').length
-  const toCheck = units.filter((u) => u.flags.length).length
-  const check = toCheck ? ` · ${toCheck} to check` : ''
+function statusLine(d: Doc, done: number, flagged: number): string {
+  const total = d.units?.length ?? 0
+  const check = flagged ? ` · ${flagged} to check` : ''
   switch (d.status) {
     case 'idle':
       return d.source.trim() ? 'Ready.' : 'Nothing translated yet.'
     case 'running':
-      return units.length ? `Translating block ${Math.min(done + 1, units.length)} of ${units.length}${check}` : 'Starting…'
+      return total ? `Translating block ${Math.min(done + 1, total)} of ${total}${check}` : 'Starting…'
     case 'done':
-      return units.length ? `Done in ${d.seconds} s · ${units.length} blocks${check}` : 'Nothing in this document needs translating.'
+      return total ? `Done${d.seconds !== undefined ? ` in ${d.seconds} s` : ''} · ${total} blocks${check}` : 'Nothing in this document needs translating.'
     case 'stopped':
-      return `Stopped after ${done} of ${units.length} blocks. Untranslated blocks are left in English.`
+      return `Stopped after ${done} of ${total} blocks${check}. Resume to continue; the rest is still in English.`
     case 'error':
       return d.error ?? 'Something went wrong.'
   }
 }
 
-function renderFlags(d: Doc) {
-  const flagged = (d.result?.units ?? []).filter((u) => u.status === 'done' && u.flags.length)
-  el.flags.hidden = !flagged.length
-  if (!flagged.length) return
-  el.flagsTitle.textContent = `${flagged.length} ${flagged.length === 1 ? 'block' : 'blocks'} to check`
-  el.flagList.replaceChildren(
-    ...flagged.map((u) => {
-      const li = document.createElement('li')
-      const tags = document.createElement('div')
-      tags.className = 'tags'
-      tags.textContent = u.flags.map((f) => FLAG_TEXT[f]).join(' · ')
-      const src = document.createElement('div')
-      src.className = 'src'
-      src.textContent = unmask(u.unit.text, u.unit.restore)
-      const out = document.createElement('div')
-      out.textContent = unmask(u.output, u.unit.restore)
-      li.append(tags, src, out)
-      return li
-    }),
-  )
-}
-
 // ---- translation ----------------------------------------------------------
+
+function explain(e: unknown): string {
+  if (e instanceof TypeError)
+    return `Could not reach ${settings.endpoint}. Check that the model server is running and allows requests from this page. If Chrome asks to allow access to devices on your network, allow it.`
+  return `The model server answered with an error: ${e instanceof Error ? e.message : String(e)}`
+}
 
 async function translate(targets: Doc[]) {
   controller = new AbortController()
@@ -183,14 +198,30 @@ async function translate(targets: Doc[]) {
   const opts = toOptions(settings)
   for (const d of targets) {
     if (controller.signal.aborted) break
+    const resume = d.status === 'stopped' ? d.units : undefined
+    if (!resume || d.lang !== opts.language.code) d.units = undefined
     d.status = 'running'
     d.lang = opts.language.code
     d.error = undefined
-    d.result = undefined
+    d.view = 'blocks'
+    blocks.follow = true
     const started = performance.now()
     render()
+    let finished = 0
     try {
-      d.result = await translateDocument(d.source, opts, complete, (p) => ((d.result = p), schedule()), controller.signal)
+      await translateDocument(
+        d.source,
+        opts,
+        complete,
+        (p) => {
+          d.units = p.units
+          const n = p.units.filter((u) => u.status === 'done').length
+          if (n !== finished) ((finished = n), persist())
+          schedule()
+        },
+        controller.signal,
+        d.units,
+      )
       d.status = 'done'
       d.seconds = Math.round((performance.now() - started) / 1000)
     } catch (e) {
@@ -200,6 +231,9 @@ async function translate(targets: Doc[]) {
         d.error = explain(e)
         break
       }
+    } finally {
+      d.units?.forEach((u) => u.status === 'running' && (u.status = 'waiting'))
+      persist()
     }
     render()
   }
@@ -207,11 +241,25 @@ async function translate(targets: Doc[]) {
   render()
 }
 
-function explain(e: unknown): string {
-  const msg = e instanceof Error ? e.message : String(e)
-  if (e instanceof TypeError)
-    return `Could not reach ${settings.endpoint}. Check that the model server is running and allows requests from this page. If Chrome asks to allow access to devices on your network, allow it.`
-  return `The model server answered with an error: ${msg}`
+async function retry(i: number) {
+  const d = doc()
+  if (!d.units || busy()) return
+  controller = new AbortController()
+  const complete = createClient({ endpoint: settings.endpoint, model: settings.model })
+  const opts = { ...toOptions(settings), language: LANGUAGES[d.lang ?? settings.language] }
+  opts.examples = settings.examples[opts.language.code] ?? opts.language.examples
+  render()
+  try {
+    await retryUnit(d.source, d.units, i, opts, complete, schedule, controller.signal)
+  } catch (e) {
+    if (!controller.signal.aborted) {
+      d.error = explain(e)
+      el.status.textContent = d.error
+    }
+  }
+  controller = null
+  persist()
+  render()
 }
 
 // ---- documents ------------------------------------------------------------
@@ -220,36 +268,37 @@ async function addFiles(files: FileList | File[]) {
   const list = [...files].filter((f) => /\.(md|markdown|txt)$/i.test(f.name) || f.type.startsWith('text/'))
   if (!list.length) return
   // An untouched empty document is replaced, not kept beside the new ones.
-  const blank = docs.length === 1 && !docs[0].source.trim() && docs[0].status === 'idle'
-  if (blank) docs.length = 0
-  for (const f of list) docs.push({ id: nextId++, name: f.name, source: await f.text(), status: 'idle' })
+  if (docs.length === 1 && !docs[0].source.trim() && docs[0].status === 'idle') docs.length = 0
+  for (const f of list) docs.push({ id: nextId++, name: f.name, source: await f.text(), status: 'idle', view: 'source' })
   current = docs[docs.length - list.length].id
+  persist()
   render()
 }
 
 el.source.addEventListener('input', () => {
   const d = doc()
+  if (d.status === 'running') return
   d.source = el.source.value
-  if (d.status !== 'running') {
-    d.status = 'idle'
-    d.result = undefined
-  }
+  d.status = 'idle'
+  d.units = undefined
+  persist()
   render()
 })
 el.source.addEventListener('paste', () => {
   // A pasted document is named by its first heading, so tabs stay legible.
   queueMicrotask(() => {
     const d = doc()
-    const h = d.source.match(/^#{1,6}\s+(.+)$/m)?.[1]
-    if (d.name === 'Untitled' && h) {
-      d.name = h.trim()
+    const heading = d.source.match(/^#{1,6}\s+(.+)$/m)?.[1]
+    if (d.name === 'Untitled' && heading) {
+      d.name = heading.trim()
+      persist()
       render()
     }
   })
 })
 
 $('new-doc').onclick = () => {
-  docs.push({ id: nextId++, name: 'Untitled', source: '', status: 'idle' })
+  docs.push(blank())
   current = docs[docs.length - 1].id
   render()
   el.source.focus()
@@ -259,20 +308,30 @@ el.file.onchange = () => {
   if (el.file.files) addFiles(el.file.files)
   el.file.value = ''
 }
-for (const type of ['dragenter', 'dragover'])
-  el.sourcePane.addEventListener(type, (e) => {
-    e.preventDefault()
-    el.sourcePane.classList.add('dropping')
-  })
-for (const type of ['dragleave', 'drop'])
-  el.sourcePane.addEventListener(type, () => el.sourcePane.classList.remove('dropping'))
-el.sourcePane.addEventListener('drop', (e) => {
+document.addEventListener('dragover', (e) => {
+  e.preventDefault()
+  document.body.classList.add('dropping')
+})
+for (const type of ['dragleave', 'drop']) document.addEventListener(type, () => document.body.classList.remove('dropping'))
+document.addEventListener('drop', (e) => {
   e.preventDefault()
   if (e.dataTransfer?.files.length) addFiles(e.dataTransfer.files)
 })
 
+for (const t of viewTabs)
+  t.onclick = () => {
+    doc().view = t.dataset.view as View
+    render()
+  }
+el.onlyFlagged.onchange = () => render()
+el.follow.onclick = () => {
+  blocks.follow = true
+  render()
+}
+for (const ev of ['wheel', 'touchmove', 'keydown']) el.blocks.addEventListener(ev, schedule, { passive: true })
+
 el.translate.onclick = () => translate([doc()])
-el.translateAll.onclick = () => translate(docs.filter((d) => d.source.trim()))
+el.translateAll.onclick = () => translate(docs.filter((d) => d.source.trim() && d.status !== 'running'))
 el.stop.onclick = () => controller?.abort()
 
 el.copy.onclick = async () => {
@@ -360,3 +419,4 @@ el.form.addEventListener('submit', (e) => {
 })
 
 render()
+

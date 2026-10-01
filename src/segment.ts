@@ -37,13 +37,16 @@ const DESTINATION = /\]\(((?:[^()\s]|\([^()]*\))*(?:\s+"[^"]*")?)\)/g
 
 export function segment(md: string, opts: SegmentOptions): Unit[] {
   const tree = fromMarkdown(md, {
-    extensions: [gfm(), frontmatter(['yaml'])],
+    // Indented code is off: text pasted from a word processor arrives indented
+    // and is prose. Fenced code is still recognised and never sent.
+    extensions: [gfm(), frontmatter(['yaml']), { disable: { null: ['codeIndented'] } }],
     mdastExtensions: [gfmFromMarkdown(), frontmatterFromMarkdown(['yaml'])],
   })
   const skip = new Set(opts.skipKeys.map((k) => k.trim().toLowerCase()))
   const units: Unit[] = []
   const visit = (node: Nodes, parent?: Nodes) => {
     if (node.type === 'yaml') return void units.push(...frontMatter(md, node, skip))
+    if (node.type === 'html') return void units.push(...htmlText(md, node.position!.start.offset!, node.position!.end.offset!))
     if (node.type === 'paragraph' || node.type === 'heading' || node.type === 'tableCell') {
       const opensQuote = parent?.type === 'blockquote' && parent.children[0] === node
       return void units.push(...prose(md, node, opensQuote))
@@ -58,8 +61,27 @@ export function segment(md: string, opts: SegmentOptions): Unit[] {
 function prose(md: string, node: Paragraph | Heading | TableCell, opensQuote: boolean): Unit[] {
   const kids = node.children
   if (!kids.length) return []
-  const from = kids[0].position!.start.offset!
-  const to = kids[kids.length - 1].position!.end.offset!
+  return spans(md, kids[0].position!.start.offset!, kids[kids.length - 1].position!.end.offset!, opensQuote)
+}
+
+// Never sent from inside HTML: code, scripts, styles and comments, then any tag.
+const HTML_SKIP = /<!--[\s\S]*?-->|<(script|style|pre|code|textarea)\b[^>]*>[\s\S]*?<\/\1\s*>|<[^>]+>/gi
+
+/** The text between the tags of an HTML block, each run handled as prose. */
+function htmlText(md: string, from: number, to: number): Unit[] {
+  const units: Unit[] = []
+  let at = from
+  for (const m of md.slice(from, to).matchAll(HTML_SKIP)) {
+    const start = from + m.index!
+    units.push(...spans(md, at, start, false))
+    at = start + m[0].length
+  }
+  units.push(...spans(md, at, to, false))
+  return units
+}
+
+/** Lines of source between two offsets, grouped into units around lines with no prose. */
+function spans(md: string, from: number, to: number, opensQuote: boolean): Unit[] {
   const units: Unit[] = []
   let run: { start: number; end: number; lines: string[] } | null = null
   const flush = () => {

@@ -53,6 +53,10 @@ describe('languages', () => {
 })
 
 describe('cleanOutput', () => {
+  test('keeps zero-width joiners at the edges and inside', () => {
+    expect(cleanOutput(' ‌ಆಫ್‌ಲೈನ್‍ ', LANGUAGES.kn)).toBe('‌ಆಫ್‌ಲೈನ್‍')
+  })
+
   test('trims and drops a leaked example label', () => {
     expect(cleanOutput(' नमस्ते\nEnglish: hi', LANGUAGES.hi)).toBe('नमस्ते')
     expect(cleanOutput('Hindi: नमस्ते', LANGUAGES.hi)).toBe('नमस्ते')

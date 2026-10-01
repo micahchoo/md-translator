@@ -26,40 +26,45 @@
       </div>
     </header>
 
-    <main class="panes">
-      <section class="pane" id="source-pane" aria-labelledby="source-title">
-        <div class="pane-head">
-          <h2 id="source-title">Source</h2>
-          <div class="row">
-            <button id="new-doc" class="ghost" type="button">New</button>
-            <button id="add-files" class="ghost" type="button">Attach .md</button>
-            <input id="file" type="file" accept=".md,.markdown,.txt,text/markdown,text/plain" multiple hidden />
-          </div>
-        </div>
+    <main class="work">
+      <div class="docbar">
         <div id="docs" class="docs" role="tablist" aria-label="Documents"></div>
-        <textarea id="source" spellcheck="false" placeholder="Paste Markdown here, or drop .md files on this pane."></textarea>
-        <div class="row actions">
+        <div class="row">
+          <button id="new-doc" class="ghost" type="button">New</button>
+          <button id="add-files" class="ghost" type="button">Attach .md</button>
+          <input id="file" type="file" accept=".md,.markdown,.txt,text/markdown,text/plain" multiple hidden />
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <div class="views" role="tablist" aria-label="View">
+          <button role="tab" data-view="source" type="button">Source</button>
+          <button role="tab" data-view="blocks" type="button">Blocks</button>
+          <button role="tab" data-view="markdown" type="button">Markdown</button>
+        </div>
+        <div class="row">
           <button id="translate" class="primary" type="button">Translate</button>
           <button id="translate-all" class="ghost" type="button" hidden>Translate all</button>
           <button id="stop" class="ghost" type="button" hidden>Stop</button>
+          <button id="copy" class="ghost" type="button" disabled>Copy</button>
+          <button id="download" class="ghost" type="button" disabled>Download .md</button>
         </div>
-      </section>
-
-      <section class="pane" aria-labelledby="output-title">
-        <div class="pane-head">
-          <h2 id="output-title">Translation</h2>
-          <div class="row">
-            <button id="copy" class="ghost" type="button" disabled>Copy</button>
-            <button id="download" class="ghost" type="button" disabled>Download .md</button>
-          </div>
-        </div>
+      </div>
+      <div class="statusbar">
         <p id="status" class="status" role="status" aria-live="polite">Nothing translated yet.</p>
+        <label class="only-flagged" hidden><input id="only-flagged" type="checkbox" /> <span id="only-flagged-text"></span></label>
+        <button id="follow" class="small ghost" type="button" hidden>Follow translation</button>
+      </div>
+      <progress id="meter" max="1" value="0" hidden></progress>
+
+      <section id="view-source" class="view" data-view="source">
+        <textarea id="source" spellcheck="false" aria-label="Source Markdown" placeholder="Paste Markdown here, or drop .md files anywhere on the page."></textarea>
+      </section>
+      <section id="view-blocks" class="view" data-view="blocks">
+        <div id="blocks" class="blocks" tabindex="0" aria-label="Blocks, English beside the translation"></div>
+      </section>
+      <section id="view-markdown" class="view" data-view="markdown">
         <textarea id="output" readonly spellcheck="false" aria-label="Translated Markdown"></textarea>
-        <details id="flags" class="flags" hidden>
-          <summary id="flags-title"></summary>
-          <p class="hint">These blocks failed a check after every retry. The best attempt is in the document; read these first.</p>
-          <ol id="flag-list"></ol>
-        </details>
       </section>
     </main>
 

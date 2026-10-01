@@ -57,6 +57,28 @@ describe('what reaches the model', () => {
     ])
   })
 
+  test('indented text pasted from a word processor is prose, and keeps its indent', () => {
+    const line = '**Please Note: A1 posters to be sent by Monday evening**'
+    expect(texts('    ' + line + '\n')).toEqual([line])
+    expect(translate('\t' + line + '\n', { [line]: '**कृपया ध्यान दें**' })).toBe('\t**कृपया ध्यान दें**\n')
+  })
+
+  test('fenced code is still never sent', () => {
+    expect(texts('```\nPlease do not translate this.\n```\n')).toEqual([])
+  })
+
+  test('text inside an HTML block is sent; the tags are not', () => {
+    expect(texts('<br>\n**Please Note: posters by Monday**\n')).toEqual(['**Please Note: posters by Monday**'])
+    const md = '<p align="center">The professional video editor</p>\n'
+    expect(translate(md, { 'The professional video editor': 'पेशेवर वीडियो संपादक' })).toBe(
+      '<p align="center">पेशेवर वीडियो संपादक</p>\n',
+    )
+  })
+
+  test('code, scripts and comments inside HTML are never sent', () => {
+    expect(texts('<div>\n<code>run this now</code>\n<!-- a note to self -->\n<pre>keep this text</pre>\n</div>\n')).toEqual([])
+  })
+
   test('a block with no words is not sent', () => {
     expect(texts('`npm install`\n\n2026 · 42\n')).toEqual([])
   })
@@ -123,6 +145,12 @@ describe('assembly', () => {
     expect(translate(md, { 'Lemon Pickles': 'नींबू का अचार' })).toBe(
       '> [!note]+ नींबू का अचार\n> [[Sweet and Sour Lemon Pickle]]\n',
     )
+  })
+
+  test('zero-width joiners in a translation survive byte for byte', () => {
+    // ಆಫ್‌ಲೈನ್ carries a ZWNJ (U+200C); क्‍ष a ZWJ (U+200D). Dropping either changes the word.
+    const out = translate('Offline mode.\n', { 'Offline mode.': 'ಆಫ್‌ಲೈನ್ ಮೋಡ್ क्‍ष' })
+    expect(out).toBe('ಆಫ್‌ಲೈನ್ ಮೋಡ್ क्‍ष\n')
   })
 
   test('a newline inside a translation never breaks the block', () => {
