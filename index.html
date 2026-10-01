@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Markdown Translator</title>
+    <meta name="description" content="Translate Markdown documents into Hindi or Kannada with a local model, keeping the Markdown intact." />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232f5d50'/%3E%3Ctext x='16' y='22' font-size='16' text-anchor='middle' fill='white' font-family='sans-serif'%3EA%E0%A4%85%3C/text%3E%3C/svg%3E" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600&family=Noto+Sans+Devanagari:wght@400;500;600&family=Noto+Sans+Kannada:wght@400;500;600&family=Noto+Sans+Mono:wght@400;500&display=swap"
+    />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="bar">
+      <h1>Markdown Translator</h1>
+      <div class="bar-actions">
+        <label class="lang">
+          <span>Translate into</span>
+          <select id="lang"></select>
+        </label>
+        <button id="open-settings" class="ghost" type="button">Settings</button>
+      </div>
+    </header>
+
+    <main class="panes">
+      <section class="pane" id="source-pane" aria-labelledby="source-title">
+        <div class="pane-head">
+          <h2 id="source-title">Source</h2>
+          <div class="row">
+            <button id="new-doc" class="ghost" type="button">New</button>
+            <button id="add-files" class="ghost" type="button">Attach .md</button>
+            <input id="file" type="file" accept=".md,.markdown,.txt,text/markdown,text/plain" multiple hidden />
+          </div>
+        </div>
+        <div id="docs" class="docs" role="tablist" aria-label="Documents"></div>
+        <textarea id="source" spellcheck="false" placeholder="Paste Markdown here, or drop .md files on this pane."></textarea>
+        <div class="row actions">
+          <button id="translate" class="primary" type="button">Translate</button>
+          <button id="translate-all" class="ghost" type="button" hidden>Translate all</button>
+          <button id="stop" class="ghost" type="button" hidden>Stop</button>
+        </div>
+      </section>
+
+      <section class="pane" aria-labelledby="output-title">
+        <div class="pane-head">
+          <h2 id="output-title">Translation</h2>
+          <div class="row">
+            <button id="copy" class="ghost" type="button" disabled>Copy</button>
+            <button id="download" class="ghost" type="button" disabled>Download .md</button>
+          </div>
+        </div>
+        <p id="status" class="status" role="status" aria-live="polite">Nothing translated yet.</p>
+        <textarea id="output" readonly spellcheck="false" aria-label="Translated Markdown"></textarea>
+        <details id="flags" class="flags" hidden>
+          <summary id="flags-title"></summary>
+          <p class="hint">These blocks failed a check after every retry. The best attempt is in the document; read these first.</p>
+          <ol id="flag-list"></ol>
+        </details>
+      </section>
+    </main>
+
+    <dialog id="settings" aria-labelledby="settings-title">
+      <form method="dialog" id="settings-form">
+        <h2 id="settings-title">Settings</h2>
+
+        <fieldset>
+          <legend>Model</legend>
+          <label>Endpoint <input name="endpoint" type="url" required placeholder="http://localhost:8086" /></label>
+          <p class="hint">Any OpenAI-compatible server with <code>/v1/completions</code>: llama.cpp, Ollama, vLLM.</p>
+          <label>Model name <input name="model" type="text" required /></label>
+          <div class="row">
+            <button id="test-connection" class="ghost" type="button">Test connection</button>
+            <span id="connection" class="hint" role="status"></span>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Translation</legend>
+          <div class="grid3">
+            <label>Passage length <input name="passageLength" type="number" min="100" step="50" required /></label>
+            <label>Context blocks <input name="contextBlocks" type="number" min="0" max="10" required /></label>
+            <label>Retries <input name="retries" type="number" min="0" max="10" required /></label>
+          </div>
+          <p class="hint">Passage length is the most characters sent at once; a longer paragraph is split at sentence ends. Context blocks are earlier translations the model sees for consistency.</p>
+          <label>System prompt <textarea name="preamble" rows="3" required></textarea></label>
+          <p class="hint"><code>{L}</code> is replaced by the language name.</p>
+          <label><span id="examples-label">Examples</span> <textarea name="examples" rows="9"></textarea></label>
+          <p class="hint">Pairs separated by a blank line. These teach the model the format; keep them general, not about one subject.</p>
+          <label>Front matter keys to leave untranslated <input name="skipKeys" type="text" /></label>
+        </fieldset>
+
+        <p id="settings-error" class="error" role="alert"></p>
+        <div class="row end">
+          <button id="reset-settings" class="ghost" type="button">Reset to defaults</button>
+          <span class="spacer"></span>
+          <button value="cancel" class="ghost" formnovalidate>Cancel</button>
+          <button id="save-settings" class="primary" value="save">Save</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
