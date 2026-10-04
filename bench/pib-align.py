@@ -252,9 +252,18 @@ if __name__ == "__main__":
 
     from sentence_transformers import SentenceTransformer
 
-    model = SentenceTransformer(MODEL)
-    cache = Cache(os.environ.get("PIB_EMBEDDINGS", "corpus/pib/embeddings.sqlite"), MODEL)
-    vectors = embedder(lambda texts: model.encode(texts, normalize_embeddings=True, batch_size=64), cache)
+    import torch
+
+    # On a GPU, half precision: on the Radeon 8060S fp32 ran 158 sentences/s and
+    # fp16 1,734, with every vector within cosine 0.9995 of fp32. Its vectors are
+    # cached under their own key and never mix with fp32 ones.
+    gpu = torch.cuda.is_available()
+    model = SentenceTransformer(MODEL, device="cuda" if gpu else "cpu")
+    if gpu:
+        model = model.half()
+    print(f"LaBSE on {torch.cuda.get_device_name(0) + ', fp16' if gpu else 'CPU'} (torch {torch.__version__})", file=sys.stderr)
+    cache = Cache(os.environ.get("PIB_EMBEDDINGS", "corpus/pib/embeddings.sqlite"), MODEL + ("@fp16" if gpu else ""))
+    vectors = embedder(lambda texts: model.encode(texts, normalize_embeddings=True, batch_size=256 if gpu else 64).astype("float32"), cache)
     batch: list[tuple[str, dict]] = []
 
     def flush():
