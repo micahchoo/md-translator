@@ -26,9 +26,12 @@ B. Judge into the app
 C. Patterns from other translators
    1 copied answers — DONE ("Not a translation").  2 edit memory — DONE, live.
    3 kept terms — REJECTED (Tamil worse; sarvam keeps names unaided).  5 changed blocks only — DONE, live.
-   8 download note — DONE, live.  4 notes per language (Bodo, Dogri), 6 look-ahead context,
+   8 download note — DONE, live.  6 look-ahead — DEFERRED (no failure seen it would fix; the
+   parallel prompt has no place for it but an instruction). 4 notes per language — superseded by examples
+   (Sanskrit, Konkani, Dogri staged and testing).
    7 self-critique — REJECTED (chat mode reasons for 48 s and 4,000 tokens without answering).
-D. GT cache: minimal-pair consistency; fresh into-English sources — open.
+D. GT cache: minimal-pair consistency — covered (numbers check 100%; judge-own translates with and
+   without 'not'). Fresh into-English sources — next when the model queue clears.
 E. Languages: Urdu, Bengali, Odia, Gujarati, Maithili, Punjabi SHIPPED with Claude-written examples
    (checked both ways against GT; 0/30 short blocks in the wrong language each). 14 Indian languages live.
    Next: examples for the six that still have none (as, ml, mr, ne, ta, te) — A/B on bench/starts.ts.
