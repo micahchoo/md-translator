@@ -91,7 +91,19 @@ In order, all on the cache, no new requests:
 Prior art checked (all 152 HF "pib" results): only CVIT-PIB (to ~2019) and the 2022–23 dump. CVIT
 matched documents by MT + tf-idf (threshold 0.51) and sentences by Bleualign; ours are linked by PIB.
 
-## PIB state, 2026-10-04 15:30 (read before the publishing section)
+## PIB published PRIVATE, 2026-10-04 evening — read this first
+- Code: github.com/micahchoo/pib-parallel (PRIVATE), local at ../pib-parallel. fetch.ts, align.py, copies.ts,
+  gt.ts, crawl.sh, package.py, card/README.md; 35 bun + 24 pytest tests. md-translator's copies are deleted
+  (27ee848); bench/pib-bench.ts and score-pib.py stay here and read pib-parallel's sentences.jsonl.
+- Data: huggingface.co/datasets/micaha/pib-parallel (PRIVATE): sentences (182,144) and documents (8,296)
+  Parquet + the card. load_dataset verified. Built from corpus/pib/pilot-v2/ with pib-parallel's tools.
+- Owner's remaining step: make both public (GitHub visibility; HF settings). THEN push md-translator: its
+  bench README now links both, and pushing first would publish links that 404.
+- Audits passed on the packaged files: no email or phone form (independent search, every script's digits);
+  every pair mostly in its own script. Fixed on the way: "+ 91" and RTL phone forms, spaced/obfuscated
+  emails, the danda mislabelling Punjabi as Hindi, 22,673 links/hashtags/initials/English-line pairs.
+
+## PIB state, 2026-10-04 15:30 (superseded by the section above where they differ)
 - Pilot aligned: corpus/pib/pilot-v2/sentences.jsonl, 232,948 pairs, 4,227 releases, 15 offices, 16 languages;
   release groups (every side with its PRID) in pilot-v2/<pass>/pairs.jsonl. Parser strips embedded posts
   (7,908) and contact details (<email>, <phone>); 8 pages with tweets pasted as plain paragraphs remain.
