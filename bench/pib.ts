@@ -109,7 +109,7 @@ export function pageLang(headline: string, hint: string) {
 // set, so the text is not usable until they are decoded. Decoding runs after
 // the tags are stripped, or an escaped "<b>" would be stripped as a tag.
 const ENTITIES: Record<string, string> = {
-  amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ',
+  amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', zwj: '\u200d', zwnj: '\u200c',
   lsquo: '\u2018', rsquo: '\u2019', ldquo: '\u201c', rdquo: '\u201d',
   mdash: '\u2014', ndash: '\u2013', hellip: '\u2026', middot: '\u00b7', bull: '\u2022',
   deg: '\u00b0', times: '\u00d7', laquo: '\u00ab', raquo: '\u00bb', copy: '\u00a9', reg: '\u00ae', trade: '\u2122', rupee: '\u20b9',

@@ -79,3 +79,11 @@ describe('languages that share a script with another', () => {
     expect(pageLang('Union Minister visits Kohima', '')).toBe('en')
   })
 })
+
+describe('entities PIB writes', () => {
+  test('zero-width joiners come back as the characters, not as entity text', () => {
+    // 2195987, Hindi: प्रसन्&zwj;नता came through undecoded.
+    const r = parseRelease('1', page('प्रसन्&zwj;नता और नि&zwnj;यम', ''), 'hi')
+    expect(r.title).toBe('प्रसन्‍नता और नि‌यम')
+  })
+})
