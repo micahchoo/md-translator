@@ -27,7 +27,7 @@ C. Patterns from other translators
    1 copied answers — DONE ("Not a translation").  2 edit memory — DONE, live.
    3 kept terms — REJECTED (Tamil worse; sarvam keeps names unaided).  5 changed blocks only — DONE, live.
    8 download note — DONE, live.  4 notes per language (Bodo, Dogri), 6 look-ahead context,
-   7 self-critique on flagged blocks — open.
+   7 self-critique — REJECTED (chat mode reasons for 48 s and 4,000 tokens without answering).
 D. GT cache: minimal-pair consistency; fresh into-English sources — open.
 E. Languages: Urdu, Bengali, Odia, Gujarati, Maithili, Punjabi SHIPPED with Claude-written examples
    (checked both ways against GT; 0/30 short blocks in the wrong language each). 14 Indian languages live.
