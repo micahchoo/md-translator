@@ -10,7 +10,7 @@ programming over cosine similarity, as Vecalign and Bertalign do. A pair is
 kept only above MIN_SIM. Every pair carries the release IDs it came from, and
 `numbers`: whether both sides hold the same numbers (null when neither has any).
 Vectors are kept in a SQLite file keyed by model and sentence (PIB_EMBEDDINGS,
-default corpus/pib/embeddings.sqlite), so each sentence is embedded once, ever:
+default ~/.cache/pib-parallel/embeddings.sqlite: keep it on a fast disk), so each sentence is embedded once, ever:
 a change to how pairs are scored reruns in seconds, not hours. Releases go in
 batches of BATCH, each embedded in one call, so a Delhi release's English is
 embedded once however many translations it has. Tested in
@@ -138,6 +138,11 @@ class Cache:
         import sqlite3
 
         self.db = sqlite3.connect(str(path))
+        # A write-ahead log and no sync per commit: with the default journal every
+        # batch waited on the disk, and on spinning disks the run stalled at 3%
+        # GPU. The cache can always be rebuilt, so a crash costs only its last batch.
+        self.db.execute("PRAGMA journal_mode=WAL")
+        self.db.execute("PRAGMA synchronous=NORMAL")
         self.db.execute("CREATE TABLE IF NOT EXISTS v (k TEXT PRIMARY KEY, b BLOB)")
         self.model = model
 
@@ -268,7 +273,10 @@ if __name__ == "__main__":
     if gpu:
         model = model.half()
     print(f"LaBSE on {torch.cuda.get_device_name(0) + ', fp16' if gpu else 'CPU'} (torch {torch.__version__})", file=sys.stderr)
-    cache = Cache(os.environ.get("PIB_EMBEDDINGS", "corpus/pib/embeddings.sqlite"), MODEL + ("@fp16" if gpu else ""))
+    # A machine-local cache, by default where caches go, not beside the corpus.
+    path = os.environ.get("PIB_EMBEDDINGS", os.path.expanduser("~/.cache/pib-parallel/embeddings.sqlite"))
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    cache = Cache(path, MODEL + ("@fp16" if gpu else ""))
     vectors = embedder(lambda texts: model.encode(texts, normalize_embeddings=True, batch_size=256 if gpu else 64).astype("float32"), cache)
     batch: list[tuple[str, dict]] = []
 
