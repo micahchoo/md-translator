@@ -35,6 +35,8 @@ Your documents stay in this browser. If you stop a run, **Translate** continues 
 
 Code, link addresses, numbers, emphasis marks, and the front matter keys named in Settings (`notion-id, base, tags, aliases, cssclasses` by default).
 
+Names are usually kept as they are, but an interface label in bold may be translated: "Run **Draw a question**" came back with the command's name in Hindi. If a name must stay in English, write it as code in your source: `Draw a question`.
+
 ## Warning flags
 
 Simple rules check every translated piece. When a rule fires, the translator tries the piece again, up to three times. If the best attempt still breaks a rule, the block shows a flag.
