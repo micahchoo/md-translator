@@ -304,6 +304,17 @@ export function groupOf(row: Release, translated: Release[]) {
   return { prid: row.prid, date: row.date, ministry: row.ministry, byLang }
 }
 
+/**
+ * How many releases this method could pair: PIB links a translation on the
+ * release page, or nothing does. In November 2018 Chandigarh's Punjabi and
+ * Bhubaneswar's Odia releases linked none, so a run there finds no pairs.
+ */
+export function linkReport(rows: Release[]) {
+  const english = rows.every((r) => r.lang === 'en')
+  const linked = rows.filter((r) => (english ? Object.keys(r.translations).length > 0 : 'en' in r.translations)).length
+  return `${linked} of ${rows.length} releases link ${english ? 'a' : 'an English'} translation`
+}
+
 // The feed number is the only statement of the discovered pages' language. Read
 // from each office's own language list on Allrel.aspx (2026-10-04; the table is
 // in bench/README.md). Offices publishing their own Hindi, Urdu, Telugu or
@@ -354,5 +365,6 @@ if (import.meta.main) {
   }
   writeFileSync(`${DIR}/pairs.jsonl`, groups.join('\n') + '\n')
 
+  console.error(`  ${linkReport(rows)}`)
   console.error(`wrote ${rows.length} releases and ${groups.length} groups (${requests} requests)`)
 }

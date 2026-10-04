@@ -3,7 +3,7 @@
 // language has to come out of its text. Importing this must not fetch: the
 // scraper's work sits behind `import.meta.main`.
 import { describe, expect, test } from 'bun:test'
-import { groupOf, pageLang, parseRelease, releaseUrl, settled } from '../bench/pib'
+import { groupOf, linkReport, pageLang, parseRelease, releaseUrl, settled } from '../bench/pib'
 
 const page = (title: string, links: string) =>
   `<div class="innner-page-main-about-us-content-right-part">` +
@@ -209,5 +209,18 @@ describe('what the corpus must not carry', () => {
   test('but a number inside an identifier, an amount or a date is left alone', () => {
     const text = 'App id6739700695, report MPR011020257F52BD, Rs 1,00,00,000 crore, 29.10.2025, PRID 2195987, year 2047.'
     expect(parseRelease('1', withBody(`<p>${text}</p>`), 'en').body).toBe(text)
+  })
+})
+
+describe('the link report', () => {
+  // In November 2018 Chandigarh's Punjabi and Bhubaneswar's Odia releases linked
+  // no translation at all, so this method found nothing there. A run says so.
+  const rel = (lang: string, translations: Record<string, string>) =>
+    ({ prid: '1', lang, title: 'T', subtitle: '', ministry: '', date: '', body: 'B', translations })
+  test('a regional run counts the releases that link their English', () => {
+    expect(linkReport([rel('pa', {}), rel('pa', {}), rel('pa', { en: '9' })])).toBe('1 of 3 releases link an English translation')
+  })
+  test('an English run counts the releases that link any translation', () => {
+    expect(linkReport([rel('en', { hi: '2' }), rel('en', {})])).toBe('1 of 2 releases link a translation')
   })
 })
