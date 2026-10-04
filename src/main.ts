@@ -6,7 +6,7 @@ import { directionLabel, dirOf, LANGUAGES } from './languages'
 import { createClient, listModels } from './llm'
 import { DEFAULTS, formatExamples, loadSettings, parseExamples, saveSettings, toOptions, type Settings } from './settings'
 import { loadDocs, loadMemory, remember, saveDocs, saveMemory, type SavedDoc } from './store'
-import { editUnit, progressOf, retryUnit, translateDocument } from './translate'
+import { editUnit, machineNote, progressOf, retryUnit, translateDocument } from './translate'
 
 type View = 'source' | 'blocks' | 'markdown'
 
@@ -359,7 +359,10 @@ el.download.onclick = () => {
   const d = doc()
   const base = d.name.replace(/\.(md|markdown|txt)$/i, '') || 'translation'
   const a = document.createElement('a')
-  a.href = URL.createObjectURL(new Blob([el.output.value], { type: 'text/markdown;charset=utf-8' }))
+  const flagged = (d.units ?? []).filter((u) => u.flags.length).length
+  const lang = LANGUAGES[d.lang ?? settings.language]
+  const note = settings.noteOnDownload ? `\n${machineNote(lang, settings.model, new Date().toISOString().slice(0, 10), flagged)}\n` : ''
+  a.href = URL.createObjectURL(new Blob([el.output.value.replace(/\n*$/, '\n') + note], { type: 'text/markdown;charset=utf-8' }))
   a.download = `${base}.${d.lang ?? settings.language}.md`
   a.click()
   setTimeout(() => URL.revokeObjectURL(a.href), 1000)
@@ -387,6 +390,7 @@ function fillForm(s: Settings) {
   field('preamble').value = s.preamble
   field('examples').value = formatExamples(s.examples[lang.code] ?? lang.examples, lang)
   field('skipKeys').value = s.skipKeys
+  ;(field('noteOnDownload') as HTMLInputElement).checked = s.noteOnDownload
   el.examplesLabel.textContent = `Examples (${directionLabel(lang)})`
   el.settingsError.textContent = ''
   el.connection.textContent = ''
@@ -421,6 +425,7 @@ el.form.addEventListener('submit', (e) => {
       preamble: field('preamble').value,
       examples: { ...settings.examples, [lang.code]: examples },
       skipKeys: field('skipKeys').value,
+      noteOnDownload: (field('noteOnDownload') as HTMLInputElement).checked,
     }
     if (!saveSettings(storage, settings)) el.settingsError.textContent = 'Saved for this visit only: this browser blocks storage.'
   } catch (err) {

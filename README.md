@@ -69,6 +69,7 @@ Before you rely on a translation, have someone who reads the language check it.
 | Context blocks | How many earlier translated pieces the model sees, so it uses the same words for the same terms. |
 | Retries | Attempts after a flagged answer. |
 | System prompt | The opening instruction. `{L}` becomes the target language, `{S}` the source label. |
+| Note in downloads | On by default. A downloaded file ends with one line naming the model, the date, and how many blocks were flagged. Copy never adds it. |
 | Examples | Worked pairs shown to the model. Hindi and Kannada have five; the rest have none. |
 
 ## Development

@@ -17,6 +17,8 @@ export interface Settings {
   examples: Record<string, Pair[]>
   /** Comma-separated front matter keys whose values are never translated. */
   skipKeys: string
+  /** Downloads end with a line saying a model made the translation. */
+  noteOnDownload: boolean
 }
 
 export const DEFAULTS: Settings = {
@@ -29,6 +31,7 @@ export const DEFAULTS: Settings = {
   preamble: DEFAULT_PREAMBLE,
   examples: Object.fromEntries(Object.values(LANGUAGES).map((l) => [l.code, l.examples])),
   skipKeys: 'notion-id, base, tags, aliases, cssclasses',
+  noteOnDownload: true,
 }
 
 const KEY = 'md-translator.settings'

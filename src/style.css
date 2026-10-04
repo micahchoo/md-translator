@@ -154,6 +154,8 @@ dialog form { display: grid; gap: 14px; padding: 20px; }
 fieldset { border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; display: grid; gap: 10px; margin: 0; }
 legend { padding: 0 6px; color: var(--muted); font-size: 0.85rem; }
 label { display: grid; gap: 4px; font-size: 0.88rem; }
+label.check { display: flex; align-items: center; gap: 8px; }
+label.check input { width: auto; flex: none; }
 .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 @media (max-width: 520px) { .grid3 { grid-template-columns: 1fr; } }
 dialog textarea { font-family: var(--mono); font-size: 0.85rem; resize: vertical; }

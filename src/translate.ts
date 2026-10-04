@@ -4,7 +4,7 @@
 // minutes). The best attempt is kept and its flags reported; only clean
 // answers become context for the units after them.
 import { check, type Flag } from './checks'
-import type { Language, Pair } from './languages'
+import { ANY_SOURCE, type Language, type Pair } from './languages'
 import type { Complete } from './llm'
 import { buildPrompt, cleanOutput, stopFor } from './prompt'
 import { assemble, segment, splitPassage, type Unit } from './segment'
@@ -216,4 +216,15 @@ export function editUnit(md: string, units: UnitResult[], index: number, text: s
   u.edited = true
   u.status = 'done'
   return progressOf(md, units)
+}
+
+/**
+ * The line a downloaded translation ends with, so whoever receives the file
+ * knows a model made it and how much of it a reader still has to check.
+ * Co-op Translator ends its translations with a note for the same reason.
+ */
+export function machineNote(language: Language, model: string, date: string, flagged: number): string {
+  const direction = language.from === ANY_SOURCE ? `into ${language.name}` : `from ${language.from} into ${language.name}`
+  const check = flagged ? ` ${flagged} ${flagged === 1 ? 'block was' : 'blocks were'} flagged for checking.` : ''
+  return `*Machine-translated ${direction} with ${model}, ${date}.${check}*`
 }

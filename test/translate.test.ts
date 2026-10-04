@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { LANGUAGES } from '../src/languages'
 import type { Completion } from '../src/llm'
-import { editUnit, retryUnit, translateDocument, type Progress, type TranslateOptions } from '../src/translate'
+import { editUnit, machineNote, retryUnit, translateDocument, type Progress, type TranslateOptions } from '../src/translate'
 
 const opts: TranslateOptions = {
   language: LANGUAGES.hi,
@@ -187,5 +187,15 @@ describe('editUnit', () => {
     expect(r.markdown).toBe('पहले डॉक्स देखें।\n')
     expect(r.units[0].edited).toBe(true)
     expect(r.units[0].flags).toEqual(['markup'])
+  })
+})
+
+describe('machineNote', () => {
+  test('says what made the translation, and how many blocks still need a reader', () => {
+    expect(machineNote(LANGUAGES.ta, 'sarvam-30b', '2026-10-04', 2)).toBe(
+      '*Machine-translated from English into Tamil with sarvam-30b, 2026-10-04. 2 blocks were flagged for checking.*',
+    )
+    expect(machineNote(LANGUAGES.en, 'sarvam-30b', '2026-10-04', 0)).toBe('*Machine-translated into English with sarvam-30b, 2026-10-04.*')
+    expect(machineNote(LANGUAGES.hi, 'sarvam-30b', '2026-10-04', 1)).toContain('1 block was flagged')
   })
 })
