@@ -91,6 +91,21 @@ In order, all on the cache, no new requests:
 Prior art checked (all 152 HF "pib" results): only CVIT-PIB (to ~2019) and the 2022–23 dump. CVIT
 matched documents by MT + tf-idf (threshold 0.51) and sentences by Bleualign; ours are linked by PIB.
 
+## PIB state, 2026-10-04 15:30 (read before the publishing section)
+- Pilot aligned: corpus/pib/pilot-v2/sentences.jsonl, 232,948 pairs, 4,227 releases, 15 offices, 16 languages;
+  release groups (every side with its PRID) in pilot-v2/<pass>/pairs.jsonl. Parser strips embedded posts
+  (7,908) and contact details (<email>, <phone>); 8 pages with tweets pasted as plain paragraphs remain.
+- Rebuild + realign from cache: corpus/pib/pilot-v2/rebuild.sh (~6 min). Embedding cache on the SSD:
+  ~/.cache/pib-parallel/embeddings.sqlite (fp16 key; run pib-align with corpus/venv-rocm/bin/python).
+- Benchmark (pib-bench.ts / score-pib.py): 11 languages, sarvam trails Google by 9-23 chrF; results in
+  corpus/runs/pib-bench/. Google copies per office (pib-copies.ts): 2018 0-7%, 2025 up to 33% (Ahmedabad);
+  tables in corpus/pib/y2018/copies.jsonl and pilot-v2/bench/copies.jsonl. Not yet in bench/README.
+- Link survey 2017-2024: corpus/pib/links/summary.txt. All offices link translations from 2020; 2017-2019
+  patchy (Bhubaneswar none until 2020); early links run regional -> English only.
+- Next: package (dedupe exact pairs with an `occurrences` count; documents part with PRIDs; card with the
+  copy and link tables), then the repo move as its own phase, then ask before creating anything public.
+- No Claude attribution in commits, PRs, READMEs or cards (owner, 2026-10-04).
+
 ## Publishing the PIB pipeline (owner decisions 2026-10-04)
 - Names: GitHub repo `micahchoo/pib-parallel` (code, MIT) and HF dataset `pib-parallel` (pilot data).
 - Licence: PIB's own terms for the text (reproduction free with attribution and accuracy; no third-party
