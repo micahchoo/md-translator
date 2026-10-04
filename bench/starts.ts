@@ -8,7 +8,8 @@
 // Hindi's examples kept under their Hindi label. Google Translate's answer for
 // each block is kept beside it, for `score-starts.py` to compare.
 //
-//   bun bench/starts.ts <own|hindi|staged> [language codes...]   staged: examples from examples.ts#STAGED
+//   bun bench/starts.ts <own|hindi|staged|ahead> [language codes...]   staged: examples from
+//   examples.ts#STAGED; ahead: each block also shown the source block after it
 import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import { LANGUAGES } from '../src/languages'
 import { createClient } from '../src/llm'
@@ -33,7 +34,7 @@ export const DOCS = [
 ]
 
 const arm = process.argv[2]
-if (arm !== 'own' && arm !== 'hindi' && arm !== 'staged') throw new Error('usage: bun bench/starts.ts <own|hindi|staged> [codes...]')
+if (!['own', 'hindi', 'staged', 'ahead'].includes(arm)) throw new Error('usage: bun bench/starts.ts <own|hindi|staged|ahead> [codes...]')
 const codes = process.argv.length > 3 ? process.argv.slice(3) : Object.keys(LANGUAGES).filter((c) => c !== 'en')
 
 const units = DOCS.flatMap((d) => segment(d, { skipKeys: [] }).map((u) => u.text))
@@ -51,6 +52,7 @@ for (const code of codes) {
     language,
     examples: borrow ? LANGUAGES.hi.examples : arm === 'staged' ? (STAGED[code] ?? language.examples) : language.examples,
     exampleLabel: borrow ? 'Hindi' : undefined,
+    lookAhead: arm === 'ahead',
   }
   for (const doc of DOCS) {
     const done = await translateDocument(doc, opts, complete, () => {})

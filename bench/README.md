@@ -87,6 +87,10 @@ Urdu is not measured: 14 of the 15 Kashmiri texts could not be scored, because t
 
 ## Being measured
 
+**Looking ahead.** Short headings are where failures cluster, and a heading's meaning is often settled by the paragraph under it: Odia translated "Changelog" as "checklist". `starts.ts ahead` shows each block the source block after it, in a line after the preamble, and is compared with `starts.ts own` on the same code. The risk: a line outside the pattern may be read as an instruction, or translated too.
+
+**Text the model cannot have seen.** `fresh.ts` turns each IN22 sentence into English twice, from its human translation and from Google Translate's version of the same English, and `score-fresh.py` compares the two. A human score well above the other would mean memory of IN22 inflates the screen.
+
 **The owner's own documents.** `realdocs.ts` runs the first 25 blocks of three of the owner's Markdown files (a policy digest, a plugin README, this README) through the app into each offered language. With no reference, `score-realdocs.py` counts flags by kind and asks GlotLID whether the unflagged blocks are in the right language. The documents are named on the command line and never enter the repository.
 
 **The judge on the model's own answers.** `judge-own.ts` repeats both judge tests with sarvam-30b's own translations, since a model may find its own phrasing likelier. For negation, Google Translate reads each answer back into English to say whether its "not" really survived, so the test also asks whether the judge catches a "not" the model dropped by itself.
@@ -145,6 +149,7 @@ uvx --from huggingface_hub hf download cis-lmu/glotlid model.bin --local-dir cor
 | `bun bench/starts.ts own` (or `hindi`) | Short blocks at the start of a document; `hindi` lends Hindi's examples. Score with `uv run bench/score-starts.py corpus/runs/starts-*.jsonl`. |
 | `bun bench/judge-own.ts 15` | The judge on the model's own answers. Resumes; answers kept in `corpus/runs/judge-own-answers.jsonl`. |
 | `bun bench/realdocs.ts 25 hi,ta <file.md>...` | The owner's own documents, first 25 blocks each. Score with `uv run bench/score-realdocs.py`. |
+| `bun bench/fresh.ts 10` | Into English from human text and from text the model cannot have seen. Score with `uv run bench/score-fresh.py`. |
 | `bun bench/judge.ts 15 20` | Measures the model as its own judge, on language and on negation. Resumes: a language already in `corpus/runs/judge.jsonl` is skipped. |
 
 Shared by these: `candidates.ts` (every language as a target), `examples.ts` (examples for the withdrawn languages), `in22.ts` (reads IN22-Gen once and keeps it as JSON), `gt.ts` (the Google Translate client and its cache), `likelihood.ts` (the model's probability of a given text).

@@ -39,6 +39,11 @@ describe('buildPrompt', () => {
     expect(p).toBe('P\n\nEnglish: How it works\nHindi: यह कैसे काम करता है\n\nEnglish: Install\nTelugu: ఇన్‌స్టాల్\n\nEnglish: x\nTelugu:')
   })
 
+  test('the next block, when given, follows the preamble as context only', () => {
+    const p = buildPrompt({ language: LANGUAGES.hi, preamble: 'P', examples: [], context: [], source: 'Changelog', ahead: 'Fixed a crash on startup.' })
+    expect(p).toBe('P\n\nThe passage continues after this line: Fixed a crash on startup.\n\nEnglish: Changelog\nHindi:')
+  })
+
   test('stops at a blank line or a new source line', () => {
     expect(stopFor(LANGUAGES.hi)).toEqual(['\n\n', '\nEnglish:', '\nHindi:'])
     expect(stopFor(LANGUAGES.en)).toEqual(['\n\n', '\nOriginal:', '\nEnglish:'])
