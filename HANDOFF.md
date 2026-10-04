@@ -42,6 +42,11 @@ Open:
 Pilot: corpus/pib/pilot/; Delhi rerun logs to delhi-500.log, the 19 regional passes to run-regional.sh ->
 regional.log and <pass>/run.log. Two fetchers side by side at PIB_DELAY=500: 63 pages/min, no 403/429.
 The first Delhi pass crashed at 12:21 (error hidden by run.sh's tail -3); watch delhi-500.log for it.
+Status 13:51: steps 1-2 done on branch `pib-parser` (worktree ../translator-parser, fe413b5; merge after
+the pilot -- run-regional.sh starts a fresh bun per pass, so pib.ts must not change mid-run). 4b and 4c
+done on main (113c1d0). Verified: 403 IS retried (RETRYABLE), five times; the 12:21 crash was a page failing
+six times. sarvam-30b public 2026-03-03, no stated cutoff: benchmark months after that. CVIT-PIB's own
+tarball now 404s (cdn.iiit.ac.in); slices survive in the Super-NaturalInstructions pib tasks on HF.
 In order, all on the cache, no new requests:
 1. Parser: 489 of 3,481 releases have page CSS at the start of `body` and the footer ("Release ID … Visitor
    Counter: N") at the end. Test first, fixture PRID 2190187. Same step: map the office labels the
