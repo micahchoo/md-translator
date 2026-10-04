@@ -90,6 +90,8 @@ Urdu is not measured: 14 of the 15 Kashmiri texts could not be scored, because t
 
 ## Being measured
 
+**Examples from IN22's own human rows, for languages Claude cannot write.** Bodo, Manipuri, Santali, Sindhi and Kashmiri failed the first screen by writing the wrong language or script. `examples.ts#fromIN22` builds their examples from five IN22 rows that no test sample contains, with the Markdown wrapped around whole sentences so it fits any word order. They are tested like the others: the screen, then the short-block test.
+
 **The judge on the model's own answers.** `judge-own.ts` repeats both judge tests with sarvam-30b's own translations, since a model may find its own phrasing likelier. For negation, Google Translate reads each answer back into English to say whether its "not" really survived, so the test also asks whether the judge catches a "not" the model dropped by itself.
 
 ## Short blocks at the start of a document
@@ -151,9 +153,10 @@ uvx --from huggingface_hub hf download cis-lmu/glotlid model.bin --local-dir cor
 | `bun bench/judge-own.ts 15` | The judge on the model's own answers. Resumes; answers kept in `corpus/runs/judge-own-answers.jsonl`. |
 | `bun bench/realdocs.ts 25 hi,ta <file.md>...` | The owner's own documents, first 25 blocks each. Score with `uv run bench/score-realdocs.py`. |
 | `bun bench/fresh.ts 10` | Into English from human text and from text the model cannot have seen. Score with `uv run bench/score-fresh.py`. |
+| `bun bench/packet.ts 25` | A review packet per language for a native reader: one offline HTML file each in `corpus/review/`, made from this README, with right / wrong / unsure per block and a button that saves the answers. |
 | `bun bench/judge.ts 15 20` | Measures the model as its own judge, on language and on negation. Resumes: a language already in `corpus/runs/judge.jsonl` is skipped. |
 
-Shared by these: `candidates.ts` (every language as a target), `examples.ts` (examples for the withdrawn languages), `in22.ts` (reads IN22-Gen once and keeps it as JSON), `gt.ts` (the Google Translate client and its cache), `likelihood.ts` (the model's probability of a given text).
+The packet's text is this project's public README, never the owner's documents. Shared by these: `candidates.ts` (every language as a target), `examples.ts` (examples for the withdrawn languages), `in22.ts` (reads IN22-Gen once and keeps it as JSON), `gt.ts` (the Google Translate client and its cache), `likelihood.ts` (the model's probability of a given text).
 
 `contrast-gt.ts` needs `GOOGLE_TRANSLATE_API_KEY` in a git-ignored `.env.local`. It saves every answer in `corpus/gt-cache.json`, so it never pays for the same sentence twice. It refuses to start if a run would send more new characters than its budget (300,000 by default). The first full run sent about 331,000.
 

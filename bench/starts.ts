@@ -16,7 +16,8 @@ import { segment } from '../src/segment'
 import { DEFAULTS, toOptions } from '../src/settings'
 import { translateDocument } from '../src/translate'
 import { CANDIDATES } from './candidates'
-import { STAGED } from './examples'
+import { fromIN22, STAGED } from './examples'
+import { in22Rows } from './in22'
 import { gt, translateAll } from './gt'
 
 export const DOCS = [
@@ -36,6 +37,7 @@ const arm = process.argv[2]
 if (!['own', 'hindi', 'staged'].includes(arm)) throw new Error('usage: bun bench/starts.ts <own|hindi|staged> [codes...]')
 const codes = process.argv.length > 3 ? process.argv.slice(3) : Object.keys(LANGUAGES).filter((c) => c !== 'en')
 
+const rows = await in22Rows()
 const units = DOCS.flatMap((d) => segment(d, { skipKeys: [] }).map((u) => u.text))
 await translateAll(codes.flatMap((to) => units.map((text) => ({ from: 'en', to, text }))), 20_000)
 
@@ -49,7 +51,11 @@ for (const code of codes) {
   const opts = {
     ...toOptions(DEFAULTS),
     language,
-    examples: borrow ? LANGUAGES.hi.examples : arm === 'staged' ? (STAGED[code] ?? language.examples) : language.examples,
+    examples: borrow
+      ? LANGUAGES.hi.examples
+      : arm === 'staged'
+        ? (STAGED[code] ?? (language.examples.length ? language.examples : fromIN22(rows, Object.keys(CANDIDATES).find((c) => CANDIDATES[c] === language)!)))
+        : language.examples,
     exampleLabel: borrow ? 'Hindi' : undefined,
   }
   for (const doc of DOCS) {

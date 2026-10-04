@@ -13,6 +13,7 @@ import { createClient } from '../src/llm'
 import { DEFAULTS, toOptions } from '../src/settings'
 import { translateDocument, type UnitResult } from '../src/translate'
 import { CANDIDATES } from './candidates'
+import { fromIN22 } from './examples'
 import { in22Rows, spread } from './in22'
 
 const n = Number(process.argv[2] ?? 10)
@@ -33,9 +34,13 @@ Open \`settings.json\` and change the [default folder](https://example.com/folde
 The EU's 2025 rules apply to **all new devices** from March 2026. [Details](https://example.com/eu)
 `
 
-const sample = spread(await in22Rows(), n)
+const all = await in22Rows()
+const sample = spread(all, n)
 
 const complete = createClient({ endpoint: DEFAULTS.endpoint, model: DEFAULTS.model })
+
+// A language with no examples of its own borrows IN22's human rows (examples.ts#fromIN22).
+const withExamples = (col: string, l: Language): Language => (l.examples.length || l.code === 'en' ? l : { ...l, examples: fromIN22(all, col) })
 
 async function run(md: string, language: Language): Promise<UnitResult[]> {
   const opts = { ...toOptions({ ...DEFAULTS, preamble, language: 'en' }), language, examples: language.examples }
@@ -44,7 +49,7 @@ async function run(md: string, language: Language): Promise<UnitResult[]> {
 
 mkdirSync(dir, { recursive: true })
 for (const col of columns) {
-  const target = CANDIDATES[col]
+  const target = withExamples(col, CANDIDATES[col])
   const out = `${dir}/${col}.jsonl`
   if (existsSync(out)) continue
   const started = Date.now()
