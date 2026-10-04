@@ -15,6 +15,7 @@ import { createClient } from '../src/llm'
 import { segment } from '../src/segment'
 import { DEFAULTS, toOptions } from '../src/settings'
 import { translateDocument } from '../src/translate'
+import { CANDIDATES } from './candidates'
 import { gt, translateAll } from './gt'
 
 export const DOCS = [
@@ -42,10 +43,11 @@ mkdirSync('corpus/runs', { recursive: true })
 writeFileSync(OUT, '')
 const complete = createClient({ endpoint: DEFAULTS.endpoint, model: DEFAULTS.model })
 for (const code of codes) {
-  const language = LANGUAGES[code]
+  const language = LANGUAGES[code] ?? Object.values(CANDIDATES).find((l) => l.code === code)!
   const borrow = arm === 'hindi' && !language.examples.length
   const opts = {
-    ...toOptions({ ...DEFAULTS, language: code }),
+    ...toOptions(DEFAULTS),
+    language,
     examples: borrow ? LANGUAGES.hi.examples : language.examples,
     exampleLabel: borrow ? 'Hindi' : undefined,
   }

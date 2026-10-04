@@ -87,6 +87,8 @@ Urdu is not measured: 14 of the 15 Kashmiri texts could not be scored, because t
 
 ## Being measured
 
+**Examples for the languages withdrawn for want of them.** Urdu, Bengali, Odia, Gujarati, Maithili and Punjabi failed on short blocks or the Markdown test without examples; Hindi and Kannada, which have them, never did. `examples.ts` holds five for each, written by Claude from the same five English lines, and checks every one against Google Translate both ways: its own translation, and Claude's line read back into English. All 30 read back with their meaning, numbers, code and links intact. The text used is Claude's, never Google's. Each language comes back only if it passes the screen and the short-block test with them.
+
 **The judge on the model's own answers.** `judge-own.ts` repeats both judge tests with sarvam-30b's own translations, since a model may find its own phrasing likelier. For negation, Google Translate reads each answer back into English to say whether its "not" really survived, so the test also asks whether the judge catches a "not" the model dropped by itself.
 
 ## Short blocks at the start of a document
@@ -107,6 +109,15 @@ After them, blocks in the wrong language, out of 30:
 | Odia | 5, withdrawn |
 
 **Tried and rejected: Hindi's examples lent to languages without their own,** under their Hindi label. Bengali, Odia and Tamil improved; Assamese, Marathi and Nepali, the languages closest to Hindi, got worse (Assamese chrF 63 → 33). `starts.ts hindi` reproduces it.
+
+## Limits of these methods
+
+- **Small samples.** 10 to 20 rows per language is a screen. A margin of a point or two, as Sanskrit's, is noise.
+- **Damage made by a program is cruder than real errors.** A pasted run of English is easier to see than a model's half-translation. The Google Translate pairs exist to narrow that gap, and they keep only the pairs whose change survived, so they lean toward easy sentences. How many each language lost is in the table above.
+- **The length limits were chosen on the same IN22 rows that then tested them,** so their 90% is somewhat optimistic.
+- **Google Translate is a yardstick, not the truth.** It translated "License" as "museum" in Tamil. Every block `score-starts.py` called wrong was read by hand before it counted.
+- **A back-translation misses a negation carried by a word** ("inadmissible", "without"), so `judge-own.ts` trusts only the labels a back-translation agrees with and leaves the rest to be read.
+- **Nothing here measures meaning in full.** A Telugu answer turned Tuesday into Wednesday with no flag. Only a reader who knows the language can say a translation is right.
 
 ## Run it again
 
@@ -129,7 +140,7 @@ uvx --from huggingface_hub hf download cis-lmu/glotlid model.bin --local-dir cor
 | `bun bench/judge-own.ts 15` | The judge on the model's own answers. Resumes; answers kept in `corpus/runs/judge-own-answers.jsonl`. |
 | `bun bench/judge.ts 15 20` | Measures the model as its own judge, on language and on negation. Resumes: a language already in `corpus/runs/judge.jsonl` is skipped. |
 
-Shared by these: `candidates.ts` (every language as a target), `in22.ts` (reads IN22-Gen once and keeps it as JSON), `gt.ts` (the Google Translate client and its cache), `likelihood.ts` (the model's probability of a given text).
+Shared by these: `candidates.ts` (every language as a target), `examples.ts` (examples for the withdrawn languages), `in22.ts` (reads IN22-Gen once and keeps it as JSON), `gt.ts` (the Google Translate client and its cache), `likelihood.ts` (the model's probability of a given text).
 
 `contrast-gt.ts` needs `GOOGLE_TRANSLATE_API_KEY` in a git-ignored `.env.local`. It saves every answer in `corpus/gt-cache.json`, so it never pays for the same sentence twice. It refuses to start if a run would send more new characters than its budget (300,000 by default). The first full run sent about 331,000.
 
