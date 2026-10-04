@@ -116,8 +116,21 @@ const earlierBefore = (units: UnitResult[], index: number): Pair[] =>
 const historyBefore = (units: UnitResult[], index: number): Pair[] =>
   units.slice(0, index).filter((u) => u.status === 'done' && !u.flags.length && u.output).map((u) => [u.unit.text, u.output])
 
-const sameUnits = (a: UnitResult[], b: Unit[]) =>
-  a.length === b.length && a.every((u, i) => u.unit.text === b[i].text && u.unit.start === b[i].start)
+/**
+ * The finished units of an earlier run carried onto the new source by their
+ * text, wherever they moved; everything else waits. A stopped run resumes this
+ * way, and an edited source keeps the blocks it did not change (Co-op
+ * Translator keeps unchanged files for the same reason). The new unit keeps its
+ * own links, so a moved link target still lands where the source puts it.
+ */
+function carryOver(previous: UnitResult[] | undefined, fresh: Unit[]): UnitResult[] {
+  const pool = new Map<string, UnitResult[]>()
+  for (const u of previous ?? []) if (u.status === 'done' && u.output) pool.set(u.unit.text, [...(pool.get(u.unit.text) ?? []), u])
+  return fresh.map((unit) => {
+    const old = pool.get(unit.text)?.shift()
+    return old ? { ...old, unit } : { unit, output: '', flags: [], attempts: 0, status: 'waiting' }
+  })
+}
 
 export async function translateDocument(
   md: string,
@@ -125,37 +138,40 @@ export async function translateDocument(
   complete: Complete,
   onProgress: (p: Progress) => void,
   signal?: AbortSignal,
-  /** Units from an earlier run of the same source; finished ones are kept. */
+  /** Units from an earlier run; finished ones whose text is still in the source are kept. */
   previous?: UnitResult[],
 ): Promise<Progress> {
-  const fresh = segment(md, { skipKeys: opts.skipKeys })
-  const units: UnitResult[] =
-    previous && sameUnits(previous, fresh)
-      ? previous.map((u) => (u.status === 'done' ? { ...u } : { unit: u.unit, output: '', flags: [], attempts: 0, status: 'waiting' }))
-      : fresh.map((unit) => ({ unit, output: '', flags: [], attempts: 0, status: 'waiting' }))
+  const units = carryOver(previous, segment(md, { skipKeys: opts.skipKeys }))
+  onProgress(progressOf(md, units))
   const history: Pair[] = []
 
-  for (const [i, u] of units.entries()) {
-    if (u.status === 'done') {
-      if (!u.flags.length && u.output) history.push([u.unit.text, u.output])
-      continue
-    }
-    if (signal?.aborted) throw new Error('stopped')
-    const kept = opts.remembered?.[u.unit.text]
-    if (kept !== undefined) {
-      // The owner's own words: checked so a lost link still shows, then trusted as context.
-      Object.assign(u, { output: kept, flags: check(u.unit.text, kept, opts.language, earlierBefore(units, i)), edited: true, status: 'done' })
-      if (!u.flags.length) history.push([u.unit.text, kept])
+  try {
+    for (const [i, u] of units.entries()) {
+      if (u.status === 'done') {
+        if (!u.flags.length && u.output) history.push([u.unit.text, u.output])
+        continue
+      }
+      if (signal?.aborted) throw new Error('stopped')
+      const kept = opts.remembered?.[u.unit.text]
+      if (kept !== undefined) {
+        // The owner's own words: checked so a lost link still shows, then trusted as context.
+        Object.assign(u, { output: kept, flags: check(u.unit.text, kept, opts.language, earlierBefore(units, i)), edited: true, status: 'done' })
+        if (!u.flags.length) history.push([u.unit.text, kept])
+        onProgress(progressOf(md, units))
+        continue
+      }
+      u.status = 'running'
+      const r = await translateUnit(u, history, earlierBefore(units, i), opts, complete, () => onProgress(progressOf(md, units)), signal, {
+        sampleFirst: false,
+      })
+      u.output = r.output
+      u.flags = r.flags
+      u.status = 'done'
       onProgress(progressOf(md, units))
-      continue
     }
-    u.status = 'running'
-    const r = await translateUnit(u, history, earlierBefore(units, i), opts, complete, () => onProgress(progressOf(md, units)), signal, {
-      sampleFirst: false,
-    })
-    u.output = r.output
-    u.flags = r.flags
-    u.status = 'done'
+  } finally {
+    // Stopped or failed in the middle of a block: that block is waiting again, never left running.
+    for (const u of units) if (u.status === 'running') u.status = 'waiting'
     onProgress(progressOf(md, units))
   }
   return progressOf(md, units)

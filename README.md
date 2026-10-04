@@ -29,7 +29,7 @@ To use a server on another device, serve it over `https`, for example with `tail
 4. Press **Retry** or **Edit** on any block you want to change. Your edits are remembered: the same block in a later document, in the same direction, comes back with your words and is never sent to the model. Anuvaad keeps a translation memory for the same reason.
 5. **Copy** the result, or **Download** it as a `.md` file.
 
-Your documents stay in this browser. If you stop a run, **Translate** continues from where it stopped.
+Your documents stay in this browser. If you stop a run, **Translate** continues from where it stopped. If you change the source after a run, only the new or changed blocks are sent to the model again; Co-op Translator works the same way. To translate everything afresh, press **Translate again** without changing the source.
 
 ## What stays unchanged
 

@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { LANGUAGES } from '../src/languages'
 import type { Completion } from '../src/llm'
-import { editUnit, retryUnit, translateDocument, type TranslateOptions } from '../src/translate'
+import { editUnit, retryUnit, translateDocument, type Progress, type TranslateOptions } from '../src/translate'
 
 const opts: TranslateOptions = {
   language: LANGUAGES.hi,
@@ -116,6 +116,16 @@ describe('translateDocument', () => {
     await expect(run).rejects.toThrow('stopped')
     expect(calls.length).toBe(1)
   })
+  test('a run stopped in the middle of a block leaves that block waiting, not running', async () => {
+    const stop = new AbortController()
+    let last: Progress | undefined
+    const complete = async () => {
+      stop.abort()
+      throw new Error('stopped')
+    }
+    await expect(translateDocument('Wash the lemons.\n', opts, complete, (p) => (last = p), stop.signal)).rejects.toThrow('stopped')
+    expect(last!.units.map((u) => u.status)).toEqual(['waiting'])
+  })
 })
 
 describe('resume', () => {
@@ -135,6 +145,13 @@ describe('resume', () => {
     const { complete, calls } = fake((s) => TABLE[s])
     await translateDocument('Dry them well.\n', opts, complete, () => {}, undefined, old.units)
     expect(calls.map((c) => asked(c.prompt))).toEqual(['Dry them well.'])
+  })
+  test('an edited source keeps the blocks that did not change, wherever they moved', async () => {
+    const old = await translateDocument('Wash the lemons.\n\nDry them well.\n', opts, fake((s) => TABLE[s]).complete, () => {})
+    const { complete, calls } = fake((s) => TABLE[s])
+    const r = await translateDocument('Title\n\nWash the lemons.\n', opts, complete, () => {}, undefined, old.units)
+    expect(calls.map((c) => asked(c.prompt))).toEqual(['Title'])
+    expect(r.markdown).toBe('शीर्षक\n\nनींबू धो लें।\n')
   })
 })
 

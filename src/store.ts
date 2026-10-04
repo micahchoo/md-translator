@@ -10,6 +10,8 @@ export interface SavedDoc {
   lang?: string
   seconds?: number
   units?: UnitResult[]
+  /** The blocks of the run before the source was edited, kept for the next run to reuse. */
+  previous?: UnitResult[]
 }
 
 const KEY = 'md-translator.docs'

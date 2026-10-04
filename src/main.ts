@@ -203,8 +203,12 @@ async function translate(targets: Doc[]) {
   const opts = { ...toOptions(settings), remembered: memory[settings.language] }
   for (const d of targets) {
     if (controller.signal.aborted) break
-    const resume = d.status === 'stopped' ? d.units : undefined
-    if (!resume || d.lang !== opts.language.code) d.units = undefined
+    // A stopped run resumes; an edited source keeps its unchanged blocks; the
+    // same source asked again is translated again from nothing.
+    const earlier = d.status === 'stopped' ? d.units : d.previous
+    const resume = earlier && d.lang === opts.language.code ? earlier : undefined
+    d.previous = undefined
+    delete d.units // the run reports the carried-over blocks at once, at their new places
     d.status = 'running'
     d.lang = opts.language.code
     d.error = undefined
@@ -225,7 +229,7 @@ async function translate(targets: Doc[]) {
           schedule()
         },
         controller.signal,
-        d.units,
+        resume,
       )
       d.status = 'done'
       d.seconds = Math.round((performance.now() - started) / 1000)
@@ -237,7 +241,6 @@ async function translate(targets: Doc[]) {
         break
       }
     } finally {
-      d.units?.forEach((u) => u.status === 'running' && (u.status = 'waiting'))
       persist()
     }
     render()
@@ -285,6 +288,9 @@ el.source.addEventListener('input', () => {
   if (d.status === 'running') return
   d.source = el.source.value
   d.status = 'idle'
+  // Set aside, not discarded: their offsets no longer fit the text, so no view
+  // may show them, but the next run keeps every block whose text is unchanged.
+  if (d.units) d.previous = d.units
   d.units = undefined
   persist()
   render()
