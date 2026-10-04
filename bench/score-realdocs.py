@@ -13,8 +13,9 @@ from collections import Counter, defaultdict
 
 import fasttext
 
-GLOT = {"as": "asm_Beng", "en": "eng_Latn", "hi": "hin_Deva", "kn": "kan_Knda", "ml": "mal_Mlym",
-        "mr": "mar_Deva", "ne": "npi_Deva", "ta": "tam_Taml", "te": "tel_Telu"}
+GLOT = {"as": "asm_Beng", "bn": "ben_Beng", "en": "eng_Latn", "gu": "guj_Gujr", "hi": "hin_Deva",
+        "kn": "kan_Knda", "mai": "mai_Deva", "ml": "mal_Mlym", "mr": "mar_Deva", "ne": "npi_Deva",
+        "or": "ory_Orya", "pa": "pan_Guru", "ta": "tam_Taml", "te": "tel_Telu", "ur": "urd_Arab"}
 lid = fasttext.load_model("corpus/glotlid/model.bin")
 
 by = defaultdict(list)
