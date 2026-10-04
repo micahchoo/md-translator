@@ -1,5 +1,5 @@
 // sarvam-30b against PIB's own translations, English into each language, on
-// sentence pairs from bench/pib-align.py. Only the safest pairs: LaBSE
+// sentence pairs from pib-parallel's align.py (github.com/micahchoo/pib-parallel). Only the safest pairs: LaBSE
 // similarity at least 0.85, the same numbers on both sides where any appear,
 // 40 to 300 characters of English, normal confidence, at most 5 from one
 // release, so a weak aligner costs pairs and not accuracy.

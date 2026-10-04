@@ -93,9 +93,25 @@ Urdu is not measured: 14 of the 15 Kashmiri texts could not be scored, because t
 
 The same IN22 sentences, scored against the professional translation: sarvam-30b's answers, and Google Translate's. Google scored higher in every one of 12 language and direction pairs, by chrF, chrF++ and COMET-22 alike (COMET 0.01 to 0.10 higher), and COMET preferred it sentence by sentence about 85% of the time; Tamil into English was a tie. Four of the from-English rows were made before those languages had examples, which later added 7 to 10 points, so the gap is smaller than these rows show, but Hindi and Kannada, which had examples throughout, still trailed by 6 to 8 chrF. The app uses sarvam-30b for privacy, cost and control, not for quality.
 
-## Being measured
+## Against PIB's own translations
 
-**sarvam-30b against PIB's own translations.** English press releases and the official translations PIB publishes beside them, aligned into sentences (`pib-align.py`), give a test set far larger than IN22 for the languages PIB covers. Only the safest pairs are used, at most five from one release. Google Translate runs on the same English, because PIB loads a machine-translation plugin: if Google agrees with PIB's text much more than with IN22's human translations, the references are themselves machine output. The first run uses November 2025, before sarvam-30b was published, so it may have seen those releases.
+English press releases and the translations PIB publishes beside them, aligned into sentences by [pib-parallel](https://github.com/micahchoo/pib-parallel): a test set far larger than IN22 for the languages PIB covers. 200 of the safest pairs per language (158 for Nepali), at most five from one release, from November 2025, before sarvam-30b was published, so it may have seen them and its scores are an upper bound. Google Translate ran on the same English (`pib-bench.ts`, scored with `score-pib.py`).
+
+| Language | sarvam-30b chrF | Google | Google copies in PIB | sarvam without copies |
+| --- | --- | --- | --- | --- |
+| Kannada | 65.5 | 78.6 | 41 (20%) | 63.3 |
+| Assamese | 62.1 | 71.9 | 45 (22%) | 60.1 |
+| Odia | 62.0 | 72.9 | 26 (13%) | 60.5 |
+| Tamil | 60.3 | 70.3 | 9 (4%) | 60.2 |
+| Punjabi | 59.1 | 74.7 | 25 (12%) | 58.2 |
+| Nepali | 59.1 | 73.5 | 16 (10%) | 58.2 |
+| Gujarati | 58.2 | 78.7 | 64 (32%) | 54.2 |
+| Malayalam | 53.4 | 76.5 | 32 (16%) | 52.1 |
+| Marathi | 52.9 | 61.7 | 6 (3%) | 52.3 |
+| Bengali | 52.3 | 62.0 | 7 (4%) | 51.7 |
+| Telugu | 50.0 | 63.9 | 7 (4%) | 49.8 |
+
+A "copy" is a PIB sentence within chrF 90 of what Google writes for the same English. Two independent translations almost never come that close: sarvam and Google did on 2 of 200 Assamese sentences, Google and IN22's human text on 0 of 89. So part of PIB's translation is Google's, and a score against it favours Google: its lead is largest where copies are most common (Gujarati, 32% copies, 20.5 points). Without the copies sarvam scores a little lower, not higher. Both systems score 13 to 25 points higher here than on IN22, so press releases are easier text, and the order of the languages is close to IN22's. Konkani is left out (LaBSE knows it only through Marathi), and Hindi and Urdu were not run.
 
 ## Short blocks at the start of a document
 
@@ -160,33 +176,9 @@ uvx --from huggingface_hub hf download cis-lmu/glotlid model.bin --local-dir cor
 | `bun bench/fresh.ts 10` | Into English from human text and from text the model cannot have seen. Score with `uv run bench/score-fresh.py`. |
 | `bun bench/packet.ts 25` | A review packet per language for a native reader: one offline HTML file each in `corpus/review/`, made from this README, with right / wrong / unsure per block and a button that saves the answers. |
 | `bun bench/judge.ts 15 20` | Measures the model as its own judge, on language and on negation. Resumes: a language already in `corpus/runs/judge.jsonl` is skipped. |
-| `uv run bench/pib-align.py <pairs.jsonl>...` | Sentence pairs from `pib.ts` release groups: LaBSE embeddings, in-order alignment with 1-1, 1-2 and 2-1 matches, kept above a similarity of 0.70, each pair with its release ID and whether its numbers agree (lakh, crore, million and billion read as values). Sentences split at the marks of every script, but not after a title (Dr., डॉ., திரு.) or an initial written as an English letter name (एल., ಎಲ್.), which split 4,512 pilot sentences in two. Each sentence is embedded once, ever: vectors are cached on disk (`PIB_EMBEDDINGS`, by default `~/.cache/pib-parallel/`; keep it on a fast disk, as on spinning disks SQLite waited on every batch), so rescoring the pilot takes seconds (9 s against 133 s for 60 releases). On an AMD GPU it runs in half precision, eight times faster than the CPU with the same pairs: make a ROCm environment once (`uv venv corpus/venv-rocm`, then `uv pip install -p corpus/venv-rocm torch --index-url https://download.pytorch.org/whl/rocm7.2` and `sentence-transformers numpy`) and run the script with `corpus/venv-rocm/bin/python`. `uv run --index` does not do it: it still takes PyPI's torch. Tested in `test/pib_align_test.py`. Manipuri, Mizo, Khasi, Tenyidei and Konkani, which LaBSE does not know, are marked low confidence. |
-| `bun bench/pib-copies.ts <sentences.jsonl> 100` | How much of PIB's translation is Google Translate's: Google translates a sample of each office's English, and a pair whose PIB text is within chrF 90 of Google's is a copy (two independent translations almost never come that close). Prints a rate per office and language with a 95% interval, and writes `copies.jsonl` with each pair's flag, never Google's text. A lower bound on machine text: heavier editing, or another engine, passes. |
 | `bun bench/pib-bench.ts <sentences.jsonl> 200` | sarvam-30b and Google Translate on PIB sentence pairs, English into each language: LaBSE similarity at least 0.85, numbers agreeing, at most 5 pairs from one release. `GT_BUDGET` caps the characters sent to Google. Score with `uv run bench/score-pib.py`, which sets the PIB scores beside IN22's and counts pairs older than sarvam-30b. |
-| `bun bench/pib.ts 40` | Fetches PIB releases and their official translations as a parallel corpus. `--month 2025-09` takes a whole month, `--reg 6 --lang 11` a regional office's Tamil feed. One request at a time, cached. Embedded tweets are dropped (third-party material, and mostly left in English on translated pages), and email addresses and phone numbers become `<email>` and `<phone>` on every side; in the pilot that removed 7,908 posts from 1,694 of 10,265 pages, and named officials' addresses with them. Tweets pasted as plain paragraphs (8 pages) cannot be told from prose and stay. |
 
-`pib.ts` reaches all 29 offices in PIB's own region list. Each office publishes in English and its own languages, read from the office's language list on `Allrel.aspx` (2026-10-04), office code then language codes:
-
-| Office | Languages (feed number) |
-| --- | --- |
-| 3 Delhi, 48 National | English 1, Hindi 2, Urdu 3 (Delhi only) |
-| 1 Mumbai | Marathi 9, Konkani 42 |
-| 5 Hyderabad, 45 Vijayawada | Telugu 16, Telugu 46 |
-| 6 Chennai | Tamil 11, Hindi 2 |
-| 17 Chandigarh | Punjabi 6 |
-| 19 Kolkata, 32 Agartala | Bengali 4, Bengali 37 |
-| 20 Bengaluru | Kannada 8 |
-| 21 Bhubaneswar | Odia 18 |
-| 22 Ahmedabad | Gujarati 13 |
-| 23 Guwahati | Assamese 10 |
-| 24 Thiruvananthapuram | Malayalam 15 |
-| 30 Imphal | Manipuri 14 |
-| 33 Gangtok | Nepali 29 |
-| 31 Mizoram, 35 Shillong, 34 Kohima | Mizo 32, Khasi 30, Tenyidei 31 |
-| 37 Lucknow, 38 Bhopal, 39 Jaipur, 40 Patna, 41 Ranchi, 42 Shimla, 43 Raipur, 46 Dehradun, 36 Itanagar | each its own Hindi (34, 35, 33, 38, 39, 40, 41, 45, 36) |
-| 44 Jammu and Kashmir | Urdu 44, Hindi 43 |
-
-So PIB covers 15 of the 22 scheduled languages, and three more (Mizo, Khasi, Tenyidei) that no other corpus here has. No office publishes Bodo, Dogri, Kashmiri, Maithili, Sanskrit, Santali or Sindhi. Regional offices also write original releases in their own language, which may have no English version. Mizo, Khasi and Tenyidei are written in Latin script, so their language comes from the feed, never the script.
+The PIB data comes from [pib-parallel](https://github.com/micahchoo/pib-parallel), which fetches PIB's releases and their official translations from all 29 offices, aligns them into sentence pairs and measures how much is Google Translate. Its November 2025 output is published as [micaha/pib-parallel](https://huggingface.co/datasets/micaha/pib-parallel). So PIB covers 15 of the 22 scheduled languages, and three more (Mizo, Khasi, Tenyidei) that no other corpus here has. No office publishes Bodo, Dogri, Kashmiri, Maithili, Sanskrit, Santali or Sindhi. Regional offices also write original releases in their own language, which may have no English version. Mizo, Khasi and Tenyidei are written in Latin script, so their language comes from the feed, never the script.
 
 The packet's text is this project's public README, never the owner's documents. Shared by these: `candidates.ts` (every language as a target), `examples.ts` (examples for the withdrawn languages), `in22.ts` (reads IN22-Gen once and keeps it as JSON), `gt.ts` (the Google Translate client and its cache), `likelihood.ts` (the model's probability of a given text).
 
@@ -196,4 +188,4 @@ The packet's text is this project's public README, never the owner's documents. 
 
 [IN22-Gen](https://huggingface.co/datasets/ai4bharat/IN22-Gen) (AI4Bharat, CC BY 4.0), [GlotLID](https://huggingface.co/cis-lmu/glotlid). [FLORES+](https://huggingface.co/datasets/openlanguagedata/flores_plus) (CC BY-SA 4.0) was used in the first trial only. Its terms forbid re-hosting it where web crawlers can reach it, so no part of it is in this repository.
 
-`pib.ts` takes PIB releases and their official translations. These are Government of India works, so no open licence covers them. PIB's [Copyright Policy](https://www.pib.gov.in/content/3604_2_CopyrightPolicy.aspx) permits reproduction free of charge. The text must stay accurate, must not mislead, and must name the source. The permission does not cover third-party material inside a release.
+PIB's releases and their official translations are Government of India works, so no open licence covers them. PIB's [Copyright Policy](https://www.pib.gov.in/content/3604_2_CopyrightPolicy.aspx) permits reproduction free of charge. The text must stay accurate, must not mislead, and must name the source. The permission does not cover third-party material inside a release.
