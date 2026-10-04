@@ -35,7 +35,8 @@ Open:
 - Manipuri, Santali: right script with IN22 examples, under the floor (28.1, 30.8 from English).
 - Kannada, Malayalam: judge's negation check off (3/14 false alarms each).
 - Known gaps: meaning beyond "not" (Tuesday -> Wednesday); bold moved to another word; code-mixed English
-  words; translated link text in paths ([بینچ/README.md]); bold interface names (README tip: use code).
+  words; translated link text in paths ([بینچ/README.md]); bold interface names (README tip: use code);
+  the Settings examples box shows right-to-left lines (Urdu, Kashmiri) left to right.
 
 ## Next
 - Live: https://micahchoo.github.io/md-translator/ (deployed 2026-10-01, repo micahchoo/md-translator). Pages workflow deploys on push to main.
