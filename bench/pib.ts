@@ -138,6 +138,10 @@ function text(html: string) {
     .trim()
 }
 
+// A request that never answers is retried like any other failure. On 2026-10-04
+// a VPN dropped mid-request and the crawl, with no timeout, waited forever.
+const TIMEOUT = 60_000
+
 let lastRequest = 0
 let requests = 0
 
@@ -157,7 +161,7 @@ async function get(url: string): Promise<string> {
     requests++
     let res: Response
     try {
-      res = await fetch(url, { headers: { 'User-Agent': UA, 'Accept-Language': 'en-US,en;q=0.9' } })
+      res = await fetch(url, { headers: { 'User-Agent': UA, 'Accept-Language': 'en-US,en;q=0.9' }, signal: AbortSignal.timeout(TIMEOUT) })
     } catch (error) {
       if (attempt >= 5) throw error
       const backoff = Math.min(60_000, 2 ** attempt * 2000)
@@ -226,7 +230,7 @@ async function monthPrerids(reg: number, lang: number, year: number, month: numb
   await pause(Math.max(0, DELAY - (Date.now() - lastRequest)))
   lastRequest = Date.now()
   requests++
-  const res = await fetch(url, { method: 'POST', headers: { 'User-Agent': UA, 'Content-Type': 'application/x-www-form-urlencoded' }, body: form.toString() })
+  const res = await fetch(url, { method: 'POST', headers: { 'User-Agent': UA, 'Content-Type': 'application/x-www-form-urlencoded' }, body: form.toString(), signal: AbortSignal.timeout(TIMEOUT) })
   if (!res.ok) throw new Error(`${res.status} ${url}`)
   const html = await res.text()
   console.error(`  ${(html.match(/Displaying\s+([\d,]+)\s+Press Releases[^<]*/)?.[0] ?? 'no list').trim()}`)
