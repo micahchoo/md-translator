@@ -2,6 +2,7 @@
 // read from LANGUAGES, so a re-screen measures what the app uses; the rest have
 // no examples, so a pass is earned without any.
 import { LANGUAGES, type Language } from '../src/languages'
+import { STAGED } from './examples'
 
 const DEVANAGARI = /[ऀ-ॿ]/g
 
@@ -25,11 +26,11 @@ export const CANDIDATES: Record<string, Language> = {
   tel_Telu: LANGUAGES.te,
   // Not shipped: see the screen in languages.ts.
   brx_Deva: lang('brx', 'Bodo', DEVANAGARI),
-  doi_Deva: lang('doi', 'Dogri', DEVANAGARI),
-  gom_Deva: lang('gom', 'Konkani', DEVANAGARI),
+  doi_Deva: { ...lang('doi', 'Dogri', DEVANAGARI), native: 'डोगरी', length: 0.99, foreign: /[ॻॼॾॿ]/, examples: STAGED.doi },
+  gom_Deva: { ...lang('gom', 'Konkani', DEVANAGARI), native: 'कोंकणी', length: 0.95, foreign: /[ॻॼॾॿ]/, examples: STAGED.gom },
   kas_Arab: lang('ks', 'Kashmiri', /[؀-ۿ]/g),
   mni_Mtei: lang('mni', 'Manipuri', /[ꯀ-꯿ꫠ-꫿]/g),
-  san_Deva: lang('sa', 'Sanskrit', DEVANAGARI),
+  san_Deva: { ...lang('sa', 'Sanskrit', DEVANAGARI), native: 'संस्कृतम्', length: 0.98, foreign: /[ॻॼॾॿ]/, examples: STAGED.sa },
   sat_Olck: lang('sat', 'Santali', /[᱐-᱿]/g),
   snd_Deva: lang('sd', 'Sindhi', DEVANAGARI),
 }
