@@ -123,9 +123,17 @@ describe('each failure seen in the trials is caught', () => {
       'The scheme will start next year और सभी जिलों में लागू की जाएगी।', LANGUAGES.en)).toContain('partial')
   })
 
+  test('a short sentence may run long; only a real addition is flagged', () => {
+    // bench/starts.ts, Nepali with examples: complete translations of short
+    // sentences, flagged long against a median measured on long ones.
+    expect(check('This project is free to use.', 'यो परियोजना प्रयोग गर्न पूर्ण रूपमा निःशुल्क छ।', LANGUAGES.ne)).toEqual([])
+    // Bengali: the translation, then the English again.
+    expect(check('See the LICENSE file', 'লাইসেন্স ফাইলটি দেখুন। See the LICENSE file again', LANGUAGES.bn)).toContain('long')
+  })
+
   test('a sentence added that the source does not have', () => {
-    expect(check('The meeting is on Tuesday at noon.',
-      'बैठक मंगलवार को दोपहर में है। कृपया समय पर पहुँचें।', hi)).toContain('long')
+    expect(check('The meeting is on Tuesday at noon in the main hall.',
+      'बैठक मंगलवार को दोपहर में मुख्य हॉल में है। कृपया समय पर पहुँचें और अपना पहचान पत्र साथ लाएँ।', hi)).toContain('long')
   })
 
   test('emphasis added that the source does not have', () => {

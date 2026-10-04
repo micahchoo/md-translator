@@ -108,6 +108,10 @@ After them, blocks in the wrong language, out of 30:
 
 **Examples written for the languages that lacked them.** Urdu, Bengali, Odia, Gujarati, Maithili and Punjabi failed on short blocks or the Markdown test without examples: Bengali put 7 of 30 short blocks in Assamese, Odia 5 in English, Urdu copied or romanised them. `examples.ts` checks the five examples Claude wrote for each against Google Translate both ways, its own translation and Claude's line read back into English; all 30 kept their meaning, numbers, code and links. With them, all six passed the screen and put 0 of 30 short blocks in the wrong language. chrF against Google Translate on those blocks rose from 50 to 81 in Bengali and from 54 to 74 in Odia. The text that ships is Claude's, never Google's.
 
+The six that had passed without examples (Assamese, Malayalam, Marathi, Nepali, Tamil, Telugu) were then given them too, in an A/B on the same short documents (`starts.ts staged`, examples staged in `examples.ts` until they win). Blocks in the wrong language fell from 7 of 180 to 0, and chrF against Google Translate rose in every one, by 7 to 10 points: Nepali 69 to 79, Telugu 68 to 77. They shipped.
+
+**A second length limit for short blocks.** The normal lengths were measured on IN22's long sentences, and short blocks vary more: with examples, Nepali had 8 of 30 short blocks flagged "may have added text", every one a complete translation. Of 125 such flags on sources under 40 characters, the 11 above twice the normal length held every real addition seen (a leaked label line, the English repeated: 3.3 to 40 times). So under 40 characters the limit is 2, not 1.4. The cost: a short sentence added to a short block now goes unflagged.
+
 **Tried and rejected: Hindi's examples lent to languages without their own,** under their Hindi label. Bengali, Odia and Tamil improved; Assamese, Marathi and Nepali, the languages closest to Hindi, got worse (Assamese chrF 63 → 33). `starts.ts hindi` reproduces it.
 
 ## Limits of these methods

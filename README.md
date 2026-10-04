@@ -70,7 +70,7 @@ Before you rely on a translation, have someone who reads the language check it.
 | Retries | Attempts after a flagged answer. |
 | System prompt | The opening instruction. `{L}` becomes the target language, `{S}` the source label. |
 | Note in downloads | On by default. A downloaded file ends with one line naming the model, the date, and how many blocks were flagged. Copy never adds it. |
-| Examples | Worked pairs shown to the model. Hindi and Kannada have five; Bengali, Gujarati, Maithili, Odia, Punjabi and Urdu have five each, written by Claude and checked against Google Translate; the rest have none. |
+| Examples | Worked pairs shown to the model, five per language. Hindi's and Kannada's were written first; the rest were written by Claude and checked against Google Translate both ways. English has none. |
 
 ## Development
 

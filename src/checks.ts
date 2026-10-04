@@ -75,6 +75,12 @@ const numbers = (s: string) =>
 // 90% with a sentence added.
 const SHORT = 0.7
 const LONG = 1.4
+// Under 40 characters a translation varies more than the medians allow, which
+// were measured on long sentences. bench/starts.ts, 2026-10-04: of 125 such
+// blocks flagged long, the 11 above twice normal held every real addition seen
+// (a label line leaked, the English repeated: 3.3x to 40x); the rest were
+// complete translations.
+const LONG_SHORT_SOURCE = 2
 
 /** Into English the source's language is not named; its script stands in. */
 function sourceLength(src: string): number {
@@ -120,7 +126,7 @@ export function check(source: string, output: string, lang: Language, earlier: P
   if (markup(source) !== markup(output)) flags.push('markup')
   if (numbers(source) !== numbers(output)) flags.push('numbers')
   if (src.length >= 40 && ratio < SHORT) flags.push('short')
-  if (src.length >= 15 && ratio > LONG) flags.push('long')
+  if (src.length >= 15 && ratio > (src.length < 40 ? LONG_SHORT_SOURCE : LONG)) flags.push('long')
   if (/(?:\.\.\.|…)\s*$/.test(output) && !/(?:\.\.\.|…)\s*$/.test(source)) flags.push('truncated')
   return flags
 }
