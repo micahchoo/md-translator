@@ -16,30 +16,25 @@ Design record and measurements: `.brainstorm/sessions/0001-md-translator.md`.
 - Aligned view (`src/blocks.ts`): Source / Blocks / Markdown views, per-block Retry and Edit, follow the running block, show only flagged. `src/store.ts` keeps documents in localStorage; a stopped run resumes.
 - Indented code is disabled (pasted text is indented prose); text inside HTML blocks is translated, tags and code/pre/script/style/comments are not.
 
-## Roadmap (2026-10-04) — the one list; details in the dated sections below
-A. Ship what is done (nothing committed yet)
-   1. Browser check by the owner: 12-language picker, Urdu right to left, into-English Blocks view, new flag labels.
-   2. Commit; push `main` (deploys Pages and the README together).
-B. The model as its own judge → into the app
-   1. Self-preference test: the judge on sarvam's OWN answers (~20 min). Decides whether to build.
-   2. Measure cost per block on real documents.
-   3. Build: negation check on blocks whose English has not/never/n't; language check on a few blocks
-      per document (hi, mr, ne, as, bn). Urdu waits for a scorer fix (Kashmiri text unscoreable).
-C. Patterns from other translators — the Queue below, 1–8, cheapest test first.
-D. GT cache, still unused: minimal-pair consistency (does sarvam's output change when the source's
-   "not"/number does); GT outputs as fresh into-English sources.
-E. More languages
-   1. Gujarati, Maithili, Punjabi: examples (Queue 2).  2. Bodo, Dogri: language notes (Queue 4).
-   3. Sanskrit: rescreen on a larger sample.  4. Sarvam-Translate (4B, all 22) retried with its own
-      chat template, scored by the same bench.
-F. Bench rigour
-   1. Methods section in bench/README (how each damage is made, why labels are true, limits).
-   2. Real-document test on the owner's own Markdown (flags, markup, GlotLID; no references).
-   3. Inversion into English (Claude's translations as sources, English originals as references).
-G. Native-reader audit per language — the gate before advertising a language.
-H. Known gaps kept open: code-mixed English words inside a sentence (runs under 5 words); `numbers`
-   false alarms where a translator converts units (crore vs billion).
-I. Owner decisions pending: README opening line to mention the checks; a LICENSE (the repo has none).
+## Roadmap (updated 2026-10-04, evening) — the one list; details in the dated sections below
+A. Ship — DONE. Live: 8 Indian languages + Any → English. Owner granted: commit on a branch, push to
+   main as phases verify, MIT, and Claude may pick owner Markdown files for F2.
+B. Judge into the app
+   1. Self-preference test RUNNING (`bun bench/judge-own.ts`, resumable; `... score` reads it).
+      So far on the model's own answers: Assamese 0/11 false alarm, 12/12 caught; Hindi 0/14, 11/11.
+   2. Cost per block on real documents.  3. Build (negation on negated blocks; language sampled).
+C. Patterns from other translators
+   1 copied answers — DONE ("Not a translation").  2 edit memory — DONE, live.
+   3 kept terms — REJECTED (Tamil worse; sarvam keeps names unaided).  5 changed blocks only — DONE, live.
+   8 download note — DONE, live.  4 notes per language (Bodo, Dogri), 6 look-ahead context,
+   7 self-critique on flagged blocks — open.
+D. GT cache: minimal-pair consistency; fresh into-English sources — open.
+E. Languages: examples for Urdu, Bengali, Odia, Gujarati, Maithili, Punjabi written and checked
+   (bench/examples.ts); screen + short-block test RUNNING (corpus/runs/with-examples*, starts-examples).
+   Sanskrit rescreen, Sarvam-Translate retry — open.
+F. Bench rigour: 1 limits section DONE.  2 real-document test, 3 inversion into English — open.
+G. Native-reader audit per language — needs people.
+H. Known gaps: code-mixed English words; meaning (Tuesday → Wednesday); numbers false alarms on unit conversions.
 
 ## Next
 - Live: https://micahchoo.github.io/md-translator/ (deployed 2026-10-01, repo micahchoo/md-translator). Pages workflow deploys on push to main.
