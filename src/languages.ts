@@ -8,6 +8,9 @@
 // more than 10 below the shipped pair, GlotLID agreeing the output is the
 // language asked for, and the Markdown probe intact. Gujarati, Maithili and
 // Punjabi failed only the probe — without examples they echo English headings.
+// Bengali and Odia passed it too and were withdrawn after bench/starts.ts: on
+// short blocks at the start of a document, 7 and 5 of 30 came back in the wrong
+// language (Assamese for Bengali; English for Odia), past the 1-in-10 rule.
 // Urdu passed the screen and was withdrawn the same day: in the browser, with no
 // examples, it copied or romanised short Markdown blocks. `dir` stays for its
 // return; it is the only right-to-left language so far. The examples cover the shapes the model got wrong without them: a
@@ -24,9 +27,16 @@ export interface Language {
   script: RegExp
   /** The source line's label in the prompt and in the examples. */
   from: string
+  /** The language's name in its own script. An answer that is only this name is
+   *  not a translation: Telugu answered "How it works" with తెలుగు. */
+  native: string
   /** Characters of this language per character of English: the median over
    *  IN22-Gen's 1,024 human pairs. The length checks are measured against it. */
   length: number
+  /** Letters of its own script this language never writes. One in an answer
+   *  means a related language came back: Assamese ৰ in Bengali, Sindhi ॾ in
+   *  Nepali. Each was checked on IN22's human text before it was trusted. */
+  foreign?: RegExp
   /** Written right to left; the page sets `dir` from it. */
   dir?: 'rtl'
   examples: Pair[]
@@ -47,12 +57,13 @@ export const ANY_SOURCE = 'Original'
 
 export const LANGUAGES: Record<string, Language> = {
   // Into English first: the other direction from every entry below it.
-  en: { code: 'en', name: 'English', from: ANY_SOURCE, script: /[A-Za-z]/g, length: 1, examples: [] },
-  as: { code: 'as', name: 'Assamese', from: 'English', script: /[ঀ-৿]/g, length: 1.00, examples: [] },
-  bn: { code: 'bn', name: 'Bengali', from: 'English', script: /[ঀ-৿]/g, length: 0.95, examples: [] },
+  en: { code: 'en', name: 'English', native: 'English', from: ANY_SOURCE, script: /[A-Za-z]/g, length: 1, examples: [] },
+  as: { code: 'as', name: 'Assamese', native: 'অসমীয়া', from: 'English', script: /[ঀ-৿]/g, length: 1.00, examples: [] },
   hi: {
     code: 'hi',
     name: 'Hindi',
+    foreign: /[ॻॼॾॿ]/,
+    native: 'हिन्दी',
     length: 0.99,
     from: 'English',
     script: /[ऀ-ॿ]/g,
@@ -67,6 +78,7 @@ export const LANGUAGES: Record<string, Language> = {
   kn: {
     code: 'kn',
     name: 'Kannada',
+    native: 'ಕನ್ನಡ',
     length: 1.07,
     from: 'English',
     script: /[ಀ-೿]/g,
@@ -78,12 +90,11 @@ export const LANGUAGES: Record<string, Language> = {
       'FDA ಯ 2026 ರ ವರದಿಯು ಆಗಸ್ಟ್ 2026 ರ ವೇಳೆಗೆ **ಇನ್ನೂ ಕರಡು** ಆಗಿದೆ. [ಮಾರ್ಗಸೂಚಿ](#1)',
     ]),
   },
-  ml: { code: 'ml', name: 'Malayalam', from: 'English', script: /[ഀ-ൿ]/g, length: 1.15, examples: [] },
-  mr: { code: 'mr', name: 'Marathi', from: 'English', script: /[ऀ-ॿ]/g, length: 1.01, examples: [] },
-  ne: { code: 'ne', name: 'Nepali', from: 'English', script: /[ऀ-ॿ]/g, length: 0.96, examples: [] },
-  or: { code: 'or', name: 'Odia', from: 'English', script: /[଀-୿]/g, length: 1.09, examples: [] },
-  ta: { code: 'ta', name: 'Tamil', from: 'English', script: /[஀-௿]/g, length: 1.17, examples: [] },
-  te: { code: 'te', name: 'Telugu', from: 'English', script: /[ఀ-౿]/g, length: 1.00, examples: [] },
+  ml: { code: 'ml', name: 'Malayalam', native: 'മലയാളം', from: 'English', script: /[ഀ-ൿ]/g, length: 1.15, examples: [] },
+  mr: { code: 'mr', name: 'Marathi', native: 'मराठी', from: 'English', script: /[ऀ-ॿ]/g, length: 1.01, foreign: /[ॻॼॾॿ]/, examples: [] },
+  ne: { code: 'ne', name: 'Nepali', native: 'नेपाली', from: 'English', script: /[ऀ-ॿ]/g, length: 0.96, foreign: /[ॻॼॾॿ]/, examples: [] },
+  ta: { code: 'ta', name: 'Tamil', native: 'தமிழ்', from: 'English', script: /[஀-௿]/g, length: 1.17, examples: [] },
+  te: { code: 'te', name: 'Telugu', native: 'తెలుగు', from: 'English', script: /[ఀ-౿]/g, length: 1.00, examples: [] },
 }
 
 /** The direction of text in the language with this code; `auto` when unknown. */

@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 import { buildPrompt, cleanOutput, DEFAULT_PREAMBLE, stopFor } from '../src/prompt'
 import { directionLabel, LANGUAGES } from '../src/languages'
+// Withdrawn languages (Bengali, Odia) are bench candidates; their text still reaches the checks.
+import { CANDIDATES } from '../bench/candidates'
 
 describe('buildPrompt', () => {
   test('is parallel text: preamble, examples, context, then the open source line', () => {
@@ -38,8 +40,8 @@ describe('buildPrompt', () => {
   })
 
   test('stops at a blank line or a new source line', () => {
-    expect(stopFor(LANGUAGES.hi)).toEqual(['\n\n', '\nEnglish:'])
-    expect(stopFor(LANGUAGES.en)).toEqual(['\n\n', '\nOriginal:'])
+    expect(stopFor(LANGUAGES.hi)).toEqual(['\n\n', '\nEnglish:', '\nHindi:'])
+    expect(stopFor(LANGUAGES.en)).toEqual(['\n\n', '\nOriginal:', '\nEnglish:'])
   })
 
   test('into English the source is not named, so the model detects its language', () => {
@@ -81,6 +83,8 @@ describe('cleanOutput', () => {
 
   test('trims and drops a leaked example label', () => {
     expect(cleanOutput(' नमस्ते\nEnglish: hi', LANGUAGES.hi)).toBe('नमस्ते')
+    // Odia, bench/starts.ts: the model wrote its own label lines with no blank line between.
+    expect(cleanOutput('License\nOdia: License\nOdia: License', CANDIDATES.ory_Orya)).toBe('License')
     expect(cleanOutput('Hindi: नमस्ते', LANGUAGES.hi)).toBe('नमस्ते')
     expect(cleanOutput(' Hello\nOriginal: नमस्ते', LANGUAGES.en)).toBe('Hello')
   })

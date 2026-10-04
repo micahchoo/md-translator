@@ -1,12 +1,12 @@
 # Markdown Translator
 
-Translates Markdown documents between English and ten Indian languages, using a model that runs on your own computer. Headings, lists, bold text, links and code come back where they were.
+Translates Markdown documents between English and eight Indian languages, using a model that runs on your own computer. Headings, lists, bold text, links and code come back where they were.
 
 **Open it:** https://micahchoo.github.io/md-translator/
 
 ## Languages
 
-Assamese, Bengali, Hindi, Kannada, Malayalam, Marathi, Nepali, Odia, Tamil and Telugu, into and out of English.
+Assamese, Hindi, Kannada, Malayalam, Marathi, Nepali, Tamil and Telugu, into and out of English.
 
 To translate into English, choose English. You do not say what the source language is; the model recognises it.
 
@@ -42,7 +42,8 @@ Simple rules check every translated piece. When a rule fires, the translator tri
 | Flag | What happened |
 | --- | --- |
 | Not translated | The answer is still in the source language. |
-| Wrong script | The answer is in another language's letters. |
+| Wrong script or letters | The answer is in another script, or uses letters this language never writes, as Sindhi ॾ in Nepali. |
+| Not a translation | The answer is the language's own name, or repeats an earlier block's answer for a different source. |
 | Partly untranslated | Part of the answer is still in the source language. |
 | Numbers changed | A number is different, missing or new. |
 | Formatting changed | Bold, italics, code or a link was lost or added. |

@@ -5,21 +5,21 @@ import { LANGUAGES, type Language } from '../src/languages'
 
 const DEVANAGARI = /[ऀ-ॿ]/g
 
-const lang = (code: string, name: string, script: RegExp): Language => ({ code, name, from: 'English', script, length: 1, examples: [] })
+const lang = (code: string, name: string, script: RegExp): Language => ({ code, name, native: name, from: 'English', script, length: 1, examples: [] })
 
 /** IN22 column → target language. */
 export const CANDIDATES: Record<string, Language> = {
   asm_Beng: LANGUAGES.as,
-  ben_Beng: LANGUAGES.bn,
   hin_Deva: LANGUAGES.hi,
   kan_Knda: LANGUAGES.kn,
   mal_Mlym: LANGUAGES.ml,
   mar_Deva: LANGUAGES.mr,
   npi_Deva: LANGUAGES.ne,
-  ory_Orya: LANGUAGES.or,
   tam_Taml: LANGUAGES.ta,
   tel_Telu: LANGUAGES.te,
-  // Not shipped: see the screen in languages.ts.
+  // Not shipped: see the screen in languages.ts. Withdrawn ones keep what was learned.
+  ben_Beng: { ...lang('bn', 'Bengali', /[ঀ-৿]/g), native: 'বাংলা', length: 0.95, foreign: /[ৰৱ]/ },
+  ory_Orya: { ...lang('or', 'Odia', /[଀-୿]/g), native: 'ଓଡ଼ିଆ', length: 1.09 },
   urd_Arab: { ...lang('ur', 'Urdu', /[؀-ۿ]/g), dir: 'rtl', length: 0.97 },
   brx_Deva: lang('brx', 'Bodo', DEVANAGARI),
   doi_Deva: lang('doi', 'Dogri', DEVANAGARI),

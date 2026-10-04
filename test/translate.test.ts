@@ -65,6 +65,14 @@ describe('translateDocument', () => {
     expect(r.units[0].flags).toEqual(['markup'])
   })
 
+  test('an answer repeated for a different block is flagged, flagged or not the first time', async () => {
+    // Telugu, bench/starts.ts: the same word came back for the first two blocks.
+    const { complete } = fake(() => 'नींबू')
+    const r = await translateDocument('Title\n\nWash the lemons.\n', opts, complete, () => {})
+    expect(r.units[0].flags).not.toContain('unrelated')
+    expect(r.units[1].flags).toContain('unrelated')
+  })
+
   test('context is the last clean pairs; a flagged answer never becomes context', async () => {
     const { complete, calls } = fake((s) => (s === 'Dry them well.' ? s : TABLE[s]))
     await translateDocument('Title\n\nWash the lemons.\n\nDry them well.\n\nCut them into 4.\n', { ...opts, retries: 0 }, complete, () => {})

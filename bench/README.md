@@ -14,7 +14,8 @@ A language passed if all of these held:
 
 | Language | Result |
 | --- | --- |
-| Assamese, Bengali, Hindi, Kannada, Malayalam, Marathi, Nepali, Odia, Tamil, Telugu | Passed |
+| Assamese, Hindi, Kannada, Malayalam, Marathi, Nepali, Tamil, Telugu | Passed |
+| Bengali, Odia | Passed the scores, then withdrawn: on short blocks at the start of a document, 7 and 5 of 30 came back in the wrong language (see below) |
 | Urdu | Passed the scores, then withdrawn: with no examples, it copies or romanises short Markdown blocks. Seen in the browser on 2026-10-04 |
 | Gujarati, Maithili, Punjabi | Failed only the Markdown test: with no examples, they returned English headings untranslated |
 | Bodo, Dogri | Wrote another language: Assamese for Bodo, Punjabi for Dogri |
@@ -36,7 +37,7 @@ We took correct translations, damaged each one in one known way, and counted how
 | --- | --- | --- |
 | Source returned unchanged | 100% | 100% |
 | Another script | 100% | 100% |
-| Related language, same script | 0% | — |
+| Related language, same script | 20%: only Bengali, by the letter ৰ | — |
 | Half left untranslated | 79% | 93% |
 | Cut short | 97% | 98% |
 | Formatting lost | 100% | 100% |
@@ -82,9 +83,24 @@ Urdu is not measured: 14 of the 15 Kashmiri texts could not be scored, because t
 
 **What is not yet known.** These answers are human or Google Translate text. The model may judge its own translations more kindly, so the check must be measured again on sarvam-30b's own answers before the app uses it. Scoring takes about one request per token, so each check adds a second or two to a block.
 
-## Being measured
+## Short blocks at the start of a document
 
-**Short blocks at the start of a document.** In the browser on 2026-10-04, Urdu returned a heading unchanged and Telugu turned "How it works" into the word "Telugu", with no flag. The Markdown test above is one document per language and missed both. `starts.ts` runs ten small documents, each beginning with a short heading, through the app's own code, in two arms: each language's own examples (most have none), or Hindi's examples kept under their Hindi label. `score-starts.py` counts the blocks that went wrong with no flag, against Google Translate's answer for the same block.
+In the browser on 2026-10-04, Urdu returned a heading unchanged and Telugu turned "How it works" into the word "Telugu", with no flag. The Markdown test above is one document per language and missed both. `starts.ts` runs ten small documents, each beginning with a short heading, through the app's own code. `score-starts.py` counts the blocks that went wrong with no flag, against Google Translate's answer for the same block, and every such block was then read by hand: many were good translations worded differently.
+
+The real failures led to five new checks, each tested on the failure that showed it: a one-word heading returned unchanged; a short block in another script; an answer with no letters; the language's own name, or an earlier block's answer repeated, given as the translation; and letters a language never writes (Assamese ৰ in Bengali, Sindhi ॾ in Nepali, each confirmed on IN22's human text first; the belief that Assamese never writes র was wrong, 704 of 1,024 rows). A flagged block is retried, so the checks also raised quality: chrF against Google Translate rose from 56 to 68 in Telugu and from 56 to 69 in Nepali.
+
+After them, blocks in the wrong language, out of 30:
+
+| Language | Wrong language |
+| --- | --- |
+| Hindi, Kannada (their own examples) | 0 |
+| Assamese, Marathi, Nepali | 0 |
+| Tamil | 1 |
+| Malayalam, Telugu | 3 |
+| Bengali | 7, withdrawn |
+| Odia | 5, withdrawn |
+
+**Tried and rejected: Hindi's examples lent to languages without their own,** under their Hindi label. Bengali, Odia and Tamil improved; Assamese, Marathi and Nepali, the languages closest to Hindi, got worse (Assamese chrF 63 → 33). `starts.ts hindi` reproduces it.
 
 ## Run it again
 
@@ -103,7 +119,7 @@ uvx --from huggingface_hub hf download cis-lmu/glotlid model.bin --local-dir cor
 | `bun bench/contrast.ts` | Tests the checks on damage made by a program. Needs no model; takes seconds. |
 | `bun bench/contrast-gt.ts 20` | Tests the checks on damage made with Google Translate. |
 | `bun bench/negation.ts` | Learns each language's negation words and measures the rule. Needs no model. |
-| `bun bench/starts.ts own` then `hindi` | Short blocks at the start of a document, without and with borrowed Hindi examples. Score with `uv run bench/score-starts.py corpus/runs/starts-*.jsonl`. |
+| `bun bench/starts.ts own` (or `hindi`) | Short blocks at the start of a document; `hindi` lends Hindi's examples. Score with `uv run bench/score-starts.py corpus/runs/starts-*.jsonl`. |
 | `bun bench/judge.ts 15 20` | Measures the model as its own judge, on language and on negation. Resumes: a language already in `corpus/runs/judge.jsonl` is skipped. |
 
 Shared by these: `candidates.ts` (every language as a target), `in22.ts` (reads IN22-Gen once and keeps it as JSON), `gt.ts` (the Google Translate client and its cache), `likelihood.ts` (the model's probability of a given text).

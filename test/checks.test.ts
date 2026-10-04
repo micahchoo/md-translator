@@ -1,11 +1,13 @@
 import { describe, expect, test } from 'bun:test'
 import { check } from '../src/checks'
 import { LANGUAGES, type Language } from '../src/languages'
+// Withdrawn languages (Bengali, Odia) are bench candidates; their text still reaches the checks.
+import { CANDIDATES } from '../bench/candidates'
 
 const hi = LANGUAGES.hi
 const kn = LANGUAGES.kn
 /** Urdu is not offered (withdrawn 2026-10-04), but its text still reaches the checks. */
-const ur: Language = { code: 'ur', name: 'Urdu', from: 'English', script: /[؀-ۿ]/g, length: 0.97, dir: 'rtl', examples: [] }
+const ur: Language = { code: 'ur', name: 'Urdu', native: 'اردو', from: 'English', script: /[؀-ۿ]/g, length: 0.97, dir: 'rtl', examples: [] }
 
 describe('a faithful translation raises nothing', () => {
   test('Hindi with code, a link and a number', () => {
@@ -67,7 +69,37 @@ describe('each failure seen in the trials is caught', () => {
   })
 
   test('a name kept as it was is not an echo', () => {
-    expect(check('GitHub Actions', 'GitHub Actions', hi)).toEqual([])
+    expect(check('GitHub', 'GitHub', hi)).toEqual([])
+    expect(check('NASA', 'NASA', hi)).toEqual([])
+  })
+
+  // Seen in bench/starts.ts, 2026-10-04: short blocks at the start of a document.
+  test('a one-word heading returned unchanged', () => {
+    expect(check('Installation', 'Installation', CANDIDATES.ory_Orya)).toContain('untranslated')
+  })
+
+  test('a short block in another script', () => {
+    expect(check('How it works', 'କିପରି ଏହା କାମ କରେ', CANDIDATES.ben_Beng)).toEqual(['script'])
+  })
+
+  test('no letters at all', () => {
+    expect(check('Why use it?', '"""', LANGUAGES.ta)).toContain('empty')
+  })
+
+  test('a related language in the same script, where its letters give it away', () => {
+    // bench/starts.ts: Bengali answered in Assamese (ৰ), Nepali with Sindhi letters (ॾ).
+    expect(check('Getting started', 'আৰম্ভণি', CANDIDATES.ben_Beng)).toEqual(['script'])
+    expect(check('Why use it?', 'ॾांयै?', LANGUAGES.ne)).toContain('script')
+    expect(check('Getting started', 'শুরু করা', CANDIDATES.ben_Beng)).toEqual([])
+  })
+
+  test("the language's own name instead of a translation", () => {
+    expect(check('How it works', 'తెలుగు', LANGUAGES.te)).toContain('unrelated')
+  })
+
+  test("an earlier block's answer given again for a different source", () => {
+    expect(check('It keeps your notes in one place.', 'ॾांयै?', LANGUAGES.ne, [['Why use it?', 'ॾांयै?']])).toContain('unrelated')
+    expect(check('Why use it?', 'किन प्रयोग गर्ने?', LANGUAGES.ne, [['Why use it?', 'किन प्रयोग गर्ने?']])).toEqual([])
   })
 
   test('another language in another script', () => {

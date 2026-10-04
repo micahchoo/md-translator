@@ -4,7 +4,7 @@ Static app: paste/attach Markdown → code segments it → sarvam-30b (raw /v1/c
 parallel-text prompt, thinking never starts) → streamed Hindi/Kannada → copyable Markdown.
 Design record and measurements: `.brainstorm/sessions/0001-md-translator.md`.
 
-## Done (54 tests pass, tsc clean; nothing committed, nothing pushed)
+## Done (first phases, 2026-10-01)
 - Phase 1 `src/segment.ts` — segment / mask / unmask / assemble / splitPassage. Verified on 456 real files.
 - Phase 2 `src/checks.ts`, `src/prompt.ts`, `src/languages.ts` — 8 flags; parallel prompt; 5 neutral examples per language.
 - Phase 3 `src/llm.ts` (SSE client, `targetAddressSpace: 'local'` for private IPs only), `src/translate.ts` (greedy, then up to 3 sampled retries at T 0.6, keep lowest-weight attempt, only clean pairs become context).
@@ -132,3 +132,15 @@ Rejected: line markers and block counts (code rebuilds the document); LLM severi
 - NEXT before building: rerun on sarvam's OWN answers (self-preference). Then decide cost: ~1 s per
   score; negation check only on blocks whose English has not/never/n't; language check perhaps on a
   few blocks per document, not all.
+
+## 2026-10-04 — shipped (merged to main)
+- Offered: Any language → English; English → Assamese, Hindi, Kannada, Malayalam, Marathi, Nepali, Tamil,
+  Telugu. Withdrawn until they have examples: Urdu (copied/romanised short blocks), Bengali (7/30 short
+  blocks in Assamese), Odia (5/30). Their settings live in bench/candidates.ts.
+- New checks from bench/starts.ts: one-word echoes, short wrong-script blocks, no letters, the language's
+  own name or a repeated earlier answer ("Not a translation"), never-used letters (`Language.foreign`).
+  Stop also at the target's own label.
+- Picker names each direction (`directionLabel`). MIT licence. README test + `.claude/rules/translator-readmes.md`.
+- Rejected: Hindi examples lent to other languages (hurt Assamese, Marathi, Nepali).
+- Seen in the browser, not catchable by rules: Telugu turned Tuesday into Wednesday (meaning; judge territory).
+- Next: roadmap B (judge on sarvam's own answers), then examples for Urdu/Bengali/Odia/Gujarati/Maithili/Punjabi.

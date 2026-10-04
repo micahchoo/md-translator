@@ -41,7 +41,7 @@ export interface Progress {
 
 // How bad a flag is when choosing among failed attempts: lost meaning first.
 const WEIGHT: Record<Flag, number> = {
-  empty: 10, untranslated: 10, script: 10, partial: 5, short: 5, truncated: 5, numbers: 5, long: 3, markup: 2,
+  empty: 10, untranslated: 10, script: 10, unrelated: 10, partial: 5, short: 5, truncated: 5, numbers: 5, long: 3, markup: 2,
 }
 const cost = (flags: Flag[]) => flags.reduce((s, f) => s + WEIGHT[f], 0)
 
@@ -62,6 +62,8 @@ interface Attempts {
 async function translateUnit(
   u: UnitResult,
   history: Pair[],
+  /** Every block before this one, flagged or clean: an answer repeated from one is not this block's. */
+  earlier: Pair[],
   opts: TranslateOptions,
   complete: Complete,
   onText: () => void,
@@ -93,7 +95,7 @@ async function translateUnit(
       )
       u.attempts++
       const output = cleanOutput(raw, opts.language)
-      const f = check(piece, output, opts.language)
+      const f = check(piece, output, opts.language, [...opts.examples, ...earlier])
       if (!best || cost(f) < cost(best.flags)) best = { output, flags: f }
       if (f.length === 0) break
     }
@@ -103,6 +105,10 @@ async function translateUnit(
   }
   return { output: done.join(' '), flags: [...flags] }
 }
+
+/** Every finished unit before `index`, as source and answer, clean or flagged. */
+const earlierBefore = (units: UnitResult[], index: number): Pair[] =>
+  units.slice(0, index).filter((u) => u.status === 'done' && u.output).map((u) => [u.unit.text, u.output])
 
 /** The clean pairs a unit at `index` may use as context: the finished units before it. */
 const historyBefore = (units: UnitResult[], index: number): Pair[] =>
@@ -127,14 +133,16 @@ export async function translateDocument(
       : fresh.map((unit) => ({ unit, output: '', flags: [], attempts: 0, status: 'waiting' }))
   const history: Pair[] = []
 
-  for (const u of units) {
+  for (const [i, u] of units.entries()) {
     if (u.status === 'done') {
       if (!u.flags.length && u.output) history.push([u.unit.text, u.output])
       continue
     }
     if (signal?.aborted) throw new Error('stopped')
     u.status = 'running'
-    const r = await translateUnit(u, history, opts, complete, () => onProgress(progressOf(md, units)), signal, { sampleFirst: false })
+    const r = await translateUnit(u, history, earlierBefore(units, i), opts, complete, () => onProgress(progressOf(md, units)), signal, {
+      sampleFirst: false,
+    })
     u.output = r.output
     u.flags = r.flags
     u.status = 'done'
@@ -160,7 +168,7 @@ export async function retryUnit(
   const before = { output: u.output, flags: u.flags, edited: u.edited }
   u.status = 'running'
   try {
-    const r = await translateUnit(u, historyBefore(units, index), opts, complete, () => onProgress(progressOf(md, units)), signal, {
+    const r = await translateUnit(u, historyBefore(units, index), earlierBefore(units, index), opts, complete, () => onProgress(progressOf(md, units)), signal, {
       sampleFirst: true,
     })
     if (cost(r.flags) > cost(before.flags)) Object.assign(u, before)
@@ -178,7 +186,7 @@ export async function retryUnit(
 export function editUnit(md: string, units: UnitResult[], index: number, text: string, language: Language): Progress {
   const u = units[index]
   u.output = text.trim()
-  u.flags = check(u.unit.text, u.output, language)
+  u.flags = check(u.unit.text, u.output, language, earlierBefore(units, index))
   u.edited = true
   u.status = 'done'
   return progressOf(md, units)

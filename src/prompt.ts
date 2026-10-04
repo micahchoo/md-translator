@@ -10,7 +10,7 @@ export const DEFAULT_PREAMBLE =
   'Every sentence is translated. Markdown syntax, inline code, numbers and names are kept unchanged.'
 
 /** One block per request: the answer ends at a blank line or a new source line. */
-export const stopFor = (language: Language) => ['\n\n', `\n${language.from}:`]
+export const stopFor = (language: Language) => ['\n\n', `\n${language.from}:`, `\n${language.name}:`]
 
 export interface PromptInput {
   language: Language
@@ -34,7 +34,7 @@ export function buildPrompt({ language, preamble, examples, exampleLabel, contex
 
 export function cleanOutput(raw: string, language: Language): string {
   return raw
-    .split(new RegExp(`\\n\\s*\\n|\\n${language.from}:`))[0]
+    .split(new RegExp(`\\n\\s*\\n|\\n${language.from}:|\\n${language.name}:`))[0]
     .trim()
     .replace(new RegExp(`^${language.name}:\\s*`), '')
 }

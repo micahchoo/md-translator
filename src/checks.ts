@@ -1,9 +1,9 @@
 // Checks a translated unit against its source without asking any model. Each
 // flag names one failure seen in the trials on sarvam-30b; a flagged unit is
 // retried, and still flagged it is shown to the reader.
-import { LANGUAGES, type Language } from './languages'
+import { LANGUAGES, type Language, type Pair } from './languages'
 
-export type Flag = 'empty' | 'untranslated' | 'script' | 'partial' | 'markup' | 'numbers' | 'short' | 'long' | 'truncated'
+export type Flag = 'empty' | 'untranslated' | 'script' | 'unrelated' | 'partial' | 'markup' | 'numbers' | 'short' | 'long' | 'truncated'
 
 // What an answer that never left its source looks like. From English: Latin
 // letters, lower-case words (acronyms and names are kept on purpose), and a run
@@ -26,6 +26,12 @@ const FROM_ANY: Leftover = {
 }
 
 const LETTERS = /[\p{L}\p{M}]/gu
+/** A capitalised English word, as a one-word heading is: "Installation", not
+ *  "GitHub" (a capital inside) or "NASA" (all capitals), which are names. */
+const TITLE_WORD = /\b[A-Z][a-z'-]{2,}\b/g
+
+/** Letters only, so "తెలుగు." and "తెలుగు" are one answer. */
+const bare = (s: string) => s.replace(/[^\p{L}\p{M}\p{N}]/gu, '')
 
 /** Inline code and masked targets carry no prose; leave them out of every measure. */
 const prose = (s: string) => s.replace(/`[^`]*`/g, '').replace(/\]\(#\d+\)/g, ']').replace(/\[\[#\d+\|?/g, '[[')
@@ -81,7 +87,12 @@ function sourceLength(src: string): number {
   return best.length
 }
 
-export function check(source: string, output: string, lang: Language): Flag[] {
+/**
+ * `earlier` is what the document already holds: the examples shown and every
+ * block before this one, as source and answer. An answer repeated there for a
+ * different source was not made from this block.
+ */
+export function check(source: string, output: string, lang: Language, earlier: Pair[] = []): Flag[] {
   if (!output.trim()) return ['empty']
   const src = prose(source)
   const out = prose(output)
@@ -93,12 +104,18 @@ export function check(source: string, output: string, lang: Language): Flag[] {
   const expected = lang.from === 'English' ? lang.length : 1 / sourceLength(src)
   const ratio = out.length / Math.max(1, src.length) / expected
   const flags: Flag[] = []
+  const words = count(src, left.words) + (left === FROM_ENGLISH ? count(src, TITLE_WORD) : 0)
+  if (count(src, LETTERS) && !count(out, LETTERS)) return ['empty'] // punctuation only, as `"""`
   // An answer identical to a source with even one word to translate is an
-  // echo, however short; the share rule needs two words and missed headings.
-  const echo = out.trim() === src.trim() && count(src, left.words) >= 1
+  // echo, however short; the share rule once needed two words and missed headings.
+  const echo = out.trim() === src.trim() && words >= 1
   if (echo) flags.push('untranslated')
-  else if (target / letters < 0.3 && count(src, left.words) >= 2)
+  else if (target / letters < 0.3 && words >= 1)
     flags.push(count(out, left.letters) / letters >= 0.5 ? 'untranslated' : 'script')
+  if (lang.foreign?.test(out) && !flags.includes('script')) flags.push('script')
+  const name = bare(out) === bare(lang.native) && bare(src) !== bare(lang.name)
+  const repeated = earlier.some(([s, t]) => bare(t) === bare(output) && bare(s) !== bare(source))
+  if (name || repeated) flags.push('unrelated')
   if (target > 0 && left.run?.test(out.replace(/\[[^\]]*\]/g, ''))) flags.push('partial')
   if (markup(source) !== markup(output)) flags.push('markup')
   if (numbers(source) !== numbers(output)) flags.push('numbers')

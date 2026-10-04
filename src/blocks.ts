@@ -9,7 +9,8 @@ import type { UnitResult } from './translate'
 export const FLAG_TEXT: Record<Flag, string> = {
   empty: 'Nothing came back',
   untranslated: 'Not translated',
-  script: 'Wrong script',
+  script: 'Wrong script or letters',
+  unrelated: 'Not a translation',
   partial: 'Partly untranslated',
   markup: 'Formatting changed',
   numbers: 'Numbers changed',
