@@ -6,15 +6,15 @@
 import type { Language, Pair } from './languages'
 
 export const DEFAULT_PREAMBLE =
-  'The following are English passages with faithful, complete {L} translations. ' +
+  'The following are {S} passages with faithful, complete {L} translations. ' +
   'Every sentence is translated. Markdown syntax, inline code, numbers and names are kept unchanged.'
 
-/** One block per request: the answer ends at a blank line or a new English line. */
-export const STOP = ['\n\n', '\nEnglish:']
+/** One block per request: the answer ends at a blank line or a new source line. */
+export const stopFor = (language: Language) => ['\n\n', `\n${language.from}:`]
 
 export interface PromptInput {
   language: Language
-  /** `{L}` is replaced by the language name. */
+  /** `{L}` is replaced by the language name, `{S}` by the source label. */
   preamble: string
   examples: Pair[]
   /** The units just before this one with their translations, oldest first. */
@@ -23,14 +23,14 @@ export interface PromptInput {
 }
 
 export function buildPrompt({ language, preamble, examples, context, source }: PromptInput): string {
-  const L = language.name
-  const pairs = [...examples, ...context].map(([en, t]) => `English: ${en}\n${L}: ${t}\n\n`).join('')
-  return `${preamble.replaceAll('{L}', L)}\n\n${pairs}English: ${source}\n${L}:`
+  const { name: L, from: S } = language
+  const pairs = [...examples, ...context].map(([s, t]) => `${S}: ${s}\n${L}: ${t}\n\n`).join('')
+  return `${preamble.replaceAll('{L}', L).replaceAll('{S}', S)}\n\n${pairs}${S}: ${source}\n${L}:`
 }
 
 export function cleanOutput(raw: string, language: Language): string {
   return raw
-    .split(/\n\s*\n|\nEnglish:/)[0]
+    .split(new RegExp(`\\n\\s*\\n|\\n${language.from}:`))[0]
     .trim()
     .replace(new RegExp(`^${language.name}:\\s*`), '')
 }

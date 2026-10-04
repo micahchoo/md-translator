@@ -2,7 +2,7 @@
 // lives in translate.ts and the modules under it; this file only shows state
 // and turns clicks into calls.
 import { BlockList } from './blocks'
-import { LANGUAGES } from './languages'
+import { dirOf, LANGUAGES } from './languages'
 import { createClient, listModels } from './llm'
 import { DEFAULTS, formatExamples, loadSettings, parseExamples, saveSettings, toOptions, type Settings } from './settings'
 import { loadDocs, saveDocs, type SavedDoc } from './store'
@@ -100,6 +100,7 @@ function render() {
   el.source.readOnly = running
   if (el.output.value !== md) el.output.value = md
   el.output.lang = units.length ? (d.lang ?? '') : ''
+  el.output.dir = dirOf(units.length ? d.lang : undefined)
 
   el.docs.replaceChildren(...(docs.length > 1 || d.name !== 'Untitled' ? docs.map(docTab) : []))
 
@@ -178,7 +179,7 @@ function statusLine(d: Doc, done: number, flagged: number): string {
     case 'done':
       return total ? `Done${d.seconds !== undefined ? ` in ${d.seconds} s` : ''} · ${total} blocks${check}` : 'Nothing in this document needs translating.'
     case 'stopped':
-      return `Stopped after ${done} of ${total} blocks${check}. Resume to continue; the rest is still in English.`
+      return `Stopped after ${done} of ${total} blocks${check}. Resume to continue; the rest is not translated yet.`
     case 'error':
       return d.error ?? 'Something went wrong.'
   }
@@ -374,9 +375,9 @@ function fillForm(s: Settings) {
   field('contextBlocks').value = String(s.contextBlocks)
   field('retries').value = String(s.retries)
   field('preamble').value = s.preamble
-  field('examples').value = formatExamples(s.examples[lang.code] ?? lang.examples, lang.name)
+  field('examples').value = formatExamples(s.examples[lang.code] ?? lang.examples, lang)
   field('skipKeys').value = s.skipKeys
-  el.examplesLabel.textContent = `Examples (English → ${lang.name})`
+  el.examplesLabel.textContent = `Examples (${lang.from} → ${lang.name})`
   el.settingsError.textContent = ''
   el.connection.textContent = ''
 }
@@ -399,7 +400,7 @@ el.form.addEventListener('submit', (e) => {
   if ((e.submitter as HTMLButtonElement | null)?.value !== 'save') return
   const lang = LANGUAGES[settings.language]
   try {
-    const examples = parseExamples(field('examples').value, lang.name)
+    const examples = parseExamples(field('examples').value, lang)
     settings = {
       ...settings,
       endpoint: field('endpoint').value.trim(),

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { buildPrompt, cleanOutput, DEFAULT_PREAMBLE, STOP } from '../src/prompt'
+import { buildPrompt, cleanOutput, DEFAULT_PREAMBLE, stopFor } from '../src/prompt'
 import { LANGUAGES } from '../src/languages'
 
 describe('buildPrompt', () => {
@@ -29,14 +29,23 @@ describe('buildPrompt', () => {
     expect(DEFAULT_PREAMBLE).not.toMatch(/technical|policy|recipe/i)
   })
 
-  test('stops at a blank line or a new English line', () => {
-    expect(STOP).toEqual(['\n\n', '\nEnglish:'])
+  test('stops at a blank line or a new source line', () => {
+    expect(stopFor(LANGUAGES.hi)).toEqual(['\n\n', '\nEnglish:'])
+    expect(stopFor(LANGUAGES.en)).toEqual(['\n\n', '\nOriginal:'])
+  })
+
+  test('into English the source is not named, so the model detects its language', () => {
+    const p = buildPrompt({ language: LANGUAGES.en, preamble: DEFAULT_PREAMBLE, examples: [], context: [], source: 'नमस्ते' })
+    expect(p).toBe('The following are Original passages with faithful, complete English translations. ' +
+      'Every sentence is translated. Markdown syntax, inline code, numbers and names are kept unchanged.\n\n' +
+      'Original: नमस्ते\nEnglish:')
   })
 })
 
 describe('languages', () => {
-  test('every language has five examples covering a heading, a question, a list label, code and a link', () => {
+  test('a language with examples has five, covering a heading, a question, a list label, code and a link', () => {
     for (const lang of Object.values(LANGUAGES)) {
+      if (!lang.examples.length) continue // admitted without any; see languages.ts
       expect(lang.examples.length).toBe(5)
       const en = lang.examples.map(([e]) => e).join('\n')
       expect(en).toContain('?')
@@ -60,5 +69,6 @@ describe('cleanOutput', () => {
   test('trims and drops a leaked example label', () => {
     expect(cleanOutput(' नमस्ते\nEnglish: hi', LANGUAGES.hi)).toBe('नमस्ते')
     expect(cleanOutput('Hindi: नमस्ते', LANGUAGES.hi)).toBe('नमस्ते')
+    expect(cleanOutput(' Hello\nOriginal: नमस्ते', LANGUAGES.en)).toBe('Hello')
   })
 })

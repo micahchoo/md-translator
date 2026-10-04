@@ -6,7 +6,7 @@
 import { check, type Flag } from './checks'
 import type { Language, Pair } from './languages'
 import type { Complete } from './llm'
-import { buildPrompt, cleanOutput, STOP } from './prompt'
+import { buildPrompt, cleanOutput, stopFor } from './prompt'
 import { assemble, segment, splitPassage, type Unit } from './segment'
 
 export interface TranslateOptions {
@@ -39,11 +39,11 @@ export interface Progress {
 
 // How bad a flag is when choosing among failed attempts: lost meaning first.
 const WEIGHT: Record<Flag, number> = {
-  empty: 10, untranslated: 10, partial: 5, short: 5, truncated: 5, numbers: 5, long: 3, markup: 2,
+  empty: 10, untranslated: 10, script: 10, partial: 5, short: 5, truncated: 5, numbers: 5, long: 3, markup: 2,
 }
 const cost = (flags: Flag[]) => flags.reduce((s, f) => s + WEIGHT[f], 0)
 
-/** The document as it stands: finished units translated, the rest still in English. */
+/** The document as it stands: finished units translated, the rest as written. */
 export function progressOf(md: string, units: UnitResult[]): Progress {
   return { markdown: assemble(md, units.map((u) => u.unit), units.map((u) => u.output || u.unit.text)), units }
 }
@@ -81,7 +81,7 @@ async function translateUnit(
       if (signal?.aborted) throw new Error('stopped')
       const greedy = attempt === 0 && !how.sampleFirst
       const raw = await complete(
-        { prompt, temperature: greedy ? 0 : 0.6, seed: u.attempts, maxTokens: Math.max(256, piece.length * 2), stop: STOP },
+        { prompt, temperature: greedy ? 0 : 0.6, seed: u.attempts, maxTokens: Math.max(256, piece.length * 2), stop: stopFor(opts.language) },
         (soFar) => {
           u.output = [...done, cleanOutput(soFar, opts.language)].join(' ')
           onText()

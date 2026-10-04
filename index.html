@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Markdown Translator</title>
-    <meta name="description" content="Translate Markdown documents into Hindi or Kannada with a local model, keeping the Markdown intact." />
+    <meta name="description" content="Translate Markdown documents between English and Indian languages with a local model, keeping the Markdown intact." />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232f5d50'/%3E%3Ctext x='16' y='22' font-size='16' text-anchor='middle' fill='white' font-family='sans-serif'%3EA%E0%A4%85%3C/text%3E%3C/svg%3E" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -61,7 +61,7 @@
         <textarea id="source" spellcheck="false" aria-label="Source Markdown" placeholder="Paste Markdown here, or drop .md files anywhere on the page."></textarea>
       </section>
       <section id="view-blocks" class="view" data-view="blocks">
-        <div id="blocks" class="blocks" tabindex="0" aria-label="Blocks, English beside the translation"></div>
+        <div id="blocks" class="blocks" tabindex="0" aria-label="Blocks, source beside the translation"></div>
       </section>
       <section id="view-markdown" class="view" data-view="markdown">
         <textarea id="output" readonly spellcheck="false" aria-label="Translated Markdown"></textarea>
@@ -92,7 +92,7 @@
           </div>
           <p class="hint">Passage length is the most characters sent at once; a longer paragraph is split at sentence ends. Context blocks are earlier translations the model sees for consistency.</p>
           <label>System prompt <textarea name="preamble" rows="3" required></textarea></label>
-          <p class="hint"><code>{L}</code> is replaced by the language name.</p>
+          <p class="hint"><code>{L}</code> is replaced by the language name, <code>{S}</code> by the source label.</p>
           <label><span id="examples-label">Examples</span> <textarea name="examples" rows="9"></textarea></label>
           <p class="hint">Pairs separated by a blank line. These teach the model the format; keep them general, not about one subject.</p>
           <label>Front matter keys to leave untranslated <input name="skipKeys" type="text" /></label>

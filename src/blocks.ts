@@ -2,13 +2,15 @@
 // built once per run and patched while text streams in, so a long document
 // does not rebuild hundreds of rows on every token.
 import type { Flag } from './checks'
+import { dirOf } from './languages'
 import { unmask } from './segment'
 import type { UnitResult } from './translate'
 
 export const FLAG_TEXT: Record<Flag, string> = {
   empty: 'Nothing came back',
-  untranslated: 'Left in English',
-  partial: 'Partly in English',
+  untranslated: 'Not translated',
+  script: 'Wrong script',
+  partial: 'Partly untranslated',
   markup: 'Formatting changed',
   numbers: 'Numbers changed',
   short: 'May be missing text',
@@ -98,13 +100,16 @@ export class BlockList {
     }
 
     const source = h('div', 'cell source', unmask(u.unit.text, u.unit.restore))
-    source.lang = 'en'
+    // Into English the source may be any language; let the browser read it.
+    source.lang = lang === 'en' ? '' : 'en'
+    source.dir = lang === 'en' ? 'auto' : 'ltr'
     let target: HTMLElement
     if (this.editing === i) {
       target = this.editor(u, i, lang)
     } else if (u.output) {
       target = h('div', 'cell target indic-text', unmask(u.output, u.unit.restore))
       target.lang = lang
+      target.dir = dirOf(lang)
     } else {
       target = h('div', 'cell target pending', u.status === 'running' ? 'Translating…' : 'Waiting')
     }
@@ -115,6 +120,7 @@ export class BlockList {
     const box = h('div', 'cell target editing')
     const area = h('textarea', 'indic-text')
     area.lang = lang
+    area.dir = dirOf(lang)
     // The owner edits what the model saw: link targets stay masked as #n.
     area.value = u.output
     area.rows = Math.max(2, Math.ceil(u.output.length / 60))

@@ -161,6 +161,6 @@ dialog textarea { font-family: var(--mono); font-size: 0.85rem; resize: vertical
 /* Indic scripts stack vowel signs and conjuncts above and below the letter:
    they need more line height than Latin, and a size step up to match its weight.
    Applied by language, so English beside them keeps its own metrics. */
-:lang(hi), :lang(kn) { line-height: 1.85; }
-.indic-text:lang(hi), .indic-text:lang(kn) { font-size: 1.07em; }
-#output:lang(hi), #output:lang(kn) { line-height: 1.9; }
+:is(:lang(as), :lang(bn), :lang(hi), :lang(kn), :lang(ml), :lang(mr), :lang(ne), :lang(or), :lang(ta), :lang(te), :lang(ur)) { line-height: 1.85; }
+.indic-text:is(:lang(as), :lang(bn), :lang(hi), :lang(kn), :lang(ml), :lang(mr), :lang(ne), :lang(or), :lang(ta), :lang(te), :lang(ur)) { font-size: 1.07em; }
+#output:is(:lang(as), :lang(bn), :lang(hi), :lang(kn), :lang(ml), :lang(mr), :lang(ne), :lang(or), :lang(ta), :lang(te), :lang(ur)) { line-height: 1.9; }

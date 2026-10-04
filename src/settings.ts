@@ -1,6 +1,6 @@
 // Settings live in this browser's localStorage. Storage can be empty, corrupt
 // or blocked (private window); every failure falls back to the defaults.
-import { LANGUAGES, type Pair } from './languages'
+import { LANGUAGES, type Language, type Pair } from './languages'
 import { DEFAULT_PREAMBLE } from './prompt'
 import type { TranslateOptions } from './translate'
 
@@ -11,7 +11,7 @@ export interface Settings {
   passageLength: number
   contextBlocks: number
   retries: number
-  /** The system prompt: `{L}` becomes the language name. */
+  /** The system prompt: `{L}` becomes the language name, `{S}` the source label. */
   preamble: string
   /** Examples per language code. */
   examples: Record<string, Pair[]>
@@ -33,6 +33,12 @@ export const DEFAULTS: Settings = {
 
 const KEY = 'md-translator.settings'
 
+/** The default until 2026-10-03, when the source could only be English. Saved
+ *  untouched, it would tell the model an Original passage is English. */
+const ENGLISH_ONLY_PREAMBLE =
+  'The following are English passages with faithful, complete {L} translations. ' +
+  'Every sentence is translated. Markdown syntax, inline code, numbers and names are kept unchanged.'
+
 export function loadSettings(storage: Pick<Storage, 'getItem'>): Settings {
   let stored: Record<string, unknown> = {}
   try {
@@ -52,6 +58,7 @@ export function loadSettings(storage: Pick<Storage, 'getItem'>): Settings {
         if (code in LANGUAGES && Array.isArray(pairs)) out.examples[code] = pairs as Pair[]
       continue
     }
+    if (key === 'preamble' && v === ENGLISH_ONLY_PREAMBLE) continue
     ;(out as unknown as Record<string, unknown>)[key] = v
   }
   return out
@@ -66,17 +73,18 @@ export function saveSettings(storage: Pick<Storage, 'setItem'>, s: Settings): bo
   }
 }
 
-export function formatExamples(pairs: Pair[], name: string): string {
-  return pairs.map(([en, t]) => `English: ${en}\n${name}: ${t}`).join('\n\n')
+export function formatExamples(pairs: Pair[], { from, name }: Language): string {
+  return pairs.map(([s, t]) => `${from}: ${s}\n${name}: ${t}`).join('\n\n')
 }
 
-export function parseExamples(text: string, name: string): Pair[] {
+export function parseExamples(text: string, { from, name }: Language): Pair[] {
   const blocks = text.split(/\n\s*\n/).map((b) => b.trim()).filter(Boolean)
+  const line = (b: string, label: string) => b.match(new RegExp(`^${label}:\\s*(.+)$`, 'm'))?.[1]?.trim()
   return blocks.map((b, i) => {
-    const en = b.match(/^English:\s*(.+)$/m)?.[1]?.trim()
-    const t = b.match(new RegExp(`^${name}:\\s*(.+)$`, 'm'))?.[1]?.trim()
-    if (!en || !t) throw new Error(`Example ${i + 1} needs one "English:" line and one "${name}:" line.`)
-    return [en, t] as Pair
+    const s = line(b, from)
+    const t = line(b, name)
+    if (!s || !t) throw new Error(`Example ${i + 1} needs one "${from}:" line and one "${name}:" line.`)
+    return [s, t] as Pair
   })
 }
 

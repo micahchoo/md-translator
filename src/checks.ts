@@ -1,13 +1,31 @@
 // Checks a translated unit against its source without asking any model. Each
 // flag names one failure seen in the trials on sarvam-30b; a flagged unit is
 // retried, and still flagged it is shown to the reader.
-import type { Language } from './languages'
+import { LANGUAGES, type Language } from './languages'
 
-export type Flag = 'empty' | 'untranslated' | 'partial' | 'markup' | 'numbers' | 'short' | 'long' | 'truncated'
+export type Flag = 'empty' | 'untranslated' | 'script' | 'partial' | 'markup' | 'numbers' | 'short' | 'long' | 'truncated'
 
-const LATIN = /[A-Za-z]/g
-const LOWER_WORD = /\b[a-z][a-z'-]{2,}\b/g
-const ENGLISH_RUN = /(?:\b[a-z][a-z'-]*\b[\s,;:()/-]+){4}\b[a-z][a-z'-]*\b/
+// What an answer that never left its source looks like. From English: Latin
+// letters, lower-case words (acronyms and names are kept on purpose), and a run
+// of them. Into English the source may be any script but Latin, and a run is
+// four of its words together.
+interface Leftover {
+  letters: RegExp
+  words: RegExp
+  run?: RegExp
+}
+const FROM_ENGLISH: Leftover = {
+  letters: /[A-Za-z]/g,
+  words: /\b[a-z][a-z'-]{2,}\b/g,
+  run: /(?:\b[a-z][a-z'-]*\b[\s,;:()/-]+){4}\b[a-z][a-z'-]*\b/,
+}
+const FROM_ANY: Leftover = {
+  letters: /(?![A-Za-z])[\p{L}\p{M}]/gu,
+  words: /(?:(?![A-Za-z])[\p{L}\p{M}]){2,}/gu,
+  run: /(?:(?:(?![A-Za-z])[\p{L}\p{M}])+[\s,;:()/-]+){3}(?:(?![A-Za-z])[\p{L}\p{M}])+/u,
+}
+
+const LETTERS = /[\p{L}\p{M}]/gu
 
 /** Inline code and masked targets carry no prose; leave them out of every measure. */
 const prose = (s: string) => s.replace(/`[^`]*`/g, '').replace(/\]\(#\d+\)/g, ']').replace(/\[\[#\d+\|?/g, '[[')
@@ -26,23 +44,66 @@ function markup(s: string): string {
   ].join('|')
 }
 
-const numbers = (s: string) => (prose(s).match(/\d+(?:[.,]\d+)*/g) ?? []).sort().join(' ')
+/** Every script's digits as 0-9: `೨೦೨೦` and `2020` are one year. Unicode keeps
+ *  each script's ten digits consecutive from zero, so a digit's value is its
+ *  distance from the first digit of its run. */
+function latinDigits(s: string): string {
+  return s.replace(/(?![0-9])\p{Nd}/gu, (d) => {
+    const cp = d.codePointAt(0)!
+    let zero = cp
+    while (cp - zero < 9 && /\p{Nd}/u.test(String.fromCodePoint(zero - 1))) zero--
+    return String(cp - zero)
+  })
+}
+
+/** Numbers as values: grouping marks dropped (1,000 and 1,00,000 and Urdu's
+ *  50٬000), every decimal mark a point (Urdu's 4٫7). */
+const numbers = (s: string) =>
+  (latinDigits(prose(s)).replace(/(\d)[,٬](?=\d)/g, '$1').replace(/(\d)[٫·](?=\d)/g, '$1.').match(/\d+(?:\.\d+)*/g) ?? [])
+    .sort()
+    .join(' ')
+
+// A translation's length against its source, as a multiple of what is normal
+// for the pair. Chosen on IN22-Gen, 2026-10-04: below 0.7 or above 1.4 flags
+// 0.5% and 0.7% of human translations, and catches 97% of answers cut short and
+// 90% with a sentence added.
+const SHORT = 0.7
+const LONG = 1.4
+
+/** Into English the source's language is not named; its script stands in. */
+function sourceLength(src: string): number {
+  let best = { letters: 0, length: 1 }
+  for (const l of Object.values(LANGUAGES)) {
+    if (l.code === 'en') continue
+    const letters = count(src, l.script)
+    if (letters > best.letters) best = { letters, length: l.length }
+  }
+  return best.length
+}
 
 export function check(source: string, output: string, lang: Language): Flag[] {
   if (!output.trim()) return ['empty']
   const src = prose(source)
   const out = prose(output)
+  const left = lang.from === 'English' ? FROM_ENGLISH : FROM_ANY
   const target = count(out, lang.script)
-  const latin = count(out, LATIN)
-  const share = target / Math.max(1, target + latin)
-  const ratio = out.length / Math.max(1, src.length)
+  // Measured against every letter, not only the source's: an answer in a third
+  // script (Assamese asked for Bodo) is not on target either.
+  const letters = Math.max(1, count(out, LETTERS))
+  const expected = lang.from === 'English' ? lang.length : 1 / sourceLength(src)
+  const ratio = out.length / Math.max(1, src.length) / expected
   const flags: Flag[] = []
-  if (share < 0.3 && count(src, LOWER_WORD) >= 2) flags.push('untranslated')
-  if (target > 0 && ENGLISH_RUN.test(out.replace(/\[[^\]]*\]/g, ''))) flags.push('partial')
+  // An answer identical to a source with even one word to translate is an
+  // echo, however short; the share rule needs two words and missed headings.
+  const echo = out.trim() === src.trim() && count(src, left.words) >= 1
+  if (echo) flags.push('untranslated')
+  else if (target / letters < 0.3 && count(src, left.words) >= 2)
+    flags.push(count(out, left.letters) / letters >= 0.5 ? 'untranslated' : 'script')
+  if (target > 0 && left.run?.test(out.replace(/\[[^\]]*\]/g, ''))) flags.push('partial')
   if (markup(source) !== markup(output)) flags.push('markup')
   if (numbers(source) !== numbers(output)) flags.push('numbers')
-  if (src.length >= 40 && ratio < 0.7) flags.push('short')
-  if (src.length >= 15 && ratio > 1.8) flags.push('long')
+  if (src.length >= 40 && ratio < SHORT) flags.push('short')
+  if (src.length >= 15 && ratio > LONG) flags.push('long')
   if (/(?:\.\.\.|…)\s*$/.test(output) && !/(?:\.\.\.|…)\s*$/.test(source)) flags.push('truncated')
   return flags
 }

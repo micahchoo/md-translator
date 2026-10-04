@@ -26,6 +26,13 @@ describe('loadSettings', () => {
     expect(loadSettings({ getItem: () => { throw new Error('blocked') } })).toEqual(DEFAULTS)
   })
 
+  test('the old default preamble, saved before the source could be any language, becomes the new one', () => {
+    const old = 'The following are English passages with faithful, complete {L} translations. ' +
+      'Every sentence is translated. Markdown syntax, inline code, numbers and names are kept unchanged.'
+    expect(loadSettings(memory(JSON.stringify({ preamble: old }))).preamble).toBe(DEFAULTS.preamble)
+    expect(loadSettings(memory(JSON.stringify({ preamble: 'Mine.' }))).preamble).toBe('Mine.')
+  })
+
   test('a value of the wrong type is ignored', () => {
     expect(loadSettings(memory(JSON.stringify({ passageLength: 'long', language: 'xx' })))).toEqual(DEFAULTS)
   })
@@ -33,17 +40,21 @@ describe('loadSettings', () => {
 
 describe('examples as editable text', () => {
   test('format and parse are inverse', () => {
-    const text = formatExamples(LANGUAGES.kn.examples, 'Kannada')
+    const text = formatExamples(LANGUAGES.kn.examples, LANGUAGES.kn)
     expect(text.startsWith('English: How it works\nKannada: ')).toBe(true)
-    expect(parseExamples(text, 'Kannada')).toEqual(LANGUAGES.kn.examples)
+    expect(parseExamples(text, LANGUAGES.kn)).toEqual(LANGUAGES.kn.examples)
+  })
+
+  test('into English an example pairs an Original line with an English one', () => {
+    expect(parseExamples('Original: नमस्ते\nEnglish: Hello', LANGUAGES.en)).toEqual([['नमस्ते', 'Hello']])
   })
 
   test('a pair missing its translation is refused with its position', () => {
-    expect(() => parseExamples('English: One\nHindi: एक\n\nEnglish: Two', 'Hindi')).toThrow('Example 2')
+    expect(() => parseExamples('English: One\nHindi: एक\n\nEnglish: Two', LANGUAGES.hi)).toThrow('Example 2')
   })
 
   test('empty text means no examples', () => {
-    expect(parseExamples('  \n', 'Hindi')).toEqual([])
+    expect(parseExamples('  \n', LANGUAGES.hi)).toEqual([])
   })
 })
 

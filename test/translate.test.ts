@@ -57,11 +57,11 @@ describe('translateDocument', () => {
   })
 
   test('after the last retry it keeps the attempt with the fewest flags and reports them', async () => {
-    const outs = ['Wash the lemons.', 'नींबू धो लें। *ध्यान से*', 'नींबू धो लें। **ध्यान से** फिर', 'Wash them.']
+    const outs = ['Wash the lemons.', 'नींबू *धो* लें।', 'नींबू **धो** लें। फिर उन्हें सुखा लें।', 'Wash them.']
     const { complete } = fake((_, n) => outs[n])
     const r = await translateDocument('Wash the lemons.\n', opts, complete, () => {})
     expect(r.units[0].attempts).toBe(4)
-    expect(r.units[0].output).toBe('नींबू धो लें। *ध्यान से*')
+    expect(r.units[0].output).toBe('नींबू *धो* लें।')
     expect(r.units[0].flags).toEqual(['markup'])
   })
 
