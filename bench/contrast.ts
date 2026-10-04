@@ -54,20 +54,8 @@ export function bumpDigit(s: string): string | null {
   return s.slice(0, m.index) + next + s.slice(m.index + m[0].length)
 }
 
-// Straight and curly apostrophes: Google Translate writes "didn’t"; read as
-// straight only, a kept negation once looked dropped.
-export const NEGATION = /\b(?:not|never|no)\b|n['’]t\b/i
-
-/** The sentence with its negation taken out, or null when it has none to take. */
-export function dropNegation(s: string): string | null {
-  const out = s
-    .replace(/\bcan['’]t\b/gi, 'can')
-    .replace(/\bwon['’]t\b/gi, 'will')
-    .replace(/\b(\w+)n['’]t\b/gi, '$1')
-    .replace(/\s+not\b/gi, '')
-    .replace(/\bnever\s+/gi, '')
-  return out !== s && !NEGATION.test(out) ? out : null
-}
+// The negation helpers live with the judge, which uses them in the app.
+export { dropNegation, NEGATION } from '../src/judge'
 
 /** The sentence without its last comma clause, when that is a quarter to a half of it. */
 export function dropClause(s: string): string | null {

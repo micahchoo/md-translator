@@ -3,7 +3,7 @@
 // retried, and still flagged it is shown to the reader.
 import { LANGUAGES, type Language, type Pair } from './languages'
 
-export type Flag = 'empty' | 'untranslated' | 'script' | 'unrelated' | 'partial' | 'markup' | 'numbers' | 'short' | 'long' | 'truncated'
+export type Flag = 'empty' | 'untranslated' | 'script' | 'unrelated' | 'meaning' | 'language' | 'partial' | 'markup' | 'numbers' | 'short' | 'long' | 'truncated'
 
 // What an answer that never left its source looks like. From English: Latin
 // letters, lower-case words (acronyms and names are kept on purpose), and a run

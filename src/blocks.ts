@@ -11,6 +11,8 @@ export const FLAG_TEXT: Record<Flag, string> = {
   untranslated: 'Not translated',
   script: 'Wrong script or letters',
   unrelated: 'Not a translation',
+  meaning: 'Meaning may be reversed',
+  language: 'Another language',
   partial: 'Partly untranslated',
   markup: 'Formatting changed',
   numbers: 'Numbers changed',

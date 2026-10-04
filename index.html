@@ -97,6 +97,7 @@
           <p class="hint">Pairs separated by a blank line. These teach the model the format; keep them general, not about one subject.</p>
           <label>Front matter keys to leave untranslated <input name="skipKeys" type="text" /></label>
           <label class="check"><input name="noteOnDownload" type="checkbox" /> End downloads with a note that a model made the translation</label>
+          <label class="check"><input name="judge" type="checkbox" /> Let the model check its own answers for a lost "not" or a related language (slower; llama.cpp servers only)</label>
         </fieldset>
 
         <p id="settings-error" class="error" role="alert"></p>

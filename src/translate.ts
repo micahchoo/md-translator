@@ -4,6 +4,7 @@
 // minutes). The best attempt is kept and its flags reported; only clean
 // answers become context for the units after them.
 import { check, type Flag } from './checks'
+import { judgeAnswer, type Score } from './judge'
 import { ANY_SOURCE, type Language, type Pair } from './languages'
 import type { Complete } from './llm'
 import { buildPrompt, cleanOutput, stopFor } from './prompt'
@@ -13,6 +14,8 @@ export interface TranslateOptions {
   language: Language
   preamble: string
   examples: Pair[]
+  /** Scores text for the judge (src/judge.ts); absent where the server cannot. */
+  score?: Score
   /** The owner's earlier edits for this language, by source block: used as they are, never asked again. */
   remembered?: Record<string, string>
   /** Set when the examples are another language's; see `PromptInput.exampleLabel`. */
@@ -43,7 +46,7 @@ export interface Progress {
 
 // How bad a flag is when choosing among failed attempts: lost meaning first.
 const WEIGHT: Record<Flag, number> = {
-  empty: 10, untranslated: 10, script: 10, unrelated: 10, partial: 5, short: 5, truncated: 5, numbers: 5, long: 3, markup: 2,
+  empty: 10, untranslated: 10, script: 10, unrelated: 10, meaning: 10, language: 10, partial: 5, short: 5, truncated: 5, numbers: 5, long: 3, markup: 2,
 }
 const cost = (flags: Flag[]) => flags.reduce((s, f) => s + WEIGHT[f], 0)
 
@@ -108,6 +111,11 @@ async function translateUnit(
   return { output: done.join(' '), flags: [...flags] }
 }
 
+/** How many blocks of a document get the related-language check: a wrong language is the whole document's. */
+const LANGUAGE_CHECKS = 3
+
+const judgeOf = (opts: TranslateOptions, score: Score) => ({ score, language: opts.language, preamble: opts.preamble, examples: opts.examples })
+
 /** Every finished unit before `index`, as source and answer, clean or flagged. */
 const earlierBefore = (units: UnitResult[], index: number): Pair[] =>
   units.slice(0, index).filter((u) => u.status === 'done' && u.output).map((u) => [u.unit.text, u.output])
@@ -144,6 +152,7 @@ export async function translateDocument(
   const units = carryOver(previous, segment(md, { skipKeys: opts.skipKeys }))
   onProgress(progressOf(md, units))
   const history: Pair[] = []
+  let languageChecks = 0
 
   try {
     for (const [i, u] of units.entries()) {
@@ -166,6 +175,12 @@ export async function translateDocument(
       })
       u.output = r.output
       u.flags = r.flags
+      // The judge looks only at blocks the rules passed; the language check at the first few with words to judge.
+      if (opts.score && !u.flags.length) {
+        const checkLanguage = languageChecks < LANGUAGE_CHECKS && u.output.split(/\s+/).length >= 5
+        if (checkLanguage) languageChecks++
+        u.flags = await judgeAnswer({ ...judgeOf(opts, opts.score), source: u.unit.text, output: u.output, checkLanguage, signal })
+      }
       u.status = 'done'
       onProgress(progressOf(md, units))
     }
@@ -197,6 +212,8 @@ export async function retryUnit(
     const r = await translateUnit(u, historyBefore(units, index), earlierBefore(units, index), opts, complete, () => onProgress(progressOf(md, units)), signal, {
       sampleFirst: true,
     })
+    if (opts.score && !r.flags.length)
+      r.flags = await judgeAnswer({ ...judgeOf(opts, opts.score), source: u.unit.text, output: r.output, checkLanguage: before.flags.includes('language'), signal })
     if (cost(r.flags) > cost(before.flags)) Object.assign(u, before)
     else Object.assign(u, { output: r.output, flags: r.flags, edited: false })
   } catch (e) {

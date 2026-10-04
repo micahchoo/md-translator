@@ -74,6 +74,26 @@ describe('translateDocument', () => {
     expect(calls[0].prompt).toContain('English: Wash the lemons.\nHindi: नींबू अच्छे से धो लें।')
   })
 
+  test('the judge flags a block whose answer fits the source without its "not"', async () => {
+    const { complete } = fake(() => 'यह सुरक्षित है।')
+    const score = async (prefix: string) => (prefix.includes('English: It is safe.') ? -1 : -9)
+    const r = await translateDocument('It is not safe.\n', { ...opts, score }, complete, () => {})
+    expect(r.units[0].flags).toContain('meaning')
+  })
+
+  test('the judge flags an answer its related language explains better, in the first blocks', async () => {
+    const { complete } = fake(() => 'हे सुरक्षित आहे आणि ते चांगले आहे.')
+    const score = async (prefix: string) => (prefix.endsWith('Marathi:') ? -1 : -9)
+    const r = await translateDocument('It is safe and it is good.\n', { ...opts, score }, complete, () => {})
+    expect(r.units[0].flags).toContain('language')
+  })
+
+  test('without a scorer, nothing is judged', async () => {
+    const { complete } = fake(() => 'यह सुरक्षित है।')
+    const r = await translateDocument('It is not safe.\n', opts, complete, () => {})
+    expect(r.units[0].flags).not.toContain('meaning')
+  })
+
   test('an answer repeated for a different block is flagged, flagged or not the first time', async () => {
     // Telugu, bench/starts.ts: the same word came back for the first two blocks.
     const { complete } = fake(() => 'नींबू')

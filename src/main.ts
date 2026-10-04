@@ -3,6 +3,7 @@
 // and turns clicks into calls.
 import { BlockList } from './blocks'
 import { directionLabel, dirOf, LANGUAGES } from './languages'
+import { createScorer, probe, type Score } from './judge'
 import { createClient, listModels } from './llm'
 import { DEFAULTS, formatExamples, loadSettings, parseExamples, saveSettings, toOptions, type Settings } from './settings'
 import { loadDocs, loadMemory, remember, saveDocs, saveMemory, type SavedDoc } from './store'
@@ -197,10 +198,18 @@ function explain(e: unknown): string {
   return `The model server answered with an error: ${e instanceof Error ? e.message : String(e)}`
 }
 
+// Whether the endpoint can score text for the judge, asked once per endpoint.
+const scorable = new Map<string, Promise<boolean>>()
+async function scorer(): Promise<Score | undefined> {
+  if (!settings.judge) return undefined
+  if (!scorable.has(settings.endpoint)) scorable.set(settings.endpoint, probe(settings.endpoint))
+  return (await scorable.get(settings.endpoint)) ? createScorer(settings.endpoint) : undefined
+}
+
 async function translate(targets: Doc[]) {
   controller = new AbortController()
   const complete = createClient({ endpoint: settings.endpoint, model: settings.model })
-  const opts = { ...toOptions(settings), remembered: memory[settings.language] }
+  const opts = { ...toOptions(settings), remembered: memory[settings.language], score: await scorer() }
   for (const d of targets) {
     if (controller.signal.aborted) break
     // A stopped run resumes; an edited source keeps its unchanged blocks; the
@@ -254,7 +263,7 @@ async function retry(i: number) {
   if (!d.units || busy()) return
   controller = new AbortController()
   const complete = createClient({ endpoint: settings.endpoint, model: settings.model })
-  const opts = { ...toOptions(settings), language: LANGUAGES[d.lang ?? settings.language] }
+  const opts = { ...toOptions(settings), language: LANGUAGES[d.lang ?? settings.language], score: await scorer() }
   opts.examples = settings.examples[opts.language.code] ?? opts.language.examples
   render()
   try {
@@ -391,6 +400,7 @@ function fillForm(s: Settings) {
   field('examples').value = formatExamples(s.examples[lang.code] ?? lang.examples, lang)
   field('skipKeys').value = s.skipKeys
   ;(field('noteOnDownload') as HTMLInputElement).checked = s.noteOnDownload
+  ;(field('judge') as HTMLInputElement).checked = s.judge
   el.examplesLabel.textContent = `Examples (${directionLabel(lang)})`
   el.settingsError.textContent = ''
   el.connection.textContent = ''
@@ -426,6 +436,7 @@ el.form.addEventListener('submit', (e) => {
       examples: { ...settings.examples, [lang.code]: examples },
       skipKeys: field('skipKeys').value,
       noteOnDownload: (field('noteOnDownload') as HTMLInputElement).checked,
+      judge: (field('judge') as HTMLInputElement).checked,
     }
     if (!saveSettings(storage, settings)) el.settingsError.textContent = 'Saved for this visit only: this browser blocks storage.'
   } catch (err) {
