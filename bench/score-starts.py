@@ -29,7 +29,9 @@ for path in sys.argv[1:]:
         by[r["code"]].append(r)
     print(f"== {path}\nlang  blocks  silent  flagged  chrF vs GT")
     for code, rows in by.items():
-        scores = [chrf.sentence_score(r["output"], [r["gt"]]).score for r in rows]
+        # A language Google Translate cannot yardstick: only copies count as silent.
+        scores = [chrf.sentence_score(r["output"], [r["gt"]]).score if r["gt"] else 100.0 for r in rows]
         silent = sum(1 for r, s in zip(rows, scores) if not r["flags"] and (s < 20 or same(r["output"], r["source"])))
         flagged = sum(1 for r in rows if r["flags"])
-        print(f"{code:<5} {len(rows):>6} {silent:>7} {flagged:>8} {sum(scores) / len(scores):>11.1f}")
+        mean = f"{sum(scores) / len(scores):>11.1f}" if rows[0]["gt"] else f"{'—':>11}"
+        print(f"{code:<5} {len(rows):>6} {silent:>7} {flagged:>8} {mean}")

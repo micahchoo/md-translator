@@ -16,7 +16,10 @@
 // wrong language; for the six that passed without them, the examples still
 // raised chrF against Google Translate by 7 to 10 points. Sanskrit, Konkani and
 // Dogri failed the first screen outright (Dogri wrote Punjabi in Gurmukhi) and
-// passed with examples; Sanskrit by the narrowest margin of any. The examples cover the shapes the model got wrong without them: a
+// passed with examples; Sanskrit by the narrowest margin of any. Bodo, Sindhi
+// and Kashmiri, which Claude cannot write, take five of IN22's own human rows
+// (bench/examples.ts#fromIN22) and passed with them; Manipuri and Santali, given
+// the same, wrote the right language but scored under the floor. The examples cover the shapes the model got wrong without them: a
 // bare heading, a question it must not answer, a bold list label, inline code
 // with a link, and a sentence of acronyms and dates. None is about any one
 // subject, so they bias no document toward a genre.
@@ -92,6 +95,23 @@ export const LANGUAGES: Record<string, Language> = {
       'FDA-র 2026 সালের প্রতিবেদনটি আগস্ট 2026 পর্যন্ত **এখনও খসড়া**। [নির্দেশিকা](#1)',
     ]),
   },
+  brx: {
+    code: 'brx',
+    name: 'Bodo',
+    native: 'बर’',
+    from: 'English',
+    script: /[ऀ-ॿ]/g,
+    length: 1.02,
+    foreign: /[ॻॼॾॿ]/,
+    // IN22-Gen (AI4Bharat, CC BY 4.0), rows 268, 277, 76, 45, 221: human translations.
+    examples: [
+      ['There is a medico-legal aspect.', 'बेवहाय मोनसे मुलियारि-आयेनारि बिथिं दं।'],
+      ['What is the harm?', 'बेयाव मा खहा दं?'],
+      ['**Despite this unsettling global environment, the Indian economy continues to be resilient.**', '**मुलुगारि दिदोमथि गैयि थासारिआवबो भारतनि रांखान्थिआ गोख्रोङै थाबाय थादों।**'],
+      ['[It intervenes in the market to curb excessive volatility and anchor expectations.](#1) `npm install`', '[बेयो बांद्राय गोजोरथि गैयिखौ होबथानो हाथाइ गेजेराव हाबो आरो मिजिं थिनायखौ थुलुंगा होयो।](#1) `npm install`'],
+      ['The live telecast of proceedings started in 1994.', 'थोंजोङै फोसावनाया 1994 आव जागायदोंमोन।'],
+    ],
+  },
   doi: {
     code: 'doi',
     name: 'Dogri',
@@ -153,6 +173,23 @@ export const LANGUAGES: Record<string, Language> = {
       '`npm install` ಅನ್ನು ಚಲಾಯಿಸಿ, ನಂತರ [ಸೆಟಪ್ ಮಾರ್ಗದರ್ಶಿ](#1) ಓದಿ. ಇದಕ್ಕೆ ಸುಮಾರು 5 ನಿಮಿಷಗಳು ಬೇಕಾಗುತ್ತವೆ.',
       'FDA ಯ 2026 ರ ವರದಿಯು ಆಗಸ್ಟ್ 2026 ರ ವೇಳೆಗೆ **ಇನ್ನೂ ಕರಡು** ಆಗಿದೆ. [ಮಾರ್ಗಸೂಚಿ](#1)',
     ]),
+  },
+  ks: {
+    code: 'ks',
+    name: 'Kashmiri',
+    native: 'کٲشُر',
+    from: 'English',
+    script: /[؀-ۿ]/g,
+    length: 1.02,
+    dir: 'rtl',
+    // IN22-Gen (AI4Bharat, CC BY 4.0), rows 268, 277, 76, 45, 221: human translations.
+    examples: [
+      ['There is a medico-legal aspect.', 'اتین چھُ اکھ طبی-قوٗنونی پہلو۔'],
+      ['What is the harm?', 'کیٛا نۄقصان چھُ؟'],
+      ['**Despite this unsettling global environment, the Indian economy continues to be resilient.**', '**امہِ پریشان کُن عالمی ماحول باووٚجوٗد چھِ ہندوستانٕچ معاشِیَت لگاتار بڈنٕچہِ قووت تھوان ۔۔**'],
+      ['[It intervenes in the market to curb excessive volatility and anchor expectations.](#1) `npm install`', '[یہِ چھُ ضرورَت کھۄتہٕ زیٛادٕ اتار چَڑھاو تہٕ احتِماد حٲصِل کَرنٕچ اُوومیٖد رُکاونہٕ خٲطرٕ بازارَس مَنٛز دَخٕل دِوان۔](#1) `npm install`'],
+      ['The live telecast of proceedings started in 1994.', 'کاروٲیی ہُنٛد سیٚدِ سیوٚد ٹیٚلی کاسٹ گوٚو 1994 منٛز شروٗع۔'],
+    ],
   },
   gom: {
     code: 'gom',
@@ -278,6 +315,22 @@ export const LANGUAGES: Record<string, Language> = {
       '`npm install` चालयतु, ततः [सज्जीकरण-मार्गदर्शिकाम्](#1) पठतु। अस्मिन् प्रायः 5 निमेषाः भवन्ति।',
       'FDA-संस्थायाः 2026 वर्षस्य प्रतिवेदनम् अगस्त 2026 पर्यन्तं **अद्यापि प्रारूपम्** अस्ति। [मार्गदर्शनम्](#1)',
     ]),
+  },
+  sd: {
+    code: 'sd',
+    name: 'Sindhi',
+    native: 'सिन्धी',
+    from: 'English',
+    script: /[ऀ-ॿ]/g,
+    length: 1.0,
+    // IN22-Gen (AI4Bharat, CC BY 4.0), rows 268, 277, 76, 45, 221: human translations.
+    examples: [
+      ['There is a medico-legal aspect.', 'हिकि तबई-कानूनी पहलू आहे।'],
+      ['What is the harm?', 'कहिड़ो नुकसानि आहे?'],
+      ['**Despite this unsettling global environment, the Indian economy continues to be resilient.**', '**हिन परेशान कंदड आलमी वातावरण हूंदे बि, हिंदुस्तानी महीशत लगा॒तार लिचकेदार थी रही आहे।**'],
+      ['[It intervenes in the market to curb excessive volatility and anchor expectations.](#1) `npm install`', '[तमाम घणी वधि-घटि ऐं ज़ामिननि जी उम्मेदुनु खे रोकण जे लाए इहा बाज़ार जे विच में पवे थी।](#1) `npm install`'],
+      ['The live telecast of proceedings started in 1994.', 'कार्रवाईअ जो लाइव टेलीकास्ट 1994 में शुरू थियो।'],
+    ],
   },
   ta: {
     code: 'ta',

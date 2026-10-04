@@ -40,7 +40,8 @@ fact of that kind is added to a README, add its test too.
 
 FLORES+ text in any form, including run outputs that contain its sentences
 (its gate forbids re-hosting where crawlers reach). Google Translate output.
-IN22-Gen only as a credited sentence or two. All of it lives in the
-git-ignored `corpus/`.
+IN22-Gen (CC BY 4.0) may ship with credit: a test sentence, and the five rows
+that give Bodo, Sindhi and Kashmiri their examples. Everything else lives in
+the git-ignored `corpus/`.
 
 Verify with `bun test`.

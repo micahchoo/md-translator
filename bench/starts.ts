@@ -39,7 +39,11 @@ const codes = process.argv.length > 3 ? process.argv.slice(3) : Object.keys(LANG
 
 const rows = await in22Rows()
 const units = DOCS.flatMap((d) => segment(d, { skipKeys: [] }).map((u) => u.text))
-await translateAll(codes.flatMap((to) => units.map((text) => ({ from: 'en', to, text }))), 20_000)
+// Google Translate is only a yardstick here; the verdict is the wrong-language
+// count. A language it lacks (Bodo) or writes in another script (its Sindhi is
+// Arabic, ours Devanagari) is run without one.
+const NO_YARDSTICK = new Set(['brx', 'sd', 'ks', 'mni', 'sat'])
+await translateAll(codes.filter((c) => !NO_YARDSTICK.has(c)).flatMap((to) => units.map((text) => ({ from: 'en', to, text }))), 20_000)
 
 const OUT = `corpus/runs/starts-${arm}.jsonl`
 mkdirSync('corpus/runs', { recursive: true })
@@ -61,7 +65,7 @@ for (const code of codes) {
   for (const doc of DOCS) {
     const done = await translateDocument(doc, opts, complete, () => {})
     for (const u of done.units)
-      appendFileSync(OUT, JSON.stringify({ code, source: u.unit.text, output: u.output, flags: u.flags, gt: gt('en', code, u.unit.text) }) + '\n')
+      appendFileSync(OUT, JSON.stringify({ code, source: u.unit.text, output: u.output, flags: u.flags, gt: NO_YARDSTICK.has(code) ? null : gt('en', code, u.unit.text) }) + '\n')
   }
   process.stderr.write(`${code} `)
 }

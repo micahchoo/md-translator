@@ -164,6 +164,6 @@ dialog textarea { font-family: var(--mono); font-size: 0.85rem; resize: vertical
 /* Indic scripts stack vowel signs and conjuncts above and below the letter:
    they need more line height than Latin, and a size step up to match its weight.
    Applied by language, so English beside them keeps its own metrics. */
-:is(:lang(as), :lang(bn), :lang(doi), :lang(gom), :lang(gu), :lang(hi), :lang(kn), :lang(mai), :lang(ml), :lang(mr), :lang(ne), :lang(or), :lang(pa), :lang(sa), :lang(ta), :lang(te), :lang(ur)) { line-height: 1.85; }
-.indic-text:is(:lang(as), :lang(bn), :lang(doi), :lang(gom), :lang(gu), :lang(hi), :lang(kn), :lang(mai), :lang(ml), :lang(mr), :lang(ne), :lang(or), :lang(pa), :lang(sa), :lang(ta), :lang(te), :lang(ur)) { font-size: 1.07em; }
-#output:is(:lang(as), :lang(bn), :lang(doi), :lang(gom), :lang(gu), :lang(hi), :lang(kn), :lang(mai), :lang(ml), :lang(mr), :lang(ne), :lang(or), :lang(pa), :lang(sa), :lang(ta), :lang(te), :lang(ur)) { line-height: 1.9; }
+:is(:lang(as), :lang(bn), :lang(brx), :lang(doi), :lang(gom), :lang(gu), :lang(hi), :lang(kn), :lang(ks), :lang(mai), :lang(ml), :lang(mr), :lang(ne), :lang(or), :lang(pa), :lang(sa), :lang(sd), :lang(ta), :lang(te), :lang(ur)) { line-height: 1.85; }
+.indic-text:is(:lang(as), :lang(bn), :lang(brx), :lang(doi), :lang(gom), :lang(gu), :lang(hi), :lang(kn), :lang(ks), :lang(mai), :lang(ml), :lang(mr), :lang(ne), :lang(or), :lang(pa), :lang(sa), :lang(sd), :lang(ta), :lang(te), :lang(ur)) { font-size: 1.07em; }
+#output:is(:lang(as), :lang(bn), :lang(brx), :lang(doi), :lang(gom), :lang(gu), :lang(hi), :lang(kn), :lang(ks), :lang(mai), :lang(ml), :lang(mr), :lang(ne), :lang(or), :lang(pa), :lang(sa), :lang(sd), :lang(ta), :lang(te), :lang(ur)) { line-height: 1.9; }

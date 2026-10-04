@@ -10,6 +10,9 @@ const lang = (code: string, name: string, script: RegExp): Language => ({ code, 
 /** IN22 column → target language. */
 export const CANDIDATES: Record<string, Language> = {
   asm_Beng: LANGUAGES.as,
+  brx_Deva: LANGUAGES.brx,
+  kas_Arab: LANGUAGES.ks,
+  snd_Deva: LANGUAGES.sd,
   doi_Deva: LANGUAGES.doi,
   gom_Deva: LANGUAGES.gom,
   san_Deva: LANGUAGES.sa,
@@ -27,9 +30,6 @@ export const CANDIDATES: Record<string, Language> = {
   tam_Taml: LANGUAGES.ta,
   tel_Telu: LANGUAGES.te,
   // Not shipped: see the screen in languages.ts.
-  brx_Deva: { ...lang('brx', 'Bodo', DEVANAGARI), native: 'बर’', length: 1.02 },
-  kas_Arab: { ...lang('ks', 'Kashmiri', /[؀-ۿ]/g), native: 'کٲشُر', length: 1.02, dir: 'rtl' },
   mni_Mtei: { ...lang('mni', 'Manipuri', /[ꯀ-꯿ꫠ-꫿]/g), native: 'ꯃꯩꯇꯩꯂꯣꯟ', length: 0.95 },
   sat_Olck: { ...lang('sat', 'Santali', /[᱐-᱿]/g), native: 'ᱥᱟᱱᱛᱟᱲᱤ', length: 1.05 },
-  snd_Deva: { ...lang('sd', 'Sindhi', DEVANAGARI), native: 'सिन्धी', length: 1.0 },
 }

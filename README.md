@@ -1,12 +1,12 @@
 # Markdown Translator
 
-Translates Markdown documents between English and seventeen Indian languages, using a model that runs on your own computer. Headings, lists, bold text, links and code come back where they were.
+Translates Markdown documents between English and twenty Indian languages, using a model that runs on your own computer. Headings, lists, bold text, links and code come back where they were.
 
 **Open it:** https://micahchoo.github.io/md-translator/
 
 ## Languages
 
-Assamese, Bengali, Dogri, Gujarati, Hindi, Kannada, Konkani, Maithili, Malayalam, Marathi, Nepali, Odia, Punjabi, Sanskrit, Tamil, Telugu and Urdu, into and out of English. Urdu is written right to left.
+Assamese, Bengali, Bodo, Dogri, Gujarati, Hindi, Kannada, Kashmiri, Konkani, Maithili, Malayalam, Marathi, Nepali, Odia, Punjabi, Sanskrit, Sindhi, Tamil, Telugu and Urdu, into and out of English. Urdu and Kashmiri are written right to left; Sindhi in Devanagari.
 
 To translate into English, choose English. You do not say what the source language is; the model recognises it.
 
@@ -72,7 +72,7 @@ Before you rely on a translation, have someone who reads the language check it.
 | Retries | Attempts after a flagged answer. |
 | System prompt | The opening instruction. `{L}` becomes the target language, `{S}` the source label. |
 | Note in downloads | On by default. A downloaded file ends with one line naming the model, the date, and how many blocks were flagged. Copy never adds it. |
-| Examples | Worked pairs shown to the model, five per language. Hindi's and Kannada's were written first; the rest were written by Claude and checked against Google Translate both ways. English has none. |
+| Examples | Worked pairs shown to the model, five per language. Hindi's and Kannada's were written first; Bodo's, Sindhi's and Kashmiri's are human translations from IN22-Gen; the rest were written by Claude and checked against Google Translate both ways. English has none. |
 
 ## Development
 
@@ -95,6 +95,6 @@ This translator is one web page and your own model server. Your documents stay o
 
 ## Credits
 
-The model is sarvam-30b by Sarvam AI. The language tests use IN22-Gen by AI4Bharat, and GlotLID.
+The model is sarvam-30b by Sarvam AI. The language tests use IN22-Gen by AI4Bharat (CC BY 4.0), whose human translations also give Bodo, Sindhi and Kashmiri their examples, and GlotLID.
 
 The code is under the [MIT licence](LICENSE).

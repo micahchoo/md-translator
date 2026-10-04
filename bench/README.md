@@ -16,9 +16,8 @@ A language passed if all of these held:
 | --- | --- |
 | Assamese, Hindi, Kannada, Malayalam, Marathi, Nepali, Tamil, Telugu | Passed |
 | Bengali, Dogri, Gujarati, Konkani, Maithili, Odia, Punjabi, Sanskrit, Urdu | Passed with worked examples (see below), after failing without them; Sanskrit by the narrowest margin (48.3 and 35.0 against floors of 48 and 35) |
-| Bodo | Wrote Assamese |
-| Manipuri, Santali, Sindhi | Wrong language or script, from English |
-| Kashmiri | chrF too low |
+| Bodo, Kashmiri, Sindhi | Passed with examples taken from IN22's own human rows; Kashmiri and Sindhi near the floor (35.2, 35.8 from English) |
+| Manipuri, Santali | Wrong script without examples; with IN22's rows the right script, but under the floor (28.1 and 30.8 from English) |
 
 Ten sentences is a screen, not a precise measurement. Sanskrit's margin is within the noise.
 
@@ -86,13 +85,11 @@ Urdu is not measured: 14 of the 15 Kashmiri texts could not be scored, because t
 
 **A lost "not".** The English source is swapped for the same sentence without its "not". The answers are the Google Translate pairs. Across all 11 languages, 157 of 166 lost negations were caught (95%), and 9 of 166 correct answers were flagged (5%). That includes Kannada, Tamil and Telugu, where the list of negation words failed. Tamil was the weakest: 12 of 13 caught, 2 of 13 flagged.
 
-**What is not yet known.** These answers are human or Google Translate text. The model may judge its own translations more kindly, so the check must be measured again on sarvam-30b's own answers before the app uses it. Scoring takes about one request per token, so each check adds a second or two to a block.
+**On the model's own answers** (`judge-own.ts`), since a model may find its own phrasing likelier and excuse its own errors. For negation it translated each sentence with and without its "not", and Google Translate read each answer back to say whether the "not" survived; only answers whose reading agreed with what was asked were scored, because a back-translation misses a negation carried by a word ("inadmissible", "without"). Of the first four disagreements read by hand, none was a dropped "not". Result: 8 of 105 correct answers flagged and 103 of 109 lost negations caught. Assamese, Hindi, Marathi, Nepali and Tamil were near-flawless; Kannada and Malayalam had 3 false alarms in 14 each. For the related language, 1 of 58 right answers was flagged and 103 of 105 wrong ones caught. No sign that the model excuses itself. Scoring takes about one request per token, so each check adds a second or two to a block.
 
-## Being measured
+## Against Google Translate
 
-**Examples from IN22's own human rows, for languages Claude cannot write.** Bodo, Manipuri, Santali, Sindhi and Kashmiri failed the first screen by writing the wrong language or script. `examples.ts#fromIN22` builds their examples from five IN22 rows that no test sample contains, with the Markdown wrapped around whole sentences so it fits any word order. They are tested like the others: the screen, then the short-block test.
-
-**The judge on the model's own answers.** `judge-own.ts` repeats both judge tests with sarvam-30b's own translations, since a model may find its own phrasing likelier. For negation, Google Translate reads each answer back into English to say whether its "not" really survived, so the test also asks whether the judge catches a "not" the model dropped by itself.
+The same IN22 sentences, scored against the professional translation: sarvam-30b's answers, and Google Translate's. Google scored higher in every one of 12 language and direction pairs, by chrF, chrF++ and COMET-22 alike (COMET 0.01 to 0.10 higher), and COMET preferred it sentence by sentence about 85% of the time; Tamil into English was a tie. Four of the from-English rows were made before those languages had examples, which later added 7 to 10 points, so the gap is smaller than these rows show, but Hindi and Kannada, which had examples throughout, still trailed by 6 to 8 chrF. The app uses sarvam-30b for privacy, cost and control, not for quality.
 
 ## Short blocks at the start of a document
 
@@ -118,6 +115,8 @@ The six that had passed without examples (Assamese, Malayalam, Marathi, Nepali, 
 Sanskrit, Konkani and Dogri, which had failed the first screen outright (Dogri wrote Punjabi in Gurmukhi, chrF 0.5 from English), were given examples the same way, after a Dogri line that read back as "breathed in" was rewritten. All three passed the screen (Dogri 50.0 from English) and put 0 of 30 short blocks in the wrong language. They shipped.
 
 **The owner's own documents.** `realdocs.ts` ran the first 25 blocks of three of the owner's Markdown files, which no model has seen (a policy digest, a plugin README and this README), into Hindi, Tamil, Bengali, Urdu and Maithili: 74 blocks each. 1 to 5 blocks per language were flagged. Of the unflagged blocks GlotLID read as another language, every one read by hand was a line of acronyms kept in English as it should be (`FDA MDR (21 CFR 803) + MedWatch`), or Maithili that GlotLID took for its close relatives Bhojpuri and Magahi. One real fault: Hindi translated a command name set in bold ("Run **Draw a question**"), which a reader needs in English to find it in the app; the README now says to write such names as code.
+
+**Examples from IN22's own human rows, for languages Claude cannot write** (the owner asked for a reliable human source, such as a Bible). IN22 was better than a Bible on three counts: modern register, the same scripts the app uses, and a CC BY 4.0 licence. Five rows no test sample contains, the Markdown wrapped around whole sentences. From English, Bodo went from 0.4 to 42.3, Sindhi 0.5 to 35.8, Kashmiri to 35.2, Manipuri 0.3 to 28.1 and Santali 0.2 to 30.8: all five now write their own language and script. Bodo, Sindhi and Kashmiri passed the screen and put 0 of 30 short blocks in the wrong language. Google Translate has no Bodo and writes Sindhi in Arabic script, so GlotLID checked those blocks instead; of the five Sindhi blocks it called Hindi, every one was Sindhi on reading (थी वेंदो, करणु, ॾसो). Manipuri and Santali stay out: right language, under the floor.
 
 **A second length limit for short blocks.** The normal lengths were measured on IN22's long sentences, and short blocks vary more: with examples, Nepali had 8 of 30 short blocks flagged "may have added text", every one a complete translation. Of 125 such flags on sources under 40 characters, the 11 above twice the normal length held every real addition seen (a leaked label line, the English repeated: 3.3 to 40 times). So under 40 characters the limit is 2, not 1.4. The cost: a short sentence added to a short block now goes unflagged.
 
