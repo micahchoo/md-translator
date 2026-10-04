@@ -63,6 +63,15 @@ In order, all on the cache, no new requests:
    c. Number agreement (native digits normalised) as filter and tie-break.
    d. Only if a gap remains: margin scoring instead of raw cosine; LASER3/SONAR for mni and lus
       (verify coverage first).
+   e. Name agreement, both ways built and scored on the stick as a RANKING (does each capitalised English
+      name have a match in some 1-3 word span of the other sentence?), never a fixed threshold; keep the
+      one that separates better. Then offer it to the app as a "changed name" check.
+      - Loose key: romanise with Aksharamukha (covers Ol Chiki, Meetei Mayek), fold vowel length,
+        aspiration, n/ṇ/ñ, v/w on both sides, compare.
+      - IPA: espeak-ng 1.52 (installed; voices for as bn gu hi kn ml mr ne or pa sd ta te ur, en-us) on
+        both sides, PanPhon feature_edit_distance_div_maxlen. Spike 2026-10-04, 9 pilot names: right pair
+        0.11-0.22, nearest wrong 0.22-0.36 -- right always nearest, but no clean threshold. English G2P
+        misreads Indian names ("Murugan" -> mjʊɹɹuɡən). One espeak call per batch, not per word.
 5. Before the full crawl: a concurrency setting in pib.ts (2 in flight). Estimate ~12k pages/month,
    ~10 days for 2017–2026 at 2 fetchers + direct URL; older months may be smaller — pilot one 2018 month.
 6. A sarvam-30b benchmark from PIB, after step 4. Covers 14 of the 20 offered languages (none for Bodo,
