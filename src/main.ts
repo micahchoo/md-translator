@@ -5,7 +5,7 @@ import { BlockList } from './blocks'
 import { directionLabel, dirOf, LANGUAGES } from './languages'
 import { createClient, listModels } from './llm'
 import { DEFAULTS, formatExamples, loadSettings, parseExamples, saveSettings, toOptions, type Settings } from './settings'
-import { loadDocs, saveDocs, type SavedDoc } from './store'
+import { loadDocs, loadMemory, remember, saveDocs, saveMemory, type SavedDoc } from './store'
 import { editUnit, progressOf, retryUnit, translateDocument } from './translate'
 
 type View = 'source' | 'blocks' | 'markdown'
@@ -51,6 +51,7 @@ const storage: Pick<Storage, 'getItem' | 'setItem'> = (() => {
 })()
 
 let settings: Settings = loadSettings(storage)
+let memory = loadMemory(storage)
 const docs: Doc[] = loadDocs(storage).map((d) => ({ ...d, view: d.units?.length ? 'blocks' : 'source' }))
 let nextId = Math.max(0, ...docs.map((d) => d.id)) + 1
 const blank = (): Doc => ({ id: nextId++, name: 'Untitled', source: '', status: 'idle', view: 'source' })
@@ -84,7 +85,10 @@ const blocks = new BlockList(el.blocks, {
   edit: (i, text) => {
     const d = doc()
     if (!d.units) return
-    editUnit(d.source, d.units, i, text, LANGUAGES[d.lang ?? settings.language])
+    const lang = d.lang ?? settings.language
+    editUnit(d.source, d.units, i, text, LANGUAGES[lang])
+    memory = remember(memory, lang, d.units[i].unit.text, d.units[i].output)
+    saveMemory(storage, memory)
     persist()
     render()
   },
@@ -196,7 +200,7 @@ function explain(e: unknown): string {
 async function translate(targets: Doc[]) {
   controller = new AbortController()
   const complete = createClient({ endpoint: settings.endpoint, model: settings.model })
-  const opts = toOptions(settings)
+  const opts = { ...toOptions(settings), remembered: memory[settings.language] }
   for (const d of targets) {
     if (controller.signal.aborted) break
     const resume = d.status === 'stopped' ? d.units : undefined

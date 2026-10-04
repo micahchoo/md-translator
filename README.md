@@ -26,7 +26,7 @@ To use a server on another device, serve it over `https`, for example with `tail
 1. Choose the direction, for example **English → Tamil** or **Any language → English**.
 2. Paste Markdown, or attach `.md` files. Each file opens as a tab.
 3. Press **Translate**. **Blocks** shows each piece of the source beside its translation as it arrives.
-4. Press **Retry** or **Edit** on any block you want to change.
+4. Press **Retry** or **Edit** on any block you want to change. Your edits are remembered: the same block in a later document, in the same direction, comes back with your words and is never sent to the model. Anuvaad keeps a translation memory for the same reason.
 5. **Copy** the result, or **Download** it as a `.md` file.
 
 Your documents stay in this browser. If you stop a run, **Translate** continues from where it stopped.

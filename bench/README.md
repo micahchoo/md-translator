@@ -83,6 +83,10 @@ Urdu is not measured: 14 of the 15 Kashmiri texts could not be scored, because t
 
 **What is not yet known.** These answers are human or Google Translate text. The model may judge its own translations more kindly, so the check must be measured again on sarvam-30b's own answers before the app uses it. Scoring takes about one request per token, so each check adds a second or two to a block.
 
+## Being measured
+
+**The judge on the model's own answers.** `judge-own.ts` repeats both judge tests with sarvam-30b's own translations, since a model may find its own phrasing likelier. For negation, Google Translate reads each answer back into English to say whether its "not" really survived, so the test also asks whether the judge catches a "not" the model dropped by itself.
+
 ## Short blocks at the start of a document
 
 In the browser on 2026-10-04, Urdu returned a heading unchanged and Telugu turned "How it works" into the word "Telugu", with no flag. The Markdown test above is one document per language and missed both. `starts.ts` runs ten small documents, each beginning with a short heading, through the app's own code. `score-starts.py` counts the blocks that went wrong with no flag, against Google Translate's answer for the same block, and every such block was then read by hand: many were good translations worded differently.
@@ -120,6 +124,7 @@ uvx --from huggingface_hub hf download cis-lmu/glotlid model.bin --local-dir cor
 | `bun bench/contrast-gt.ts 20` | Tests the checks on damage made with Google Translate. |
 | `bun bench/negation.ts` | Learns each language's negation words and measures the rule. Needs no model. |
 | `bun bench/starts.ts own` (or `hindi`) | Short blocks at the start of a document; `hindi` lends Hindi's examples. Score with `uv run bench/score-starts.py corpus/runs/starts-*.jsonl`. |
+| `bun bench/judge-own.ts 15` | The judge on the model's own answers. Resumes; answers kept in `corpus/runs/judge-own-answers.jsonl`. |
 | `bun bench/judge.ts 15 20` | Measures the model as its own judge, on language and on negation. Resumes: a language already in `corpus/runs/judge.jsonl` is skipped. |
 
 Shared by these: `candidates.ts` (every language as a target), `in22.ts` (reads IN22-Gen once and keeps it as JSON), `gt.ts` (the Google Translate client and its cache), `likelihood.ts` (the model's probability of a given text).

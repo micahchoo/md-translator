@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { loadDocs, saveDocs, type SavedDoc } from '../src/store'
+import { loadDocs, loadMemory, remember, saveDocs, saveMemory, type SavedDoc } from '../src/store'
 
 function memory() {
   const data = new Map<string, string>()
@@ -33,5 +33,24 @@ describe('documents survive a reload', () => {
     const s = memory()
     s.data.set('md-translator.docs', JSON.stringify([{ id: 1, name: 'x' }, doc]))
     expect(loadDocs(s)).toEqual([doc])
+  })
+})
+
+describe("the owner's edits are remembered", () => {
+  test('an edit comes back after a reload, under its language', () => {
+    const s = memory()
+    const m = remember(remember({}, 'hi', 'Wash the lemons.', 'नींबू धो लें।'), 'kn', 'Wash the lemons.', 'ನಿಂಬೆ ತೊಳೆಯಿರಿ.')
+    expect(saveMemory(s, m)).toBe(true)
+    expect(loadMemory(s)).toEqual({ hi: { 'Wash the lemons.': 'नींबू धो लें।' }, kn: { 'Wash the lemons.': 'ನಿಂಬೆ ತೊಳೆಯಿರಿ.' } })
+  })
+
+  test('a later edit of the same block replaces the earlier one', () => {
+    expect(remember(remember({}, 'hi', 'A', 'x'), 'hi', 'A', 'y')).toEqual({ hi: { A: 'y' } })
+  })
+
+  test('corrupt or blocked storage remembers nothing, never a broken page', () => {
+    expect(loadMemory({ getItem: () => '{not json' })).toEqual({})
+    expect(loadMemory({ getItem: () => '["a"]' })).toEqual({})
+    expect(loadMemory({ getItem: () => { throw new Error('blocked') } })).toEqual({})
   })
 })

@@ -34,3 +34,33 @@ export function saveDocs(storage: Pick<Storage, 'setItem'>, docs: SavedDoc[]): b
     return false
   }
 }
+
+// The owner's edits, by language and then by source block, so the same sentence
+// is never asked of the model again once the owner has said what it should be.
+// Anuvaad keeps a translation memory for the same reason.
+export type Memory = Record<string, Record<string, string>>
+
+const MEMORY_KEY = 'md-translator.memory'
+
+export function loadMemory(storage: Pick<Storage, 'getItem'>): Memory {
+  try {
+    const raw = JSON.parse(storage.getItem(MEMORY_KEY) ?? '{}')
+    return raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {}
+  } catch {
+    return {}
+  }
+}
+
+export function saveMemory(storage: Pick<Storage, 'setItem'>, memory: Memory): boolean {
+  try {
+    storage.setItem(MEMORY_KEY, JSON.stringify(memory))
+    return true
+  } catch {
+    return false
+  }
+}
+
+export const remember = (memory: Memory, lang: string, source: string, text: string): Memory => ({
+  ...memory,
+  [lang]: { ...memory[lang], [source]: text },
+})

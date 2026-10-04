@@ -65,6 +65,15 @@ describe('translateDocument', () => {
     expect(r.units[0].flags).toEqual(['markup'])
   })
 
+  test('a block the owner edited before is not asked again, and serves as context', async () => {
+    const { complete, calls } = fake((s) => TABLE[s])
+    const remembered = { 'Wash the lemons.': 'नींबू अच्छे से धो लें।' }
+    const r = await translateDocument('Wash the lemons.\n\nDry them well.\n', { ...opts, remembered }, complete, () => {})
+    expect(r.units[0]).toMatchObject({ output: 'नींबू अच्छे से धो लें।', edited: true, flags: [] })
+    expect(calls.map((c) => asked(c.prompt))).toEqual(['Dry them well.'])
+    expect(calls[0].prompt).toContain('English: Wash the lemons.\nHindi: नींबू अच्छे से धो लें।')
+  })
+
   test('an answer repeated for a different block is flagged, flagged or not the first time', async () => {
     // Telugu, bench/starts.ts: the same word came back for the first two blocks.
     const { complete } = fake(() => 'नींबू')

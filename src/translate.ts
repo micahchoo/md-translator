@@ -13,6 +13,8 @@ export interface TranslateOptions {
   language: Language
   preamble: string
   examples: Pair[]
+  /** The owner's earlier edits for this language, by source block: used as they are, never asked again. */
+  remembered?: Record<string, string>
   /** Set when the examples are another language's; see `PromptInput.exampleLabel`. */
   exampleLabel?: string
   /** How many preceding clean pairs the model sees. */
@@ -139,6 +141,14 @@ export async function translateDocument(
       continue
     }
     if (signal?.aborted) throw new Error('stopped')
+    const kept = opts.remembered?.[u.unit.text]
+    if (kept !== undefined) {
+      // The owner's own words: checked so a lost link still shows, then trusted as context.
+      Object.assign(u, { output: kept, flags: check(u.unit.text, kept, opts.language, earlierBefore(units, i)), edited: true, status: 'done' })
+      if (!u.flags.length) history.push([u.unit.text, kept])
+      onProgress(progressOf(md, units))
+      continue
+    }
     u.status = 'running'
     const r = await translateUnit(u, history, earlierBefore(units, i), opts, complete, () => onProgress(progressOf(md, units)), signal, {
       sampleFirst: false,
