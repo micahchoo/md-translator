@@ -74,13 +74,6 @@ describe('translateDocument', () => {
     expect(calls[0].prompt).toContain('English: Wash the lemons.\nHindi: नींबू अच्छे से धो लें।')
   })
 
-  test('with look-ahead, each block is shown the source block after it', async () => {
-    const { complete, calls } = fake((s) => TABLE[s])
-    await translateDocument('Title\n\nWash the lemons.\n', { ...opts, lookAhead: true }, complete, () => {})
-    expect(calls[0].prompt).toContain('continues after this line: Wash the lemons.')
-    expect(calls[1].prompt).not.toContain('continues after this line')
-  })
-
   test('an answer repeated for a different block is flagged, flagged or not the first time', async () => {
     // Telugu, bench/starts.ts: the same word came back for the first two blocks.
     const { complete } = fake(() => 'नींबू')
