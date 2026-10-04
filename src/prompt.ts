@@ -23,13 +23,18 @@ export interface PromptInput {
   /** The units just before this one with their translations, oldest first. */
   context: Pair[]
   source: string
+  /** The source block after this one, shown as context only. Being measured
+   *  (bench/starts.ts `ahead`): a heading's meaning is often settled by what
+   *  follows it, but a line outside the pattern may be read as an instruction. */
+  ahead?: string
 }
 
-export function buildPrompt({ language, preamble, examples, exampleLabel, context, source }: PromptInput): string {
+export function buildPrompt({ language, preamble, examples, exampleLabel, context, source, ahead }: PromptInput): string {
   const { name: L, from: S } = language
   const pair = (label: string) => ([s, t]: Pair) => `${S}: ${s}\n${label}: ${t}\n\n`
   const pairs = [...examples.map(pair(exampleLabel ?? L)), ...context.map(pair(L))].join('')
-  return `${preamble.replaceAll('{L}', L).replaceAll('{S}', S)}\n\n${pairs}${S}: ${source}\n${L}:`
+  const next = ahead ? `The passage continues after this line: ${ahead}\n\n` : ''
+  return `${preamble.replaceAll('{L}', L).replaceAll('{S}', S)}\n\n${next}${pairs}${S}: ${source}\n${L}:`
 }
 
 export function cleanOutput(raw: string, language: Language): string {

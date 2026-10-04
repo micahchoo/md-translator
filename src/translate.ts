@@ -13,6 +13,8 @@ export interface TranslateOptions {
   language: Language
   preamble: string
   examples: Pair[]
+  /** Show each block the source block after it (being measured; off in the app). */
+  lookAhead?: boolean
   /** The owner's earlier edits for this language, by source block: used as they are, never asked again. */
   remembered?: Record<string, string>
   /** Set when the examples are another language's; see `PromptInput.exampleLabel`. */
@@ -66,6 +68,8 @@ async function translateUnit(
   history: Pair[],
   /** Every block before this one, flagged or clean: an answer repeated from one is not this block's. */
   earlier: Pair[],
+  /** The source block after this one, when look-ahead is on. */
+  ahead: string | undefined,
   opts: TranslateOptions,
   complete: Complete,
   onText: () => void,
@@ -82,6 +86,7 @@ async function translateUnit(
       exampleLabel: opts.exampleLabel,
       context: opts.contextBlocks > 0 ? history.slice(-opts.contextBlocks) : [],
       source: piece,
+      ahead,
     })
     let best: { output: string; flags: Flag[] } | null = null
     for (let attempt = 0; attempt <= opts.retries; attempt++) {
@@ -107,6 +112,8 @@ async function translateUnit(
   }
   return { output: done.join(' '), flags: [...flags] }
 }
+
+const aheadOf = (units: UnitResult[], index: number, opts: TranslateOptions) => (opts.lookAhead ? units[index + 1]?.unit.text : undefined)
 
 /** Every finished unit before `index`, as source and answer, clean or flagged. */
 const earlierBefore = (units: UnitResult[], index: number): Pair[] =>
@@ -161,7 +168,7 @@ export async function translateDocument(
         continue
       }
       u.status = 'running'
-      const r = await translateUnit(u, history, earlierBefore(units, i), opts, complete, () => onProgress(progressOf(md, units)), signal, {
+      const r = await translateUnit(u, history, earlierBefore(units, i), aheadOf(units, i, opts), opts, complete, () => onProgress(progressOf(md, units)), signal, {
         sampleFirst: false,
       })
       u.output = r.output
@@ -194,7 +201,7 @@ export async function retryUnit(
   const before = { output: u.output, flags: u.flags, edited: u.edited }
   u.status = 'running'
   try {
-    const r = await translateUnit(u, historyBefore(units, index), earlierBefore(units, index), opts, complete, () => onProgress(progressOf(md, units)), signal, {
+    const r = await translateUnit(u, historyBefore(units, index), earlierBefore(units, index), aheadOf(units, index, opts), opts, complete, () => onProgress(progressOf(md, units)), signal, {
       sampleFirst: true,
     })
     if (cost(r.flags) > cost(before.flags)) Object.assign(u, before)

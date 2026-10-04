@@ -62,8 +62,6 @@ The rules cannot see meaning, so a lost "not" goes through. A related language i
 
 **Self-critique of a flagged block** (translation-agent's translate, reflect, improve). It needs the model to follow an instruction, which means chat mode, where sarvam-30b reasons before it answers. Asked to fix a Telugu sentence that dropped "if it freezes", it spent 800 tokens reasoning and gave no answer; given 4,000 tokens and 48 seconds, 14,895 characters of reasoning and still no answer. A translation takes about a second. Retrying by sampling the same parallel-text prompt stays the method.
 
-**Looking ahead** (translation-agent shows each chunk inside the whole source). Short headings are where failures clustered, and a heading's meaning is often settled by the paragraph under it, so each block was shown the source block after it, in a line after the preamble. On the short documents, six languages, both arms on the same code: no fewer silent failures, chrF lower in four (Telugu 79.1 to 74.9), and the headings it was meant for ("Changelog", "Contributing") already right without it, since the examples arrived. Removed; it is in commit 2002d11.
-
 **Terms kept unchanged by showing them as inline code** (adapted from the glossaries in Co-op Translator and translation-agent, without an instruction to the model). In Hindi it worked. In Tamil, two runs each way, the wrapping made the model treat the text as technical: it put English verbs in backticks and left a short block in English both times, where without it both blocks were translated. And sarvam-30b already keeps names such as GitHub and Obsidian Sync unchanged without help. Removed.
 
 **A list of negation words.** For each language, `negation.ts` learns the letter sequences that mark "not" from the human translations, and flags an answer that has none while its English source denies something. It works where "not" is its own word: Hindi, Urdu, Marathi, Odia and Malayalam catch 81–100% of lost negations at 5–13% false alarms. It fails where "not" is fused into the verb: Bengali, Kannada, Nepali, Tamil and Telugu reach 16–40% false alarms. Not adopted yet; the samples are small (14–16 pairs per language).
@@ -87,6 +85,10 @@ Urdu is not measured: 14 of the 15 Kashmiri texts could not be scored, because t
 **What is not yet known.** These answers are human or Google Translate text. The model may judge its own translations more kindly, so the check must be measured again on sarvam-30b's own answers before the app uses it. Scoring takes about one request per token, so each check adds a second or two to a block.
 
 ## Being measured
+
+**Look-ahead on contiguous prose.** `contiguous.ts` runs FLORES+ articles one sentence per block, with and without the next sentence shown; `score-contiguous.py` scores both against the professional translations.
+
+**Looking ahead.** Short headings are where failures cluster, and a heading's meaning is often settled by the paragraph under it: Odia translated "Changelog" as "checklist". `starts.ts ahead` shows each block the source block after it, in a line after the preamble, and is compared with `starts.ts own` on the same code. The risk: a line outside the pattern may be read as an instruction, or translated too.
 
 **Text the model cannot have seen.** `fresh.ts` turns each IN22 sentence into English twice, from its human translation and from Google Translate's version of the same English, and `score-fresh.py` compares the two. A human score well above the other would mean memory of IN22 inflates the screen.
 
@@ -151,6 +153,7 @@ uvx --from huggingface_hub hf download cis-lmu/glotlid model.bin --local-dir cor
 | `bun bench/judge-own.ts 15` | The judge on the model's own answers. Resumes; answers kept in `corpus/runs/judge-own-answers.jsonl`. |
 | `bun bench/realdocs.ts 25 hi,ta <file.md>...` | The owner's own documents, first 25 blocks each. Score with `uv run bench/score-realdocs.py`. |
 | `bun bench/fresh.ts 10` | Into English from human text and from text the model cannot have seen. Score with `uv run bench/score-fresh.py`. |
+| `bun bench/contiguous.ts 15` | Look-ahead on contiguous FLORES+ prose. Score with `uv run bench/score-contiguous.py`. |
 | `bun bench/judge.ts 15 20` | Measures the model as its own judge, on language and on negation. Resumes: a language already in `corpus/runs/judge.jsonl` is skipped. |
 
 Shared by these: `candidates.ts` (every language as a target), `examples.ts` (examples for the withdrawn languages), `in22.ts` (reads IN22-Gen once and keeps it as JSON), `gt.ts` (the Google Translate client and its cache), `likelihood.ts` (the model's probability of a given text).
