@@ -82,6 +82,10 @@ Urdu is not measured: 14 of the 15 Kashmiri texts could not be scored, because t
 
 **What is not yet known.** These answers are human or Google Translate text. The model may judge its own translations more kindly, so the check must be measured again on sarvam-30b's own answers before the app uses it. Scoring takes about one request per token, so each check adds a second or two to a block.
 
+## Being measured
+
+**Short blocks at the start of a document.** In the browser on 2026-10-04, Urdu returned a heading unchanged and Telugu turned "How it works" into the word "Telugu", with no flag. The Markdown test above is one document per language and missed both. `starts.ts` runs ten small documents, each beginning with a short heading, through the app's own code, in two arms: each language's own examples (most have none), or Hindi's examples kept under their Hindi label. `score-starts.py` counts the blocks that went wrong with no flag, against Google Translate's answer for the same block.
+
 ## Run it again
 
 The data is gated. Accept the terms on the [IN22-Gen](https://huggingface.co/datasets/ai4bharat/IN22-Gen) page, then log in and download it, with GlotLID, into the git-ignored `corpus/` folder:
@@ -99,6 +103,7 @@ uvx --from huggingface_hub hf download cis-lmu/glotlid model.bin --local-dir cor
 | `bun bench/contrast.ts` | Tests the checks on damage made by a program. Needs no model; takes seconds. |
 | `bun bench/contrast-gt.ts 20` | Tests the checks on damage made with Google Translate. |
 | `bun bench/negation.ts` | Learns each language's negation words and measures the rule. Needs no model. |
+| `bun bench/starts.ts own` then `hindi` | Short blocks at the start of a document, without and with borrowed Hindi examples. Score with `uv run bench/score-starts.py corpus/runs/starts-*.jsonl`. |
 | `bun bench/judge.ts 15 20` | Measures the model as its own judge, on language and on negation. Resumes: a language already in `corpus/runs/judge.jsonl` is skipped. |
 
 Shared by these: `candidates.ts` (every language as a target), `in22.ts` (reads IN22-Gen once and keeps it as JSON), `gt.ts` (the Google Translate client and its cache), `likelihood.ts` (the model's probability of a given text).

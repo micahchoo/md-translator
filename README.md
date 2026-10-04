@@ -23,7 +23,7 @@ To use a server on another device, serve it over `https`, for example with `tail
 
 ## How to use it
 
-1. Choose the language.
+1. Choose the direction, for example **English → Tamil** or **Any language → English**.
 2. Paste Markdown, or attach `.md` files. Each file opens as a tab.
 3. Press **Translate**. **Blocks** shows each piece of the source beside its translation as it arrives.
 4. Press **Retry** or **Edit** on any block you want to change.

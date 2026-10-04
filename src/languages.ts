@@ -42,10 +42,14 @@ const EN = [
 
 const zip = (to: string[]): Pair[] => EN.map((en, i) => [en, to[i]])
 
+/** The source label for a source the model must recognise: it names no language. */
+export const ANY_SOURCE = 'Original'
+
 export const LANGUAGES: Record<string, Language> = {
+  // Into English first: the other direction from every entry below it.
+  en: { code: 'en', name: 'English', from: ANY_SOURCE, script: /[A-Za-z]/g, length: 1, examples: [] },
   as: { code: 'as', name: 'Assamese', from: 'English', script: /[ঀ-৿]/g, length: 1.00, examples: [] },
   bn: { code: 'bn', name: 'Bengali', from: 'English', script: /[ঀ-৿]/g, length: 0.95, examples: [] },
-  en: { code: 'en', name: 'English', from: 'Original', script: /[A-Za-z]/g, length: 1, examples: [] },
   hi: {
     code: 'hi',
     name: 'Hindi',
@@ -84,3 +88,6 @@ export const LANGUAGES: Record<string, Language> = {
 
 /** The direction of text in the language with this code; `auto` when unknown. */
 export const dirOf = (code: string | undefined) => (code ? (LANGUAGES[code]?.dir ?? 'ltr') : 'auto')
+
+/** What the picker shows: the direction, so a future pair (Hindi → Tamil) needs no new control. */
+export const directionLabel = ({ from, name }: Language) => `${from === ANY_SOURCE ? 'Any language' : from} → ${name}`

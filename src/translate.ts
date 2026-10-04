@@ -13,6 +13,8 @@ export interface TranslateOptions {
   language: Language
   preamble: string
   examples: Pair[]
+  /** Set when the examples are another language's; see `PromptInput.exampleLabel`. */
+  exampleLabel?: string
   /** How many preceding clean pairs the model sees. */
   contextBlocks: number
   /** Longest passage sent in one request, in characters. */
@@ -73,6 +75,7 @@ async function translateUnit(
       language: opts.language,
       preamble: opts.preamble,
       examples: opts.examples,
+      exampleLabel: opts.exampleLabel,
       context: opts.contextBlocks > 0 ? history.slice(-opts.contextBlocks) : [],
       source: piece,
     })

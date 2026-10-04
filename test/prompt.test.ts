@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { buildPrompt, cleanOutput, DEFAULT_PREAMBLE, stopFor } from '../src/prompt'
-import { LANGUAGES } from '../src/languages'
+import { directionLabel, LANGUAGES } from '../src/languages'
 
 describe('buildPrompt', () => {
   test('is parallel text: preamble, examples, context, then the open source line', () => {
@@ -29,6 +29,14 @@ describe('buildPrompt', () => {
     expect(DEFAULT_PREAMBLE).not.toMatch(/technical|policy|recipe/i)
   })
 
+  test('borrowed examples keep their own language label', () => {
+    const p = buildPrompt({
+      language: LANGUAGES.te, preamble: 'P', examples: [['How it works', 'यह कैसे काम करता है']], exampleLabel: 'Hindi',
+      context: [['Install', 'ఇన్‌స్టాల్']], source: 'x',
+    })
+    expect(p).toBe('P\n\nEnglish: How it works\nHindi: यह कैसे काम करता है\n\nEnglish: Install\nTelugu: ఇన్‌స్టాల్\n\nEnglish: x\nTelugu:')
+  })
+
   test('stops at a blank line or a new source line', () => {
     expect(stopFor(LANGUAGES.hi)).toEqual(['\n\n', '\nEnglish:'])
     expect(stopFor(LANGUAGES.en)).toEqual(['\n\n', '\nOriginal:'])
@@ -43,6 +51,11 @@ describe('buildPrompt', () => {
 })
 
 describe('languages', () => {
+  test('each language names its direction, for the picker', () => {
+    expect(directionLabel(LANGUAGES.hi)).toBe('English → Hindi')
+    expect(directionLabel(LANGUAGES.en)).toBe('Any language → English')
+  })
+
   test('a language with examples has five, covering a heading, a question, a list label, code and a link', () => {
     for (const lang of Object.values(LANGUAGES)) {
       if (!lang.examples.length) continue // admitted without any; see languages.ts

@@ -17,14 +17,18 @@ export interface PromptInput {
   /** `{L}` is replaced by the language name, `{S}` by the source label. */
   preamble: string
   examples: Pair[]
+  /** The language the examples are written in, when it is not the target:
+   *  another language's examples teach the task's shape, under their own label. */
+  exampleLabel?: string
   /** The units just before this one with their translations, oldest first. */
   context: Pair[]
   source: string
 }
 
-export function buildPrompt({ language, preamble, examples, context, source }: PromptInput): string {
+export function buildPrompt({ language, preamble, examples, exampleLabel, context, source }: PromptInput): string {
   const { name: L, from: S } = language
-  const pairs = [...examples, ...context].map(([s, t]) => `${S}: ${s}\n${L}: ${t}\n\n`).join('')
+  const pair = (label: string) => ([s, t]: Pair) => `${S}: ${s}\n${label}: ${t}\n\n`
+  const pairs = [...examples.map(pair(exampleLabel ?? L)), ...context.map(pair(L))].join('')
   return `${preamble.replaceAll('{L}', L).replaceAll('{S}', S)}\n\n${pairs}${S}: ${source}\n${L}:`
 }
 

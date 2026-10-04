@@ -2,7 +2,7 @@
 // lives in translate.ts and the modules under it; this file only shows state
 // and turns clicks into calls.
 import { BlockList } from './blocks'
-import { dirOf, LANGUAGES } from './languages'
+import { directionLabel, dirOf, LANGUAGES } from './languages'
 import { createClient, listModels } from './llm'
 import { DEFAULTS, formatExamples, loadSettings, parseExamples, saveSettings, toOptions, type Settings } from './settings'
 import { loadDocs, saveDocs, type SavedDoc } from './store'
@@ -358,7 +358,7 @@ el.download.onclick = () => {
 // ---- language and settings ------------------------------------------------
 
 el.lang.replaceChildren(
-  ...Object.values(LANGUAGES).map((l) => new Option(l.name, l.code, false, l.code === settings.language)),
+  ...Object.values(LANGUAGES).map((l) => new Option(directionLabel(l), l.code, false, l.code === settings.language)),
 )
 el.lang.onchange = () => {
   settings.language = el.lang.value
@@ -377,7 +377,7 @@ function fillForm(s: Settings) {
   field('preamble').value = s.preamble
   field('examples').value = formatExamples(s.examples[lang.code] ?? lang.examples, lang)
   field('skipKeys').value = s.skipKeys
-  el.examplesLabel.textContent = `Examples (${lang.from} → ${lang.name})`
+  el.examplesLabel.textContent = `Examples (${directionLabel(lang)})`
   el.settingsError.textContent = ''
   el.connection.textContent = ''
 }
