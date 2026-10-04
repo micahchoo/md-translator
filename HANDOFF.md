@@ -91,6 +91,16 @@ In order, all on the cache, no new requests:
 Prior art checked (all 152 HF "pib" results): only CVIT-PIB (to ~2019) and the 2022–23 dump. CVIT
 matched documents by MT + tf-idf (threshold 0.51) and sentences by Bleualign; ours are linked by PIB.
 
+## Publishing the PIB pipeline (owner decisions 2026-10-04)
+- Names: GitHub repo `micahchoo/pib-parallel` (code, MIT) and HF dataset `pib-parallel` (pilot data).
+- Licence: PIB's own terms for the text (reproduction free with attribution and accuracy; no third-party
+  material); CC BY 4.0 for our annotations (alignment, flags).
+- Only the pilot is published; the full crawl is left for others to run with the pipeline.
+- Timing: after the benchmark and the 2018 copy-rate check, both reported on the card.
+- Before publishing: no Google Translate text (the `google_copy` flag only); strip phone numbers, emails
+  and embedded third-party posts; move (not copy) pib.ts / pib-align.py into the new repo and point
+  md-translator at it, as its own phase.
+
 ## Next
 - Live: https://micahchoo.github.io/md-translator/ (deployed 2026-10-01, repo micahchoo/md-translator). Pages workflow deploys on push to main.
 
