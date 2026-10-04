@@ -72,21 +72,45 @@ export function parseRelease(prid: string, html: string, hint = ''): Release {
   // The body is everything the release container holds past the dateline; the
   // header blocks above it go by id rather than by tag nesting. Cut at the
   // modal's opening tag, not its id, or its "<div" is left in the text.
-  const open = html.indexOf('innner-page-main-about-us-content-right-part')
+  //
+  // The class name is matched as an attribute: it first appears in a style sheet.
+  const open = html.indexOf('class="innner-page-main-about-us-content-right-part"')
   const close = html.indexOf('<div id="P_CategoryManagement"')
-  const container = html.slice(open, close < 0 ? html.length : close)
-  const dateline = container.indexOf('<div id="PrDateTime"')
+  // No container is no release: PIB's error page arrives with status 200.
+  const container = open < 0 ? '' : html.slice(open, close < 0 ? html.length : close)
   const title = field('Titleh2')
-  const start = dateline < 0 ? 0 : container.indexOf('</div>', dateline) + 6
+  // A release opens after its dateline. The event layout (IFFI) has none, so
+  // its prose opens after the subtitle, or failing that the title.
+  const dateline = container.indexOf('<div id="PrDateTime"')
+  const heading = ['<h3 id="Subtitleh3"', '<h1 id="Titleh2"'].map((m) => container.indexOf(m)).find((i) => i >= 0) ?? -1
+  const start =
+    dateline >= 0 ? container.indexOf('</div>', dateline) + 6 : heading >= 0 ? container.indexOf('</h', heading + 4) : 0
   // Past the prose come the release id, the view counter, the language block and
-  // the attachment list; the body ends at whichever of them comes first.
-  const ends = ['<span id="ReleaseId"', '<span id="lblViews"', '<div class="ReleaseLang"', '<div id="RelLink"']
+  // the attachment list; the body ends at whichever of them comes first. The
+  // event layout adds a festival paragraph, the same on every release.
+  const ends = [
+    '<span id="ReleaseId"', '<span id="lblViews"', '<div class="ReleaseLang"', '<div id="RelLink"',
+    '<div id="FooterEventText"', '<span id="ReleaseIdEvent"', '<span id="lblViewsEvent"',
+  ]
     .map((marker) => container.indexOf(marker, start))
     .filter((i) => i >= 0)
+  // An editor sometimes pastes another release's footer into the prose; no
+  // sentence of a release says "Visitor Counter".
   const body = text(container.slice(start, ends.length ? Math.min(...ends) : container.length).replace(/<input[^>]*>/gi, ''))
+    .split('\n')
+    .filter((line) => !line.includes('Visitor Counter'))
+    .join('\n')
+    .trim()
   const block = html.match(/<div class="ReleaseLang">([\s\S]*?)<\/div>/i)
   const translations: Record<string, string> = {}
-  if (block) for (const m of block[1].matchAll(/PRID=(\d+)'[^>]*>\s*([^<]+?)\s*<\/a>/g)) translations[LANGS[m[2].trim()] ?? m[2].trim()] = m[1]
+  // An office's own version is labelled "Hindi_Cg", "Bengali-TR": it names its
+  // language, but fills that language only if the release has no national one.
+  const links = block ? [...block[1].matchAll(/PRID=(\d+)'[^>]*>\s*([^<]+?)\s*<\/a>/g)].map((m) => [m[2].trim(), m[1]]) : []
+  for (const [label, id] of links) if (LANGS[label]) translations[LANGS[label]] = id
+  for (const [label, id] of links) {
+    const code = LANGS[label] ? '' : (LANGS[label.split(/[-_]/)[0]] ?? label)
+    if (code && !(code in translations)) translations[code] = id
+  }
   return {
     prid,
     lang: pageLang(title || body, hint),
@@ -195,6 +219,16 @@ export function settled(html: string, now = new Date()): boolean {
 
 const fetchedThisRun = new Set<string>()
 
+/**
+ * A release page's address. The bare `?PRID=N` answers 302 to this form, which
+ * cost a quarter of each page's time (2026-10-04). Any reg and lang give the
+ * same release; 15 of 16 sampled pages parsed identically, and the 16th only
+ * differed in the footer's label, which the parser drops.
+ */
+export function releaseUrl(prid: string) {
+  return `${SITE}/PressReleaseIframePage.aspx?PRID=${prid}&reg=3&lang=1`
+}
+
 /** A release page, cached by PRID, and fetched again until its release has settled. */
 async function page(prid: string): Promise<string> {
   const file = `${HTML}/${prid}.html`
@@ -202,7 +236,7 @@ async function page(prid: string): Promise<string> {
     const cached = readFileSync(file, 'utf8')
     if (fetchedThisRun.has(prid) || settled(cached)) return cached
   }
-  const html = await get(`${SITE}/PressReleaseIframePage.aspx?PRID=${prid}`)
+  const html = await get(releaseUrl(prid))
   writeFileSync(file, html)
   fetchedThisRun.add(prid)
   return html
@@ -235,6 +269,14 @@ async function monthPrerids(reg: number, lang: number, year: number, month: numb
   const html = await res.text()
   console.error(`  ${(html.match(/Displaying\s+([\d,]+)\s+Press Releases[^<]*/)?.[0] ?? 'no list').trim()}`)
   return [...new Set([...html.matchAll(/PressReleaseDetail\.aspx\?PRID=(\d+)/g)].map((m) => m[1]))]
+}
+
+/** One release and its translations as a parallel row. A blank page is no side; a blank source is no row. */
+export function groupOf(row: Release, translated: Release[]) {
+  if (!row.body) return null
+  const byLang: Record<string, { title: string; body: string }> = { [row.lang]: { title: row.title, body: row.body } }
+  for (const t of translated) if (t.body) byLang[t.lang] = { title: t.title, body: t.body }
+  return { prid: row.prid, date: row.date, ministry: row.ministry, byLang }
 }
 
 // The feed number is the only statement of the discovered pages' language. Read
@@ -276,14 +318,14 @@ if (import.meta.main) {
   // One parallel row per release group: the source page plus the translations asked for.
   const groups: string[] = []
   for (const row of rows) {
-    const byLang: Record<string, { title: string; body: string }> = { [row.lang]: { title: row.title, body: row.body } }
+    const translated: Release[] = []
     for (const col of columns) {
-      const prid = col === row.lang ? row.prid : row.translations[col]
-      if (!prid) continue
-      const t = parseRelease(prid, await page(prid), col)
-      byLang[col] = { title: t.title, body: t.body }
+      const prid = col === row.lang ? undefined : row.translations[col]
+      // Keyed by the column asked for, not the script seen: a Tamil page with an English headline is still Tamil.
+      if (prid) translated.push({ ...parseRelease(prid, await page(prid), col), lang: col })
     }
-    groups.push(JSON.stringify({ prid: row.prid, date: row.date, ministry: row.ministry, byLang }))
+    const group = groupOf(row, translated)
+    if (group) groups.push(JSON.stringify(group))
   }
   writeFileSync(`${DIR}/pairs.jsonl`, groups.join('\n') + '\n')
 

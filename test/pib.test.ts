@@ -3,7 +3,7 @@
 // language has to come out of its text. Importing this must not fetch: the
 // scraper's work sits behind `import.meta.main`.
 import { describe, expect, test } from 'bun:test'
-import { pageLang, parseRelease, settled } from '../bench/pib'
+import { groupOf, pageLang, parseRelease, releaseUrl, settled } from '../bench/pib'
 
 const page = (title: string, links: string) =>
   `<div class="innner-page-main-about-us-content-right-part">` +
@@ -85,5 +85,79 @@ describe('entities PIB writes', () => {
     // 2195987, Hindi: प्रसन्&zwj;नता came through undecoded.
     const r = parseRelease('1', page('प्रसन्&zwj;नता और नि&zwnj;यम', ''), 'hi')
     expect(r.title).toBe('प्रसन्‍नता और नि‌यम')
+  })
+})
+
+describe('the event layout (IFFI releases)', () => {
+  // 2190187: the container's class name first appears in a style sheet, the page
+  // has no dateline, and every release ends with the same festival paragraph.
+  // 489 of 3,481 pilot releases came out with CSS before the prose and the
+  // counter after it.
+  const event =
+    `<style>.innner-page-main-about-us-content-right-part { padding: 35px; }</style>` +
+    `<div class="innner-page-main-about-us-content-right-part">` +
+    `<div class="text-center event-heading-background"><h1 id="Titleh2">इफ्फी पोर्टल</h1>` +
+    `<h3 id="Subtitleh3"><span id="ltrSubtitle"></span></h3></div>` +
+    `<div class='pt20'></div><p>माध्यमांसाठी शेवटची संधी.</p>` +
+    `<div class="text-center"><div id="FooterEventText"><p>Great films resonate through passionate voices.</p></div>` +
+    `<p class="mb-1"><strong>रिलीज़ आईडी:</strong><span id="ReleaseIdEvent">2190187</span> | ` +
+    `<strong>Visitor Counter:</strong><span id="lblViewsEvent">51</span></p>` +
+    `<div class="ReleaseLang">इस विज्ञप्ति को इन भाषाओं में पढ़ें: ${link('2190116', 'English')}</div></div></div>` +
+    `<div id="P_CategoryManagement"></div>`
+
+  test('the body is the prose alone: no style sheet, no festival paragraph, no counter', () => {
+    const r = parseRelease('2190187', event, 'mr')
+    expect(r.title).toBe('इफ्फी पोर्टल')
+    expect(r.body).toBe('माध्यमांसाठी शेवटची संधी.')
+    expect(r.translations).toEqual({ en: '2190116' })
+  })
+})
+
+describe('pages that are not a release', () => {
+  test("PIB's error page, which can be cached with status 200, gives an empty release", () => {
+    // 2189162: "The Page you have requested is not available at present."
+    const r = parseRelease('2189162', '<html><head><title>Untitled Page</title><script>!function(e){}</script></head><body>The Page you have requested is not available at present.</body></html>')
+    expect(r.title).toBe('')
+    expect(r.body).toBe('')
+  })
+  test('a footer pasted into the prose is dropped with its line', () => {
+    // 2196509: an editor pasted another release's id and visitor count into the text.
+    const html = page('T', '').replace('<p>Cotton Corporation of India</p>', '<p>Cotton Corporation of India</p><p>रिलीज़ आईडी: 2195544 | Visitor Counter: 173</p>')
+    expect(parseRelease('1', html, 'en').body).toBe('Cotton Corporation of India')
+  })
+})
+
+describe('office language labels', () => {
+  test('an office variant names its language', () => {
+    const r = parseRelease('1', page('T', link('2', 'Bengali-TR') + link('3', 'Telugu_Vw')), 'en')
+    expect(r.translations).toEqual({ bn: '2', te: '3' })
+  })
+  test('but never replaces the national translation, in either order', () => {
+    const a = parseRelease('1', page('T', link('10', 'हिन्दी') + link('11', 'Hindi_Cg')), 'en')
+    const b = parseRelease('1', page('T', link('11', 'Hindi_Cg') + link('10', 'हिन्दी')), 'en')
+    expect(a.translations).toEqual({ hi: '10' })
+    expect(b.translations).toEqual({ hi: '10' })
+  })
+})
+
+describe('release groups', () => {
+  const release = (prid: string, lang: string, body: string) =>
+    ({ prid, lang, title: body ? 'T' : '', subtitle: '', ministry: 'M', date: 'D', body, translations: {} })
+  test('a blank translation is left out, never written as an empty side', () => {
+    // 2189023 (Marathi) is a 56 KB page with an empty title and body.
+    expect(groupOf(release('1', 'en', 'Text'), [release('2', 'mr', ''), release('3', 'hi', 'पाठ')])).toEqual({
+      prid: '1', date: 'D', ministry: 'M', byLang: { en: { title: 'T', body: 'Text' }, hi: { title: 'T', body: 'पाठ' } },
+    })
+  })
+  test('a group whose own release is blank is no group', () => {
+    expect(groupOf(release('1', 'mr', ''), [release('2', 'en', 'Text')])).toBeNull()
+  })
+})
+
+describe('the release URL', () => {
+  test('names an office and a language, so PIB answers without a redirect', () => {
+    // The bare URL answers 302 to this form: a quarter of each page's time. Any
+    // reg and lang give the same release; only the page's own menu changes.
+    expect(releaseUrl('2186691')).toBe('https://www.pib.gov.in/PressReleaseIframePage.aspx?PRID=2186691&reg=3&lang=1')
   })
 })
