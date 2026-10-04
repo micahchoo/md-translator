@@ -16,29 +16,26 @@ Design record and measurements: `.brainstorm/sessions/0001-md-translator.md`.
 - Aligned view (`src/blocks.ts`): Source / Blocks / Markdown views, per-block Retry and Edit, follow the running block, show only flagged. `src/store.ts` keeps documents in localStorage; a stopped run resumes.
 - Indented code is disabled (pasted text is indented prose); text inside HTML blocks is translated, tags and code/pre/script/style/comments are not.
 
-## Roadmap (updated 2026-10-04, evening) — the one list; details in the dated sections below
-A. Ship — DONE. Live: 8 Indian languages + Any → English. Owner granted: commit on a branch, push to
-   main as phases verify, MIT, and Claude may pick owner Markdown files for F2.
-B. Judge into the app
-   1. Self-preference test RUNNING (`bun bench/judge-own.ts`, resumable; `... score` reads it).
-      So far on the model's own answers: Assamese 0/11 false alarm, 12/12 caught; Hindi 0/14, 11/11.
-   2. Cost per block on real documents.  3. Build (negation on negated blocks; language sampled).
-C. Patterns from other translators
-   1 copied answers — DONE ("Not a translation").  2 edit memory — DONE, live.
-   3 kept terms — REJECTED (Tamil worse; sarvam keeps names unaided).  5 changed blocks only — DONE, live.
-   8 download note — DONE, live.  6 look-ahead — REJECTED after an A/B (no gain; chrF lower in 4 of 6). 4 notes per language — superseded by examples
-   (Sanskrit, Konkani, Dogri staged and testing).
-   7 self-critique — REJECTED (chat mode reasons for 48 s and 4,000 tokens without answering).
-D. GT cache: minimal-pair consistency — covered (numbers check 100%; judge-own translates with and
-   without 'not'). Fresh into-English sources — next when the model queue clears.
-E. Languages: Urdu, Bengali, Odia, Gujarati, Maithili, Punjabi SHIPPED with Claude-written examples
-   (checked both ways against GT; 0/30 short blocks in the wrong language each). 14 Indian languages live.
-   Next: examples for the six that still have none (as, ml, mr, ne, ta, te) — A/B on bench/starts.ts.
-   Sanskrit rescreen, Sarvam-Translate retry — open.
-F. Bench rigour: 1 limits section DONE.  2 real-document test, 3 inversion into English — open.
-G. Native-reader audit per language — needs people.
-H. Known gaps: code-mixed English words; meaning (Tuesday → Wednesday); bold moved onto another word (Urdu put
-   **not** on Tuesday; counts match, so no flag); numbers false alarms on unit conversions.
+## State at the end of 2026-10-04 — read this first; dated sections below are the history
+Live after the final push: Any language → English, and English → 20 Indian languages (Assamese, Bengali,
+Bodo, Dogri, Gujarati, Hindi, Kannada, Kashmiri, Konkani, Maithili, Malayalam, Marathi, Nepali, Odia,
+Punjabi, Sanskrit, Sindhi, Tamil, Telugu, Urdu). Every one has 5 examples: Hindi/Kannada first; Bodo,
+Sindhi, Kashmiri from IN22 rows (examples.ts#fromIN22); the rest Claude-written, checked both ways against GT.
+App features added this session: direction picker; checks (script, echoes, digits, per-language length,
+short-source length limit, never-used letters, "Not a translation"); the model as its own judge
+(src/judge.ts: lost "not", related language; llama.cpp only; ~3x slower; Settings switch); edit memory;
+changed-blocks-only; download note; MIT licence; README test + .claude/rules/translator-readmes.md.
+Rejected with evidence (see bench/README "Tried and rejected"): kept terms, self-critique, lent Hindi
+examples, look-ahead (short docs and contiguous FLORES prose), a prompt line against related languages.
+Measured: no memorisation (two tests); Google Translate beats sarvam-30b on chrF and COMET everywhere.
+Owner decisions: no Google option; README opening unchanged; no Sarvam-Translate; native readers yes.
+
+Open:
+- Native readers: hand out corpus/review/<code>.html (20 files, offline; "Save my answers" -> JSON).
+- Manipuri, Santali: right script with IN22 examples, under the floor (28.1, 30.8 from English).
+- Kannada, Malayalam: judge's negation check off (3/14 false alarms each).
+- Known gaps: meaning beyond "not" (Tuesday -> Wednesday); bold moved to another word; code-mixed English
+  words; translated link text in paths ([بینچ/README.md]); bold interface names (README tip: use code).
 
 ## Next
 - Live: https://micahchoo.github.io/md-translator/ (deployed 2026-10-01, repo micahchoo/md-translator). Pages workflow deploys on push to main.
