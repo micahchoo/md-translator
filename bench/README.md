@@ -15,9 +15,7 @@ A language passed if all of these held:
 | Language | Result |
 | --- | --- |
 | Assamese, Hindi, Kannada, Malayalam, Marathi, Nepali, Tamil, Telugu | Passed |
-| Bengali, Odia | Passed the scores, then withdrawn: on short blocks at the start of a document, 7 and 5 of 30 came back in the wrong language (see below) |
-| Urdu | Passed the scores, then withdrawn: with no examples, it copies or romanises short Markdown blocks. Seen in the browser on 2026-10-04 |
-| Gujarati, Maithili, Punjabi | Failed only the Markdown test: with no examples, they returned English headings untranslated |
+| Bengali, Gujarati, Maithili, Odia, Punjabi, Urdu | Passed with worked examples (see below), after failing without them |
 | Bodo, Dogri | Wrote another language: Assamese for Bodo, Punjabi for Dogri |
 | Konkani, Manipuri, Santali, Sindhi | Wrong language or script, from English |
 | Kashmiri | chrF too low |
@@ -87,7 +85,7 @@ Urdu is not measured: 14 of the 15 Kashmiri texts could not be scored, because t
 
 ## Being measured
 
-**Examples for the languages withdrawn for want of them.** Urdu, Bengali, Odia, Gujarati, Maithili and Punjabi failed on short blocks or the Markdown test without examples; Hindi and Kannada, which have them, never did. `examples.ts` holds five for each, written by Claude from the same five English lines, and checks every one against Google Translate both ways: its own translation, and Claude's line read back into English. All 30 read back with their meaning, numbers, code and links intact. The text used is Claude's, never Google's. Each language comes back only if it passes the screen and the short-block test with them.
+**The owner's own documents.** `realdocs.ts` runs the first 25 blocks of three of the owner's Markdown files (a policy digest, a plugin README, this README) through the app into each offered language. With no reference, `score-realdocs.py` counts flags by kind and asks GlotLID whether the unflagged blocks are in the right language. The documents are named on the command line and never enter the repository.
 
 **The judge on the model's own answers.** `judge-own.ts` repeats both judge tests with sarvam-30b's own translations, since a model may find its own phrasing likelier. For negation, Google Translate reads each answer back into English to say whether its "not" really survived, so the test also asks whether the judge catches a "not" the model dropped by itself.
 
@@ -107,6 +105,8 @@ After them, blocks in the wrong language, out of 30:
 | Malayalam, Telugu | 3 |
 | Bengali | 7, withdrawn |
 | Odia | 5, withdrawn |
+
+**Examples written for the languages that lacked them.** Urdu, Bengali, Odia, Gujarati, Maithili and Punjabi failed on short blocks or the Markdown test without examples: Bengali put 7 of 30 short blocks in Assamese, Odia 5 in English, Urdu copied or romanised them. `examples.ts` checks the five examples Claude wrote for each against Google Translate both ways, its own translation and Claude's line read back into English; all 30 kept their meaning, numbers, code and links. With them, all six passed the screen and put 0 of 30 short blocks in the wrong language. chrF against Google Translate on those blocks rose from 50 to 81 in Bengali and from 54 to 74 in Odia. The text that ships is Claude's, never Google's.
 
 **Tried and rejected: Hindi's examples lent to languages without their own,** under their Hindi label. Bengali, Odia and Tamil improved; Assamese, Marathi and Nepali, the languages closest to Hindi, got worse (Assamese chrF 63 → 33). `starts.ts hindi` reproduces it.
 
@@ -138,6 +138,7 @@ uvx --from huggingface_hub hf download cis-lmu/glotlid model.bin --local-dir cor
 | `bun bench/negation.ts` | Learns each language's negation words and measures the rule. Needs no model. |
 | `bun bench/starts.ts own` (or `hindi`) | Short blocks at the start of a document; `hindi` lends Hindi's examples. Score with `uv run bench/score-starts.py corpus/runs/starts-*.jsonl`. |
 | `bun bench/judge-own.ts 15` | The judge on the model's own answers. Resumes; answers kept in `corpus/runs/judge-own-answers.jsonl`. |
+| `bun bench/realdocs.ts 25 hi,ta <file.md>...` | The owner's own documents, first 25 blocks each. Score with `uv run bench/score-realdocs.py`. |
 | `bun bench/judge.ts 15 20` | Measures the model as its own judge, on language and on negation. Resumes: a language already in `corpus/runs/judge.jsonl` is skipped. |
 
 Shared by these: `candidates.ts` (every language as a target), `examples.ts` (examples for the withdrawn languages), `in22.ts` (reads IN22-Gen once and keeps it as JSON), `gt.ts` (the Google Translate client and its cache), `likelihood.ts` (the model's probability of a given text).

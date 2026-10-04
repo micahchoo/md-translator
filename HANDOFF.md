@@ -29,12 +29,14 @@ C. Patterns from other translators
    8 download note — DONE, live.  4 notes per language (Bodo, Dogri), 6 look-ahead context,
    7 self-critique on flagged blocks — open.
 D. GT cache: minimal-pair consistency; fresh into-English sources — open.
-E. Languages: examples for Urdu, Bengali, Odia, Gujarati, Maithili, Punjabi written and checked
-   (bench/examples.ts); screen + short-block test RUNNING (corpus/runs/with-examples*, starts-examples).
+E. Languages: Urdu, Bengali, Odia, Gujarati, Maithili, Punjabi SHIPPED with Claude-written examples
+   (checked both ways against GT; 0/30 short blocks in the wrong language each). 14 Indian languages live.
+   Next: examples for the six that still have none (as, ml, mr, ne, ta, te) — A/B on bench/starts.ts.
    Sanskrit rescreen, Sarvam-Translate retry — open.
 F. Bench rigour: 1 limits section DONE.  2 real-document test, 3 inversion into English — open.
 G. Native-reader audit per language — needs people.
-H. Known gaps: code-mixed English words; meaning (Tuesday → Wednesday); numbers false alarms on unit conversions.
+H. Known gaps: code-mixed English words; meaning (Tuesday → Wednesday); bold moved onto another word (Urdu put
+   **not** on Tuesday; counts match, so no flag); numbers false alarms on unit conversions.
 
 ## Next
 - Live: https://micahchoo.github.io/md-translator/ (deployed 2026-10-01, repo micahchoo/md-translator). Pages workflow deploys on push to main.

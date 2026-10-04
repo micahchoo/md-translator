@@ -8,12 +8,11 @@
 // more than 10 below the shipped pair, GlotLID agreeing the output is the
 // language asked for, and the Markdown probe intact. Gujarati, Maithili and
 // Punjabi failed only the probe — without examples they echo English headings.
-// Bengali and Odia passed it too and were withdrawn after bench/starts.ts: on
-// short blocks at the start of a document, 7 and 5 of 30 came back in the wrong
-// language (Assamese for Bengali; English for Odia), past the 1-in-10 rule.
-// Urdu passed the screen and was withdrawn the same day: in the browser, with no
-// examples, it copied or romanised short Markdown blocks. `dir` stays for its
-// return; it is the only right-to-left language so far. The examples cover the shapes the model got wrong without them: a
+// Urdu, Bengali, Odia, Gujarati, Maithili and Punjabi failed for want of
+// examples: short blocks came back copied, romanised or in a related language.
+// Their examples were written by Claude and checked against Google Translate
+// both ways (bench/examples.ts); with them all six passed the screen and the
+// short-block test, 0 of 30 short blocks in the wrong language each. The examples cover the shapes the model got wrong without them: a
 // bare heading, a question it must not answer, a bold list label, inline code
 // with a link, and a sentence of acronyms and dates. None is about any one
 // subject, so they bias no document toward a genre.
@@ -59,6 +58,37 @@ export const LANGUAGES: Record<string, Language> = {
   // Into English first: the other direction from every entry below it.
   en: { code: 'en', name: 'English', native: 'English', from: ANY_SOURCE, script: /[A-Za-z]/g, length: 1, examples: [] },
   as: { code: 'as', name: 'Assamese', native: 'অসমীয়া', from: 'English', script: /[ঀ-৿]/g, length: 1.00, examples: [] },
+  bn: {
+    code: 'bn',
+    name: 'Bengali',
+    native: 'বাংলা',
+    from: 'English',
+    script: /[ঀ-৿]/g,
+    length: 0.95,
+    foreign: /[ৰৱ]/,
+    examples: zip([
+      'এটি কীভাবে কাজ করে',
+      'এটি কি অফলাইনে কাজ করে?',
+      '**ব্যাকআপ**: প্রতিটি নোটের একটি কপি, যা প্রতি রাতে সংরক্ষণ করা হয়',
+      '`npm install` চালান, তারপর [সেটআপ নির্দেশিকা](#1) পড়ুন। এতে প্রায় 5 মিনিট সময় লাগে।',
+      'FDA-র 2026 সালের প্রতিবেদনটি আগস্ট 2026 পর্যন্ত **এখনও খসড়া**। [নির্দেশিকা](#1)',
+    ]),
+  },
+  gu: {
+    code: 'gu',
+    name: 'Gujarati',
+    native: 'ગુજરાતી',
+    from: 'English',
+    script: /[઀-૿]/g,
+    length: 0.93,
+    examples: zip([
+      'તે કેવી રીતે કામ કરે છે',
+      'શું તે ઑફલાઇન કામ કરે છે?',
+      '**બેકઅપ**: દરેક નોંધની એક નકલ, જે દર રાત્રે સાચવવામાં આવે છે',
+      '`npm install` ચલાવો, પછી [સેટઅપ માર્ગદર્શિકા](#1) વાંચો. તેમાં લગભગ 5 મિનિટ લાગે છે.',
+      'FDAનો 2026નો અહેવાલ ઑગસ્ટ 2026 સુધી **હજુ પણ મુસદ્દો** છે. [માર્ગદર્શન](#1)',
+    ]),
+  },
   hi: {
     code: 'hi',
     name: 'Hindi',
@@ -90,11 +120,73 @@ export const LANGUAGES: Record<string, Language> = {
       'FDA ಯ 2026 ರ ವರದಿಯು ಆಗಸ್ಟ್ 2026 ರ ವೇಳೆಗೆ **ಇನ್ನೂ ಕರಡು** ಆಗಿದೆ. [ಮಾರ್ಗಸೂಚಿ](#1)',
     ]),
   },
+  mai: {
+    code: 'mai',
+    name: 'Maithili',
+    native: 'मैथिली',
+    from: 'English',
+    script: /[ऀ-ॿ]/g,
+    length: 0.92,
+    foreign: /[ॻॼॾॿ]/,
+    examples: zip([
+      'ई कोना काज करैत अछि',
+      'की ई ऑफलाइन काज करैत अछि?',
+      '**बैकअप**: प्रत्येक नोटक एकटा प्रति, जे सभ राति सहेजल जाइत अछि',
+      '`npm install` चलाउ, तखन [सेटअप गाइड](#1) पढ़ू। एहिमे लगभग 5 मिनट लगैत अछि।',
+      'FDAक 2026क रिपोर्ट अगस्त 2026 धरि **एखनो मसौदा** अछि। [दिशानिर्देश](#1)',
+    ]),
+  },
   ml: { code: 'ml', name: 'Malayalam', native: 'മലയാളം', from: 'English', script: /[ഀ-ൿ]/g, length: 1.15, examples: [] },
   mr: { code: 'mr', name: 'Marathi', native: 'मराठी', from: 'English', script: /[ऀ-ॿ]/g, length: 1.01, foreign: /[ॻॼॾॿ]/, examples: [] },
   ne: { code: 'ne', name: 'Nepali', native: 'नेपाली', from: 'English', script: /[ऀ-ॿ]/g, length: 0.96, foreign: /[ॻॼॾॿ]/, examples: [] },
+  or: {
+    code: 'or',
+    name: 'Odia',
+    native: 'ଓଡ଼ିଆ',
+    from: 'English',
+    script: /[଀-୿]/g,
+    length: 1.09,
+    examples: zip([
+      'ଏହା କିପରି କାମ କରେ',
+      'ଏହା ଅଫଲାଇନରେ କାମ କରେ କି?',
+      '**ବ୍ୟାକଅପ୍**: ପ୍ରତ୍ୟେକ ନୋଟ୍‌ର ଏକ କପି, ଯାହା ପ୍ରତି ରାତିରେ ସଞ୍ଚୟ କରାଯାଏ',
+      '`npm install` ଚଲାନ୍ତୁ, ତାପରେ [ସେଟଅପ୍ ଗାଇଡ୍](#1) ପଢ଼ନ୍ତୁ। ଏଥିରେ ପ୍ରାୟ 5 ମିନିଟ୍ ଲାଗେ।',
+      'FDAର 2026 ରିପୋର୍ଟ ଅଗଷ୍ଟ 2026 ସୁଦ୍ଧା **ଏବେ ବି ଏକ ଡ୍ରାଫ୍ଟ**। [ମାର୍ଗଦର୍ଶିକା](#1)',
+    ]),
+  },
+  pa: {
+    code: 'pa',
+    name: 'Punjabi',
+    native: 'ਪੰਜਾਬੀ',
+    from: 'English',
+    script: /[਀-੿]/g,
+    length: 0.92,
+    examples: zip([
+      'ਇਹ ਕਿਵੇਂ ਕੰਮ ਕਰਦਾ ਹੈ',
+      'ਕੀ ਇਹ ਔਫਲਾਈਨ ਕੰਮ ਕਰਦਾ ਹੈ?',
+      '**ਬੈਕਅੱਪ**: ਹਰ ਨੋਟ ਦੀ ਇੱਕ ਕਾਪੀ, ਜੋ ਹਰ ਰਾਤ ਸੰਭਾਲੀ ਜਾਂਦੀ ਹੈ',
+      '`npm install` ਚਲਾਓ, ਫਿਰ [ਸੈੱਟਅੱਪ ਗਾਈਡ](#1) ਪੜ੍ਹੋ। ਇਸ ਵਿੱਚ ਲਗਭਗ 5 ਮਿੰਟ ਲੱਗਦੇ ਹਨ।',
+      'FDA ਦੀ 2026 ਦੀ ਰਿਪੋਰਟ ਅਗਸਤ 2026 ਤੱਕ **ਅਜੇ ਵੀ ਇੱਕ ਖਰੜਾ** ਹੈ। [ਮਾਰਗਦਰਸ਼ਨ](#1)',
+    ]),
+  },
   ta: { code: 'ta', name: 'Tamil', native: 'தமிழ்', from: 'English', script: /[஀-௿]/g, length: 1.17, examples: [] },
   te: { code: 'te', name: 'Telugu', native: 'తెలుగు', from: 'English', script: /[ఀ-౿]/g, length: 1.00, examples: [] },
+  ur: {
+    code: 'ur',
+    name: 'Urdu',
+    native: 'اردو',
+    from: 'English',
+    script: /[؀-ۿ]/g,
+    length: 0.97,
+    dir: 'rtl',
+    examples: zip([
+      'یہ کیسے کام کرتا ہے',
+      'کیا یہ آف لائن کام کرتا ہے؟',
+      '**بیک اپ**: ہر نوٹ کی ایک کاپی، جو ہر رات محفوظ کی جاتی ہے',
+      '`npm install` چلائیں، پھر [سیٹ اپ گائیڈ](#1) پڑھیں۔ اس میں تقریباً 5 منٹ لگتے ہیں۔',
+      'FDA کی 2026 کی رپورٹ اگست 2026 تک **ابھی بھی مسودہ** ہے۔ [رہنمائی](#1)',
+    ]),
+  },
 }
 
 /** The direction of text in the language with this code; `auto` when unknown. */

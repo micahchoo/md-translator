@@ -31,8 +31,8 @@ describe('README', () => {
 
 describe('bench/README', () => {
   test('lists exactly the offered languages as passed', () => {
-    const row = bench.split('\n').find((l) => /\| Passed \|$/.test(l))!
-    expect(named(row)).toEqual(offered)
+    const rows = bench.split('\n').filter((l) => /^\|[^|]+\| Passed\b/.test(l))
+    expect([...new Set(rows.flatMap((r) => named(r.split('|')[1])))].sort()).toEqual(offered)
   })
 
   test('mentions every file in bench/', () => {
