@@ -156,6 +156,30 @@ uvx --from huggingface_hub hf download cis-lmu/glotlid model.bin --local-dir cor
 | `bun bench/fresh.ts 10` | Into English from human text and from text the model cannot have seen. Score with `uv run bench/score-fresh.py`. |
 | `bun bench/packet.ts 25` | A review packet per language for a native reader: one offline HTML file each in `corpus/review/`, made from this README, with right / wrong / unsure per block and a button that saves the answers. |
 | `bun bench/judge.ts 15 20` | Measures the model as its own judge, on language and on negation. Resumes: a language already in `corpus/runs/judge.jsonl` is skipped. |
+| `bun bench/pib.ts 40` | Fetches PIB releases and their official translations as a parallel corpus. `--month 2025-09` takes a whole month, `--reg 6 --lang 11` a regional office's Tamil feed. One request at a time, cached. |
+
+`pib.ts` reaches all 29 offices in PIB's own region list. Each office publishes in English and its own languages, read from the office's language list on `Allrel.aspx` (2026-10-04), office code then language codes:
+
+| Office | Languages (feed number) |
+| --- | --- |
+| 3 Delhi, 48 National | English 1, Hindi 2, Urdu 3 (Delhi only) |
+| 1 Mumbai | Marathi 9, Konkani 42 |
+| 5 Hyderabad, 45 Vijayawada | Telugu 16, Telugu 46 |
+| 6 Chennai | Tamil 11, Hindi 2 |
+| 17 Chandigarh | Punjabi 6 |
+| 19 Kolkata, 32 Agartala | Bengali 4, Bengali 37 |
+| 20 Bengaluru | Kannada 8 |
+| 21 Bhubaneswar | Odia 18 |
+| 22 Ahmedabad | Gujarati 13 |
+| 23 Guwahati | Assamese 10 |
+| 24 Thiruvananthapuram | Malayalam 15 |
+| 30 Imphal | Manipuri 14 |
+| 33 Gangtok | Nepali 29 |
+| 31 Mizoram, 35 Shillong, 34 Kohima | Mizo 32, Khasi 30, Tenyidei 31 |
+| 37 Lucknow, 38 Bhopal, 39 Jaipur, 40 Patna, 41 Ranchi, 42 Shimla, 43 Raipur, 46 Dehradun, 36 Itanagar | each its own Hindi (34, 35, 33, 38, 39, 40, 41, 45, 36) |
+| 44 Jammu and Kashmir | Urdu 44, Hindi 43 |
+
+So PIB covers 15 of the 22 scheduled languages, and three more (Mizo, Khasi, Tenyidei) that no other corpus here has. No office publishes Bodo, Dogri, Kashmiri, Maithili, Sanskrit, Santali or Sindhi. Regional offices also write original releases in their own language, which may have no English version. Mizo, Khasi and Tenyidei are written in Latin script, so their language comes from the feed, never the script.
 
 The packet's text is this project's public README, never the owner's documents. Shared by these: `candidates.ts` (every language as a target), `examples.ts` (examples for the withdrawn languages), `in22.ts` (reads IN22-Gen once and keeps it as JSON), `gt.ts` (the Google Translate client and its cache), `likelihood.ts` (the model's probability of a given text).
 
@@ -164,3 +188,5 @@ The packet's text is this project's public README, never the owner's documents. 
 ## Data
 
 [IN22-Gen](https://huggingface.co/datasets/ai4bharat/IN22-Gen) (AI4Bharat, CC BY 4.0), [GlotLID](https://huggingface.co/cis-lmu/glotlid). [FLORES+](https://huggingface.co/datasets/openlanguagedata/flores_plus) (CC BY-SA 4.0) was used in the first trial only. Its terms forbid re-hosting it where web crawlers can reach it, so no part of it is in this repository.
+
+`pib.ts` takes PIB releases and their official translations. These are Government of India works, so no open licence covers them. PIB's [Copyright Policy](https://www.pib.gov.in/content/3604_2_CopyrightPolicy.aspx) permits reproduction free of charge. The text must stay accurate, must not mislead, and must name the source. The permission does not cover third-party material inside a release.
