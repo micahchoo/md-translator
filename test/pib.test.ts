@@ -161,3 +161,53 @@ describe('the release URL', () => {
     expect(releaseUrl('2186691')).toBe('https://www.pib.gov.in/PressReleaseIframePage.aspx?PRID=2186691&reg=3&lang=1')
   })
 })
+
+describe('what the corpus must not carry', () => {
+  // Measured on the 10,265 pilot pages: 1,669 embed tweets, most of them left in
+  // English on translated pages; 93 give institutional email addresses and 68
+  // official phone numbers. Nothing personal was found, but none of it is text
+  // a translation corpus needs, and a tweet is third-party material.
+  const withBody = (body: string) => page('T', '').replace('<p>Cotton Corporation of India</p>', body)
+
+  test('an embedded tweet goes, signature and all', () => {
+    const html = withBody(
+      '<p>The Prime Minister wrote:</p><blockquote class="twitter-tweet"><p lang="en" dir="ltr">Greetings to Chhattisgarh.</p>' +
+        '&mdash; Narendra Modi (@narendramodi) <a href="https://twitter.com/x">November 1, 2025</a></blockquote><p>He added more.</p>',
+    )
+    expect(parseRelease('1', html, 'en').body).toBe('The Prime Minister wrote:\nHe added more.')
+  })
+
+  test('whatever else the tweet tag carries', () => {
+    // 1,798 pilot tweets are "twitter-tweet tw-align-center", 180 add align="center".
+    const html = withBody(
+      '<p>Before.</p><blockquote class="twitter-tweet tw-align-center"><p>One.</p></blockquote>' +
+        '<blockquote class="twitter-tweet"  align="center" ><p>Two.</p></blockquote><p>After.</p>',
+    )
+    expect(parseRelease('1', html, 'en').body).toBe('Before.\nAfter.')
+  })
+
+  test('a tweet whose class an editor dropped, known by its link, while a plain quotation stays', () => {
+    // 2189026: the Malayalam page translates the tweet in a paragraph above and keeps the tweet itself in English.
+    const html = withBody(
+      '<p>ആന്റെ ശ്രീയുടെ വിയോഗം.</p><blockquote><p dir="ltr">The passing of Ande Sri leaves a deep void.</p>' +
+        '&mdash; Narendra Modi (@narendramodi) <a href="https://twitter.com/narendramodi/status/1987810558687543436">November 10, 2025</a></blockquote>' +
+        '<blockquote><p>A line from the Constitution.</p></blockquote>',
+    )
+    expect(parseRelease('1', html, 'ml').body).toBe('ആന്റെ ശ്രീയുടെ വിയോഗം.\nA line from the Constitution.')
+  })
+
+  test('an email address becomes a placeholder, written plainly or obfuscated', () => {
+    const body = parseRelease('1', withBody('<p>Write to iffi.mediadesk@pib.gov.in or ddg1[dot]nad[at]mospi[dot]gov[dot]in today.</p>'), 'en').body
+    expect(body).toBe('Write to <email> or <email> today.')
+  })
+
+  test('a phone number becomes a placeholder, in any script', () => {
+    const body = parseRelease('1', withBody('<p>Call 7827170170, 1800-180-1503, (080-4611 0007) or 011-23385271، ०११-२३३८५२७१.</p>'), 'en').body
+    expect(body).toBe('Call <phone>, <phone>, (<phone>) or <phone>، <phone>.')
+  })
+
+  test('but a number inside an identifier, an amount or a date is left alone', () => {
+    const text = 'App id6739700695, report MPR011020257F52BD, Rs 1,00,00,000 crore, 29.10.2025, PRID 2195987, year 2047.'
+    expect(parseRelease('1', withBody(`<p>${text}</p>`), 'en').body).toBe(text)
+  })
+})

@@ -64,10 +64,35 @@ export type Release = {
   translations: Record<string, string>
 }
 
-export function parseRelease(prid: string, html: string, hint = ''): Release {
+// Removed before anything is read: an embedded tweet or post is third-party
+// material, and on translated pages most were left in English (578 of 1,028
+// on Urdu pages in the November 2025 pilot), so they would pair English with
+// English. Contact details become placeholders, the same on every side of a
+// release, so the sentence and its pair survive. All 93 addresses and 68 phone
+// numbers in the pilot were institutional; none of it is text a translation
+// corpus needs.
+// A post is known by its class or, where an editor dropped the class (35 pilot
+// pages), by its link; a plain quotation stays.
+const QUOTES = /<blockquote\b[^>]*>[\s\S]*?<\/blockquote>/gi
+const POST = /class="(?:twitter-tweet|instagram-media)|(?:twitter|x)\.com\/\w+\/status\/|instagram\.com\/(?:p|reel)\//i
+const EMAIL = /[\w+-]+(?:(?:\.|\[dot\])[\w+-]+)*(?:@|\[at\])[\w-]+(?:(?:\.|\[dot\])[\w-]+)+/gi
+const ZERO = '[0०০੦૦୦௦౦೦൦۰٠]'
+// A landline with its STD code, a mobile, or a toll-free number; never digits
+// that touch a letter (an app id, a file name) or run on into more digits.
+const PHONE = new RegExp(
+  `(?<![\\p{L}\\p{M}\\p{Nd}])(?:\\+91[\\s-]?)?(?:${ZERO}\\p{Nd}{2,4}[\\s-]?\\p{Nd}{3,4}[\\s-]?\\p{Nd}{3,4}|[6-9]\\p{Nd}{9}|1800[\\s-]?\\p{Nd}{2,3}[\\s-]?\\p{Nd}{3,4})(?![\\p{L}\\p{M}\\p{Nd}])`,
+  'gu',
+)
+
+export function redact(text: string) {
+  return text.replace(EMAIL, '<email>').replace(PHONE, '<phone>')
+}
+
+export function parseRelease(prid: string, page: string, hint = ''): Release {
+  const html = page.replace(QUOTES, (quote) => (POST.test(quote) ? '' : quote))
   const field = (id: string) => {
     const m = html.match(new RegExp(`<[a-z0-9]+ id="${id}"[^>]*>([\\s\\S]*?)</[a-z0-9]+>`, 'i'))
-    return m ? text(m[1]) : ''
+    return m ? redact(text(m[1])) : ''
   }
   // The body is everything the release container holds past the dateline; the
   // header blocks above it go by id rather than by tag nesting. Cut at the
@@ -118,7 +143,7 @@ export function parseRelease(prid: string, html: string, hint = ''): Release {
     subtitle: field('Subtitleh3'),
     ministry: field('MinistryName'),
     date: field('PrDateTime').replace(/\s+/g, ' ').replace(/^[^:]*:\s*/, ''),
-    body,
+    body: redact(body),
     translations,
   }
 }

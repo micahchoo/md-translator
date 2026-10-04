@@ -10,6 +10,12 @@ For each language: sarvam-30b and Google Translate against PIB's translation,
 and, where corpus/runs/vs-google.jsonl has the language, the same two against
 IN22's human translation. If Google's lead over sarvam is much larger on PIB
 than on IN22, PIB's text writes like a machine and the PIB score favours one.
+
+The sharper test is "copies": sentences where Google's output is within chrF 90
+of PIB's. Two independent translations of one sentence almost never come that
+close (sarvam and Google: 2 of 200 in Assamese; Google and IN22's human text:
+0 of 89), so a copy is a reference made with Google. "sarvam, no copies" is
+sarvam's score on the rest.
 """
 import json
 import pathlib
@@ -43,7 +49,7 @@ if vs.exists():
         if row["dir"] == "from-en":
             in22.setdefault(row["code"], []).append(row)
 
-print(f"{'lang':5} {'n':>4} | {'PIB: sarvam chrF/++':>20} {'google':>7} {'lead':>5} | {'IN22: sarvam':>12} {'google':>7} {'lead':>5} | {'before release':>14}")
+print(f"{'lang':5} {'n':>4} | {'PIB: sarvam chrF/++':>20} {'google':>7} {'lead':>5} {'copies':>7} {'sarvam, no copies':>18} | {'IN22: sarvam':>12} {'google':>7} {'lead':>5} | {'before release':>14}")
 for path in sorted(pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else "corpus/runs/pib-bench").glob("*.jsonl")):
     rows = [json.loads(l) for l in path.read_text().splitlines()]
     refs = [r["reference"] for r in rows]
@@ -52,7 +58,11 @@ for path in sorted(pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else "corpus/ru
     g_rows = [r for r in rows if r["gt"]]
     g = score(chrf, [r["gt"] for r in g_rows], [r["reference"] for r in g_rows])
     old = sum(1 for r in rows if (p := posted(r["date"])) is None or p < RELEASED)
-    line = f"{path.stem:5} {len(rows):>4} | {s:9.1f}/{spp:<10.1f} {g:7.1f} {g - s:5.1f} | "
+    copy = [bool(r["gt"]) and chrf.sentence_score(r["gt"], [r["reference"]]).score >= 90 for r in rows]
+    rest = [r for r, c in zip(rows, copy) if not c]
+    s_rest = score(chrf, [r["output"] for r in rest], [r["reference"] for r in rest])
+    copies = f"{sum(copy)}/{len(g_rows)}" if g_rows else "-"
+    line = f"{path.stem:5} {len(rows):>4} | {s:9.1f}/{spp:<10.1f} {g:7.1f} {g - s:5.1f} {copies:>7} {s_rest:18.1f} | "
     if path.stem in in22:
         h = in22[path.stem]
         hs = score(chrf, [r["sarvam"] for r in h], [r["ref"] for r in h])

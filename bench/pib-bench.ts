@@ -66,15 +66,29 @@ await translateAll(
 
 const complete = createClient({ endpoint: DEFAULTS.endpoint, model: DEFAULTS.model })
 
+/** A dropped connection is retried: on 2026-10-04 one reset from the server's proxy ended a run and lost its language. */
+async function translate(md: string, opts: ReturnType<typeof toOptions>): Promise<UnitResult[]> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return (await translateDocument(md, opts, complete, () => {})).units
+    } catch (e) {
+      if (attempt >= 3) throw e
+      console.error(`  ${(e as Error).message}; retrying in ${10 * attempt} s`)
+      await Bun.sleep(10_000 * attempt)
+    }
+  }
+}
+
 /** Each sentence a block of one document, twenty at a time; a chunk whose blocks do not come back one for one goes sentence by sentence. */
 async function sarvam(code: string, sources: string[]): Promise<UnitResult[]> {
   const opts = toOptions({ ...DEFAULTS, language: code })
   const out: UnitResult[] = []
   for (let i = 0; i < sources.length; i += 20) {
     const chunk = sources.slice(i, i + 20)
-    const units = (await translateDocument(chunk.join('\n\n') + '\n', opts, complete, () => {})).units
+    const units = await translate(chunk.join('\n\n') + '\n', opts)
     if (units.length === chunk.length) out.push(...units)
-    else for (const s of chunk) out.push((await translateDocument(`${s}\n`, opts, complete, () => {})).units[0])
+    else for (const s of chunk) out.push((await translate(`${s}\n`, opts))[0])
+    console.error(`  ${code} ${out.length}/${sources.length}`)
   }
   return out
 }
