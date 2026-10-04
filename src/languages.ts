@@ -14,7 +14,9 @@
 // checked against Google Translate both ways (bench/examples.ts). With them all
 // passed the screen and the short-block test with 0 of 30 short blocks in the
 // wrong language; for the six that passed without them, the examples still
-// raised chrF against Google Translate by 7 to 10 points. The examples cover the shapes the model got wrong without them: a
+// raised chrF against Google Translate by 7 to 10 points. Sanskrit, Konkani and
+// Dogri failed the first screen outright (Dogri wrote Punjabi in Gurmukhi) and
+// passed with examples; Sanskrit by the narrowest margin of any. The examples cover the shapes the model got wrong without them: a
 // bare heading, a question it must not answer, a bold list label, inline code
 // with a link, and a sentence of acronyms and dates. None is about any one
 // subject, so they bias no document toward a genre.
@@ -90,6 +92,22 @@ export const LANGUAGES: Record<string, Language> = {
       'FDA-র 2026 সালের প্রতিবেদনটি আগস্ট 2026 পর্যন্ত **এখনও খসড়া**। [নির্দেশিকা](#1)',
     ]),
   },
+  doi: {
+    code: 'doi',
+    name: 'Dogri',
+    native: 'डोगरी',
+    from: 'English',
+    script: /[ऀ-ॿ]/g,
+    length: 0.99,
+    foreign: /[ॻॼॾॿ]/,
+    examples: zip([
+      'एह् किस चाल्ली कम्म करदा ऐ',
+      'केह् एह् ऑफलाइन कम्म करदा ऐ?',
+      '**बैकअप**: हर नोट दी इक कापी, जेह्ड़ी हर रातीं संभाली जंदी ऐ',
+      '`npm install` चलाओ, फ्ही [सेटअप गाइड](#1) पढ़ो। इस च लगभग 5 मिनट लगदे न।',
+      'FDA दी 2026 दी रिपोर्ट अगस्त 2026 तगर **अजें बी मसौदा** ऐ। [मार्गदर्शन](#1)',
+    ]),
+  },
   gu: {
     code: 'gu',
     name: 'Gujarati',
@@ -134,6 +152,22 @@ export const LANGUAGES: Record<string, Language> = {
       '**ಬ್ಯಾಕಪ್‌ಗಳು**: ಪ್ರತಿ ಟಿಪ್ಪಣಿಯ ಒಂದು ಪ್ರತಿ, ಪ್ರತಿ ರಾತ್ರಿ ಉಳಿಸಲಾಗುತ್ತದೆ',
       '`npm install` ಅನ್ನು ಚಲಾಯಿಸಿ, ನಂತರ [ಸೆಟಪ್ ಮಾರ್ಗದರ್ಶಿ](#1) ಓದಿ. ಇದಕ್ಕೆ ಸುಮಾರು 5 ನಿಮಿಷಗಳು ಬೇಕಾಗುತ್ತವೆ.',
       'FDA ಯ 2026 ರ ವರದಿಯು ಆಗಸ್ಟ್ 2026 ರ ವೇಳೆಗೆ **ಇನ್ನೂ ಕರಡು** ಆಗಿದೆ. [ಮಾರ್ಗಸೂಚಿ](#1)',
+    ]),
+  },
+  gom: {
+    code: 'gom',
+    name: 'Konkani',
+    native: 'कोंकणी',
+    from: 'English',
+    script: /[ऀ-ॿ]/g,
+    length: 0.95,
+    foreign: /[ॻॼॾॿ]/,
+    examples: zip([
+      'हें कशें काम करता',
+      'हें ऑफलायन काम करता काय?',
+      '**बॅकअप**: दर एका नोटाची एक प्रत, जी दर रातीं सांबाळून दवरतात',
+      '`npm install` चलयात, मागीर [सेटअप मार्गदर्शक](#1) वाचात. ताका सुमार 5 मिनटां लागतात.',
+      'FDA चो 2026 चो अहवाल ऑगस्ट 2026 मेरेन **अजून मसुदो** आसा. [मार्गदर्शन](#1)',
     ]),
   },
   mai: {
@@ -227,6 +261,22 @@ export const LANGUAGES: Record<string, Language> = {
       '**ਬੈਕਅੱਪ**: ਹਰ ਨੋਟ ਦੀ ਇੱਕ ਕਾਪੀ, ਜੋ ਹਰ ਰਾਤ ਸੰਭਾਲੀ ਜਾਂਦੀ ਹੈ',
       '`npm install` ਚਲਾਓ, ਫਿਰ [ਸੈੱਟਅੱਪ ਗਾਈਡ](#1) ਪੜ੍ਹੋ। ਇਸ ਵਿੱਚ ਲਗਭਗ 5 ਮਿੰਟ ਲੱਗਦੇ ਹਨ।',
       'FDA ਦੀ 2026 ਦੀ ਰਿਪੋਰਟ ਅਗਸਤ 2026 ਤੱਕ **ਅਜੇ ਵੀ ਇੱਕ ਖਰੜਾ** ਹੈ। [ਮਾਰਗਦਰਸ਼ਨ](#1)',
+    ]),
+  },
+  sa: {
+    code: 'sa',
+    name: 'Sanskrit',
+    native: 'संस्कृतम्',
+    from: 'English',
+    script: /[ऀ-ॿ]/g,
+    length: 0.98,
+    foreign: /[ॻॼॾॿ]/,
+    examples: zip([
+      'एतत् कथं कार्यं करोति',
+      'किम् एतत् अन्तर्जालं विना कार्यं करोति?',
+      '**प्रतिलिपयः**: प्रत्येकस्याः टिप्पण्याः एका प्रतिलिपिः, या प्रतिरात्रं रक्ष्यते',
+      '`npm install` चालयतु, ततः [सज्जीकरण-मार्गदर्शिकाम्](#1) पठतु। अस्मिन् प्रायः 5 निमेषाः भवन्ति।',
+      'FDA-संस्थायाः 2026 वर्षस्य प्रतिवेदनम् अगस्त 2026 पर्यन्तं **अद्यापि प्रारूपम्** अस्ति। [मार्गदर्शनम्](#1)',
     ]),
   },
   ta: {

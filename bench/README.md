@@ -15,11 +15,10 @@ A language passed if all of these held:
 | Language | Result |
 | --- | --- |
 | Assamese, Hindi, Kannada, Malayalam, Marathi, Nepali, Tamil, Telugu | Passed |
-| Bengali, Gujarati, Maithili, Odia, Punjabi, Urdu | Passed with worked examples (see below), after failing without them |
-| Bodo, Dogri | Wrote another language: Assamese for Bodo, Punjabi for Dogri |
-| Konkani, Manipuri, Santali, Sindhi | Wrong language or script, from English |
+| Bengali, Dogri, Gujarati, Konkani, Maithili, Odia, Punjabi, Sanskrit, Urdu | Passed with worked examples (see below), after failing without them; Sanskrit by the narrowest margin (48.3 and 35.0 against floors of 48 and 35) |
+| Bodo | Wrote Assamese |
+| Manipuri, Santali, Sindhi | Wrong language or script, from English |
 | Kashmiri | chrF too low |
-| Sanskrit | chrF 1.1 points under the floor, into English |
 
 Ten sentences is a screen, not a precise measurement. Sanskrit's margin is within the noise.
 
@@ -113,6 +112,8 @@ After them, blocks in the wrong language, out of 30:
 **Examples written for the languages that lacked them.** Urdu, Bengali, Odia, Gujarati, Maithili and Punjabi failed on short blocks or the Markdown test without examples: Bengali put 7 of 30 short blocks in Assamese, Odia 5 in English, Urdu copied or romanised them. `examples.ts` checks the five examples Claude wrote for each against Google Translate both ways, its own translation and Claude's line read back into English; all 30 kept their meaning, numbers, code and links. With them, all six passed the screen and put 0 of 30 short blocks in the wrong language. chrF against Google Translate on those blocks rose from 50 to 81 in Bengali and from 54 to 74 in Odia. The text that ships is Claude's, never Google's.
 
 The six that had passed without examples (Assamese, Malayalam, Marathi, Nepali, Tamil, Telugu) were then given them too, in an A/B on the same short documents (`starts.ts staged`, examples staged in `examples.ts` until they win). Blocks in the wrong language fell from 7 of 180 to 0, and chrF against Google Translate rose in every one, by 7 to 10 points: Nepali 69 to 79, Telugu 68 to 77. They shipped.
+
+Sanskrit, Konkani and Dogri, which had failed the first screen outright (Dogri wrote Punjabi in Gurmukhi, chrF 0.5 from English), were given examples the same way, after a Dogri line that read back as "breathed in" was rewritten. All three passed the screen (Dogri 50.0 from English) and put 0 of 30 short blocks in the wrong language. They shipped.
 
 **The owner's own documents.** `realdocs.ts` ran the first 25 blocks of three of the owner's Markdown files, which no model has seen (a policy digest, a plugin README and this README), into Hindi, Tamil, Bengali, Urdu and Maithili: 74 blocks each. 1 to 5 blocks per language were flagged. Of the unflagged blocks GlotLID read as another language, every one read by hand was a line of acronyms kept in English as it should be (`FDA MDR (21 CFR 803) + MedWatch`), or Maithili that GlotLID took for its close relatives Bhojpuri and Magahi. One real fault: Hindi translated a command name set in bold ("Run **Draw a question**"), which a reader needs in English to find it in the app; the README now says to write such names as code.
 

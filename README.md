@@ -1,12 +1,12 @@
 # Markdown Translator
 
-Translates Markdown documents between English and fourteen Indian languages, using a model that runs on your own computer. Headings, lists, bold text, links and code come back where they were.
+Translates Markdown documents between English and seventeen Indian languages, using a model that runs on your own computer. Headings, lists, bold text, links and code come back where they were.
 
 **Open it:** https://micahchoo.github.io/md-translator/
 
 ## Languages
 
-Assamese, Bengali, Gujarati, Hindi, Kannada, Maithili, Malayalam, Marathi, Nepali, Odia, Punjabi, Tamil, Telugu and Urdu, into and out of English. Urdu is written right to left.
+Assamese, Bengali, Dogri, Gujarati, Hindi, Kannada, Konkani, Maithili, Malayalam, Marathi, Nepali, Odia, Punjabi, Sanskrit, Tamil, Telugu and Urdu, into and out of English. Urdu is written right to left.
 
 To translate into English, choose English. You do not say what the source language is; the model recognises it.
 
