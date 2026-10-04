@@ -1,6 +1,6 @@
 # The sentence splitter and number check in bench/pib-align.py. No model is loaded.
 #
-#   uv run --no-project --with pytest pytest -p no:cacheprovider test/pib_align_test.py
+#   uv run --no-project --with pytest --with numpy pytest -p no:cacheprovider test/pib_align_test.py
 import importlib.util
 import sys
 from pathlib import Path
@@ -82,3 +82,66 @@ def test_numbers_agree_only_says_something_when_a_side_has_numbers():
     assert pa.numbers_agree("Rs 4,500 crore in 2025", "२०२५ में ४,५०० करोड़") is True
     assert pa.numbers_agree("Rs 4,500 crore in 2025", "२०२४ में ४,५०० करोड़") is False
     assert pa.numbers_agree("It is important.", "यह महत्वपूर्ण है।") is None
+
+
+# Alignment on fake vectors: each text's meaning is a direction, so the right
+# match scores 1 and any other 0. No model is loaded.
+import numpy as np
+
+MEANINGS = ["A", "B", "C", "AB"]
+
+
+def fake_vectors(meaning: dict[str, str]):
+    """An encoder that maps each text to the unit vector of its meaning; unknown text to zero."""
+    calls: list[list[str]] = []
+
+    def encode(texts):
+        calls.append(list(texts))
+        out = np.zeros((len(texts), len(MEANINGS)), dtype=np.float32)
+        for i, t in enumerate(texts):
+            if t in meaning:
+                out[i, MEANINGS.index(meaning[t])] = 1
+        return out
+
+    return encode, calls
+
+
+def test_align_matches_one_to_one():
+    encode, _ = fake_vectors({"One.": "A", "Two.": "B", "Three.": "C", "एक।": "A", "दो।": "B", "तीन।": "C"})
+    vec = pa.embedder(encode)(pa.needed(["One.", "Two.", "Three."], ["एक।", "दो।", "तीन।"]))
+    assert pa.align(vec, ["One.", "Two.", "Three."], ["एक।", "दो।", "तीन।"]) == [("One.", "एक।", 1.0), ("Two.", "दो।", 1.0), ("Three.", "तीन।", 1.0)]
+
+
+def test_align_joins_two_sentences_translated_as_one():
+    encode, _ = fake_vectors({"One.": "A", "Two.": "B", "One. Two.": "AB", "एक और दो।": "AB"})
+    vec = pa.embedder(encode)(pa.needed(["One.", "Two."], ["एक और दो।"]))
+    assert pa.align(vec, ["One.", "Two."], ["एक और दो।"]) == [("One. Two.", "एक और दो।", 1.0)]
+
+
+def test_the_cache_encodes_each_text_once_ever(tmp_path):
+    encode, calls = fake_vectors({"One.": "A", "Two.": "B"})
+    path = tmp_path / "vectors.sqlite"
+    first = pa.embedder(encode, pa.Cache(path, "m"))(["One.", "Two.", "One."])
+    again = pa.embedder(encode, pa.Cache(path, "m"))(["Two.", "One."])  # a new run, the same file
+    assert calls == [["One.", "Two."]]
+    assert np.array_equal(first["One."], again["One."])
+
+
+def test_the_cache_never_serves_another_models_vectors(tmp_path):
+    encode, calls = fake_vectors({"One.": "A"})
+    path = tmp_path / "vectors.sqlite"
+    pa.embedder(encode, pa.Cache(path, "LaBSE"))(["One."])
+    pa.embedder(encode, pa.Cache(path, "other"))(["One."])
+    assert calls == [["One."], ["One."]]
+
+
+def test_a_batch_embeds_its_english_once_however_many_languages_it_pairs_with():
+    meaning = {"One.": "A", "Two.": "B", "एक।": "A", "दो।": "B", "एक.": "A", "दोन.": "B"}
+    encode, calls = fake_vectors(meaning)
+    group = {"prid": "1", "date": "D", "byLang": {
+        "en": {"title": "", "body": "One. Two."}, "hi": {"title": "", "body": "एक। दो।"}, "mr": {"title": "", "body": "एक. दोन."}}}
+    rows = list(pa.pairs_of([("delhi-en", group)], pa.embedder(encode)))
+    sent = [t for call in calls for t in call]
+    assert sent.count("One.") == 1 and sent.count("Two.") == 1
+    assert [(r["lang"], r["en"], r["text"]) for r in rows] == [("hi", "One.", "एक।"), ("hi", "Two.", "दो।"), ("mr", "One.", "एक."), ("mr", "Two.", "दोन.")]
+    assert rows[0]["office"] == "delhi-en" and rows[0]["prid"] == "1"

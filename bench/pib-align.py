@@ -9,7 +9,12 @@ and aligned in order: 1-1, 1-2 and 2-1 matches and skips, by dynamic
 programming over cosine similarity, as Vecalign and Bertalign do. A pair is
 kept only above MIN_SIM. Every pair carries the release IDs it came from, and
 `numbers`: whether both sides hold the same numbers (null when neither has any).
-The splitter and the number check are tested in test/pib_align_test.py.
+Vectors are kept in a SQLite file keyed by model and sentence (PIB_EMBEDDINGS,
+default corpus/pib/embeddings.sqlite), so each sentence is embedded once, ever:
+a change to how pairs are scored reruns in seconds, not hours. Releases go in
+batches of BATCH, each embedded in one call, so a Delhi release's English is
+embedded once however many translations it has. Tested in
+test/pib_align_test.py, on fake vectors.
 
     uv run bench/pib-align.py corpus/pib/pilot/*/pairs.jsonl > corpus/pib/pilot/sentences.jsonl
 
@@ -121,17 +126,73 @@ def numbers_agree(a: str, b: str) -> bool | None:
     return None if not na and not nb else na == nb
 
 
-def align(model, src: list[str], tgt: list[str]) -> list[tuple[str, str, float]]:
+MODEL = "sentence-transformers/LaBSE"
+BATCH = 32  # release groups embedded in one call
+
+
+class Cache:
+    """Sentence vectors on disk, keyed by model and text: each sentence is embedded once, ever.
+    Changing how pairs are scored then costs no embedding at all."""
+
+    def __init__(self, path, model: str):
+        import sqlite3
+
+        self.db = sqlite3.connect(str(path))
+        self.db.execute("CREATE TABLE IF NOT EXISTS v (k TEXT PRIMARY KEY, b BLOB)")
+        self.model = model
+
+    def _key(self, text: str) -> str:
+        import hashlib
+
+        return hashlib.sha1(f"{self.model}\0{text}".encode()).hexdigest()
+
+    def get(self, texts: list[str]) -> dict:
+        import numpy as np
+
+        keys = {self._key(t): t for t in texts}
+        out = {}
+        items = list(keys)
+        for i in range(0, len(items), 500):
+            chunk = items[i : i + 500]
+            for k, b in self.db.execute(f"SELECT k, b FROM v WHERE k IN ({','.join('?' * len(chunk))})", chunk):
+                out[keys[k]] = np.frombuffer(b, dtype=np.float32)
+        return out
+
+    def put(self, vectors: dict) -> None:
+        import numpy as np
+
+        self.db.executemany("INSERT OR REPLACE INTO v VALUES (?, ?)", [(self._key(t), np.asarray(v, dtype=np.float32).tobytes()) for t, v in vectors.items()])
+        self.db.commit()
+
+
+def embedder(encode, cache: Cache | None = None):
+    """Texts to unit vectors, encoding only what the cache does not hold, each text once."""
+
+    def vectors(texts: list[str]) -> dict:
+        unique = list(dict.fromkeys(texts))
+        have = cache.get(unique) if cache else {}
+        missing = [t for t in unique if t not in have]
+        if missing:
+            new = dict(zip(missing, encode(missing)))
+            if cache:
+                cache.put(new)
+            have.update(new)
+        return have
+
+    return vectors
+
+
+def needed(src: list[str], tgt: list[str]) -> list[str]:
+    """Every text align() reads: each sentence, and each pair of neighbours for 1-2 and 2-1 matches."""
+    return src + [a + " " + b for a, b in zip(src, src[1:])] + tgt + [a + " " + b for a, b in zip(tgt, tgt[1:])]
+
+
+def align(vec: dict, src: list[str], tgt: list[str]) -> list[tuple[str, str, float]]:
     import numpy as np
 
     if not src or not tgt:
         return []
-    # Embed each sentence and each pair of neighbours, for 1-2 and 2-1 matches.
-    s2 = [src[i] + " " + src[i + 1] for i in range(len(src) - 1)]
-    t2 = [tgt[j] + " " + tgt[j + 1] for j in range(len(tgt) - 1)]
-    e = model.encode(src + s2 + tgt + t2, normalize_embeddings=True, batch_size=64)
-    S1, S2 = e[: len(src)], e[len(src) : len(src) + len(s2)]
-    T1, T2 = e[len(src) + len(s2) : len(src) + len(s2) + len(tgt)], e[len(src) + len(s2) + len(tgt) :]
+    sim = lambda a, b: float(np.dot(vec[a], vec[b]))
     n, m = len(src), len(tgt)
     best = np.full((n + 1, m + 1), -1e9)
     back = {}
@@ -142,11 +203,11 @@ def align(model, src: list[str], tgt: list[str]) -> list[tuple[str, str, float]]
                 continue
             moves = []
             if i < n and j < m:
-                moves.append((1, 1, float(S1[i] @ T1[j])))
+                moves.append((1, 1, sim(src[i], tgt[j])))
             if i + 1 < n and j < m:
-                moves.append((2, 1, float(S2[i] @ T1[j])))
+                moves.append((2, 1, sim(src[i] + " " + src[i + 1], tgt[j])))
             if i < n and j + 1 < m:
-                moves.append((1, 2, float(S1[i] @ T2[j])))
+                moves.append((1, 2, sim(src[i], tgt[j] + " " + tgt[j + 1])))
             if i < n:
                 moves.append((1, 0, SKIP))
             if j < m:
@@ -164,25 +225,48 @@ def align(model, src: list[str], tgt: list[str]) -> list[tuple[str, str, float]]
     return pairs[::-1]
 
 
+def pairs_of(groups: list[tuple[str, dict]], vectors):
+    """Sentence pairs for a batch of (office, release group), with the whole batch embedded in one call."""
+    jobs = []
+    for office, group in groups:
+        by = group["byLang"]
+        # English is the pivot; a group without it has nothing to pair against.
+        if "en" not in by:
+            continue
+        en = sentences(by["en"]["title"] + "\n" + by["en"]["body"])
+        for lang, doc in by.items():
+            if lang != "en":
+                jobs.append((office, group, lang, en, sentences(doc["title"] + "\n" + doc["body"])))
+    vec = vectors([t for *_, en, tgt in jobs for t in needed(en, tgt)])
+    for office, group, lang, en, tgt in jobs:
+        for s, t, sim in align(vec, en, tgt):
+            if sim >= MIN_SIM:
+                # Recorded, not yet a filter: the measuring stick decides that.
+                yield {"lang": lang, "en": s, "text": t, "sim": round(sim, 3), "numbers": numbers_agree(s, t),
+                       "confidence": "low" if lang in UNSEEN else "normal",
+                       "prid": group["prid"], "date": group.get("date", ""), "office": office}
+
+
 if __name__ == "__main__":
+    import os
+
     from sentence_transformers import SentenceTransformer
 
-    model = SentenceTransformer("sentence-transformers/LaBSE")
+    model = SentenceTransformer(MODEL)
+    cache = Cache(os.environ.get("PIB_EMBEDDINGS", "corpus/pib/embeddings.sqlite"), MODEL)
+    vectors = embedder(lambda texts: model.encode(texts, normalize_embeddings=True, batch_size=64), cache)
+    batch: list[tuple[str, dict]] = []
+
+    def flush():
+        for row in pairs_of(batch, vectors):
+            print(json.dumps(row, ensure_ascii=False), flush=False)
+        sys.stdout.flush()
+        batch.clear()
+
     for path in sys.argv[1:]:
         office = path.split("/")[-2]
         for line in open(path):
-            group = json.loads(line)
-            by = group["byLang"]
-            # English is the pivot; a group without it has nothing to pair against.
-            if "en" not in by:
-                continue
-            en = sentences(by["en"]["title"] + "\n" + by["en"]["body"])
-            for lang, doc in by.items():
-                if lang == "en":
-                    continue
-                for s, t, sim in align(model, en, sentences(doc["title"] + "\n" + doc["body"])):
-                    if sim >= MIN_SIM:
-                        # Recorded, not yet a filter: the measuring stick decides that.
-                        print(json.dumps({"lang": lang, "en": s, "text": t, "sim": round(sim, 3), "numbers": numbers_agree(s, t),
-                                          "confidence": "low" if lang in UNSEEN else "normal",
-                                          "prid": group["prid"], "date": group["date"], "office": office}, ensure_ascii=False))
+            batch.append((office, json.loads(line)))
+            if len(batch) >= BATCH:
+                flush()
+    flush()
