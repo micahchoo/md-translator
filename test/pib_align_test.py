@@ -145,3 +145,21 @@ def test_a_batch_embeds_its_english_once_however_many_languages_it_pairs_with():
     assert sent.count("One.") == 1 and sent.count("Two.") == 1
     assert [(r["lang"], r["en"], r["text"]) for r in rows] == [("hi", "One.", "एक।"), ("hi", "Two.", "दो।"), ("mr", "One.", "एक."), ("mr", "Two.", "दोन.")]
     assert rows[0]["office"] == "delhi-en" and rows[0]["prid"] == "1"
+
+
+def test_a_document_pair_is_aligned_once_from_whichever_side_it_came():
+    # Delhi's English with its Marathi, and Mumbai's Marathi with its English, are one pair of documents.
+    meaning = {"One.": "A", "एक.": "A"}
+    encode, _ = fake_vectors(meaning)
+    delhi = {"prid": "10", "date": "D", "byLang": {"en": {"prid": "10", "title": "", "body": "One."}, "mr": {"prid": "20", "title": "", "body": "एक."}}}
+    mumbai = {"prid": "20", "date": "D", "byLang": {"mr": {"prid": "20", "title": "", "body": "एक."}, "en": {"prid": "10", "title": "", "body": "One."}}}
+    seen = set()
+    first = list(pa.pairs_of([("delhi-en", delhi)], pa.embedder(encode), seen))
+    again = list(pa.pairs_of([("mumbai-mr", mumbai)], pa.embedder(encode), seen))
+    assert [(r["office"], r["text"]) for r in first] == [("delhi-en", "एक.")]
+    assert again == []
+
+
+def test_blank_lines_in_a_pairs_file_are_skipped():
+    # An office with no releases that month wrote a pairs.jsonl holding one empty line.
+    assert list(pa.groups_in(["", '{"prid": "1"}', "\n"])) == [{"prid": "1"}]

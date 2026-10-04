@@ -143,10 +143,14 @@ describe('office language labels', () => {
 describe('release groups', () => {
   const release = (prid: string, lang: string, body: string) =>
     ({ prid, lang, title: body ? 'T' : '', subtitle: '', ministry: 'M', date: 'D', body, translations: {} })
-  test('a blank translation is left out, never written as an empty side', () => {
-    // 2189023 (Marathi) is a 56 KB page with an empty title and body.
+  test('every side carries its own PRID, and a blank translation is left out', () => {
+    // 2189023 (Marathi) is a 56 KB page with an empty title and body. The PRIDs
+    // let a document pair be aligned once: Delhi's English with its Marathi and
+    // Mumbai's Marathi with its English are the same pair, and the pilot held
+    // 118,616 duplicate sentence pairs before this.
     expect(groupOf(release('1', 'en', 'Text'), [release('2', 'mr', ''), release('3', 'hi', 'पाठ')])).toEqual({
-      prid: '1', date: 'D', ministry: 'M', byLang: { en: { title: 'T', body: 'Text' }, hi: { title: 'T', body: 'पाठ' } },
+      prid: '1', date: 'D', ministry: 'M',
+      byLang: { en: { prid: '1', title: 'T', body: 'Text' }, hi: { prid: '3', title: 'T', body: 'पाठ' } },
     })
   })
   test('a group whose own release is blank is no group', () => {

@@ -236,8 +236,16 @@ def align(vec: dict, src: list[str], tgt: list[str]) -> list[tuple[str, str, flo
     return pairs[::-1]
 
 
-def pairs_of(groups: list[tuple[str, dict]], vectors):
-    """Sentence pairs for a batch of (office, release group), with the whole batch embedded in one call."""
+def groups_in(lines):
+    """Release groups from the lines of a pairs.jsonl; an office with no releases writes none."""
+    return (json.loads(line) for line in lines if line.strip())
+
+
+def pairs_of(groups: list[tuple[str, dict]], vectors, seen: set | None = None):
+    """Sentence pairs for a batch of (office, release group), with the whole batch embedded in one call.
+    A document pair already in `seen` is skipped: Delhi's English with its Marathi and Mumbai's
+    Marathi with its English are the same two documents."""
+    seen = set() if seen is None else seen
     jobs = []
     for office, group in groups:
         by = group["byLang"]
@@ -246,8 +254,14 @@ def pairs_of(groups: list[tuple[str, dict]], vectors):
             continue
         en = sentences(by["en"]["title"] + "\n" + by["en"]["body"])
         for lang, doc in by.items():
-            if lang != "en":
-                jobs.append((office, group, lang, en, sentences(doc["title"] + "\n" + doc["body"])))
+            if lang == "en":
+                continue
+            pair = (by["en"].get("prid"), doc.get("prid"))
+            if None not in pair:
+                if pair in seen:
+                    continue
+                seen.add(pair)
+            jobs.append((office, group, lang, en, sentences(doc["title"] + "\n" + doc["body"])))
     vec = vectors([t for *_, en, tgt in jobs for t in needed(en, tgt)])
     for office, group, lang, en, tgt in jobs:
         for s, t, sim in align(vec, en, tgt):
@@ -279,17 +293,18 @@ if __name__ == "__main__":
     cache = Cache(path, MODEL + ("@fp16" if gpu else ""))
     vectors = embedder(lambda texts: model.encode(texts, normalize_embeddings=True, batch_size=256 if gpu else 64).astype("float32"), cache)
     batch: list[tuple[str, dict]] = []
+    seen: set = set()
 
     def flush():
-        for row in pairs_of(batch, vectors):
+        for row in pairs_of(batch, vectors, seen):
             print(json.dumps(row, ensure_ascii=False), flush=False)
         sys.stdout.flush()
         batch.clear()
 
     for path in sys.argv[1:]:
         office = path.split("/")[-2]
-        for line in open(path):
-            batch.append((office, json.loads(line)))
+        for group in groups_in(open(path)):
+            batch.append((office, group))
             if len(batch) >= BATCH:
                 flush()
     flush()

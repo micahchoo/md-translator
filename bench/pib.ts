@@ -299,8 +299,8 @@ async function monthPrerids(reg: number, lang: number, year: number, month: numb
 /** One release and its translations as a parallel row. A blank page is no side; a blank source is no row. */
 export function groupOf(row: Release, translated: Release[]) {
   if (!row.body) return null
-  const byLang: Record<string, { title: string; body: string }> = { [row.lang]: { title: row.title, body: row.body } }
-  for (const t of translated) if (t.body) byLang[t.lang] = { title: t.title, body: t.body }
+  const byLang: Record<string, { prid: string; title: string; body: string }> = { [row.lang]: { prid: row.prid, title: row.title, body: row.body } }
+  for (const t of translated) if (t.body) byLang[t.lang] = { prid: t.prid, title: t.title, body: t.body }
   return { prid: row.prid, date: row.date, ministry: row.ministry, byLang }
 }
 
@@ -363,7 +363,7 @@ if (import.meta.main) {
     const group = groupOf(row, translated)
     if (group) groups.push(JSON.stringify(group))
   }
-  writeFileSync(`${DIR}/pairs.jsonl`, groups.join('\n') + '\n')
+  writeFileSync(`${DIR}/pairs.jsonl`, groups.map((g) => g + '\n').join(''))
 
   console.error(`  ${linkReport(rows)}`)
   console.error(`wrote ${rows.length} releases and ${groups.length} groups (${requests} requests)`)
