@@ -38,6 +38,38 @@ Open:
   words; translated link text in paths ([بینچ/README.md]); bold interface names (README tip: use code);
   the Settings examples box shows right-to-left lines (Urdu, Kashmiri) left to right.
 
+## PIB corpus — queue after the November 2025 pilot (agreed 2026-10-04)
+Pilot: corpus/pib/pilot/; Delhi rerun logs to delhi-500.log, the 19 regional passes to run-regional.sh ->
+regional.log and <pass>/run.log. Two fetchers side by side at PIB_DELAY=500: 63 pages/min, no 403/429.
+The first Delhi pass crashed at 12:21 (error hidden by run.sh's tail -3); watch delhi-500.log for it.
+In order, all on the cache, no new requests:
+1. Parser: 489 of 3,481 releases have page CSS at the start of `body` and the footer ("Release ID … Visitor
+   Counter: N") at the end. Test first, fixture PRID 2190187. Same step: map the office labels the
+   translations block uses (Bengali-TR 90 -> bn, Hindi_Cg 5 / Hindi_Ddn 1 -> hi, Telugu_Vw 2 -> te), and
+   the 3 blank pages (e.g. 2189023, 56 KB, empty <h2>) -- skip, never emit an empty side.
+2. page(): fetch `PressReleaseIframePage.aspx?PRID=N&reg=3&lang=1` directly. The bare URL 302s to it,
+   ~25% of each page's time; 15/16 sampled pages parse identically, the 16th differed only in the footer.
+3. Rebuild every pass's text from cache (PIB_DELAY=0), then align.
+4. Alignment, measured at each step:
+   a. Measuring stick: GT-translate the Indic side of 500 sampled pairs, chrF against the English (~$2;
+      PIB is public). Later: agreement with CVIT-PIB (jerin/pib, CC BY 4.0) on 2017–2019 releases.
+   b. Abbreviation-aware splitter, both sides (Dr. Rs. Mr. Smt. Prof. etc., initials, डॉ. श्री): the
+      regex made ~2,500 false splits in 57,916 Delhi English sentences. Compare with Indic NLP Library's.
+   c. Number agreement (native digits normalised) as filter and tie-break.
+   d. Only if a gap remains: margin scoring instead of raw cosine; LASER3/SONAR for mni and lus
+      (verify coverage first).
+5. Before the full crawl: a concurrency setting in pib.ts (2 in flight). Estimate ~12k pages/month,
+   ~10 days for 2017–2026 at 2 fetchers + direct URL; older months may be smaller — pilot one 2018 month.
+6. A sarvam-30b benchmark from PIB, after step 4. Covers 14 of the 20 offered languages (none for Bodo,
+   Dogri, Kashmiri, Maithili, Sanskrit, Sindhi -- they stay on IN22/FLORES); Manipuri can be retested.
+   English -> X only: 93% of regional releases translate a Delhi English release posted first, so X -> en
+   would start from translated text. 200 high-confidence pairs per language (Nepali has ~21 releases a
+   month). First: (a) read sarvam-30b's training cutoff and take a month after it; (b) score GT against
+   the PIB references on a sample -- unusually high agreement means the references are machine output
+   (PIB loads Bhashini's translation plugin).
+Prior art checked (all 152 HF "pib" results): only CVIT-PIB (to ~2019) and the 2022–23 dump. CVIT
+matched documents by MT + tf-idf (threshold 0.51) and sentences by Bleualign; ours are linked by PIB.
+
 ## Next
 - Live: https://micahchoo.github.io/md-translator/ (deployed 2026-10-01, repo micahchoo/md-translator). Pages workflow deploys on push to main.
 

@@ -3,3 +3,5 @@ dist
 .brainstorm/
 corpus/
 .env*
+__pycache__/
+.pytest_cache/
