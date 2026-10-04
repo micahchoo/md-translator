@@ -47,6 +47,13 @@ the pilot -- run-regional.sh starts a fresh bun per pass, so pib.ts must not cha
 done on main (113c1d0). Verified: 403 IS retried (RETRYABLE), five times; the 12:21 crash was a page failing
 six times. sarvam-30b public 2026-03-03, no stated cutoff: benchmark months after that. CVIT-PIB's own
 tarball now 404s (cdn.iiit.ac.in); slices survive in the Super-NaturalInstructions pib tasks on HF.
+Status 14:26: PILOT DONE (Delhi rerun 14:12, clean, 1,971 requests; no 403/429 in any pass). pib-parser
+merged (7fde275). Every pass rebuilt with the fixed parser into corpus/pib/pilot-v2/ (2 requests each).
+Running: full alignment on CPU -> pilot-v2/sentences.jsonl (fp32 cache key: rerun with `uv run`, not
+the ROCm venv, to hit it); sarvam benchmark -> corpus/runs/pib-bench/ (log corpus/runs/pib-bench.log),
+11 languages from pilot-v2/bench/sentences.jsonl (80 releases each, GPU-aligned). Konkani has 0 safe
+pairs (all low confidence); Hindi/Urdu need the Delhi pairs: rerun pib-bench.ts on the full file for hi ur.
+GPU: corpus/venv-rocm (torch 2.14.1+rocm7.2) runs pib-align in fp16, 11x the fp32 rate.
 In order, all on the cache, no new requests:
 1. Parser: 489 of 3,481 releases have page CSS at the start of `body` and the footer ("Release ID … Visitor
    Counter: N") at the end. Test first, fixture PRID 2190187. Same step: map the office labels the
