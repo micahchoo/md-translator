@@ -144,3 +144,6 @@ Rejected: line markers and block counts (code rebuilds the document); LLM severi
 - Rejected: Hindi examples lent to other languages (hurt Assamese, Marathi, Nepali).
 - Seen in the browser, not catchable by rules: Telugu turned Tuesday into Wednesday (meaning; judge territory).
 - Next: roadmap B (judge on sarvam's own answers), then examples for Urdu/Bengali/Odia/Gujarati/Maithili/Punjabi.
+- C2 edit memory: built and live (store.ts Memory; reused blocks skip the model). C5 changed blocks only:
+  built and live (edits set blocks aside in `previous`; carryOver by text). C3 kept terms: tried,
+  rejected (Tamil got worse; sarvam keeps names unaided) — see bench/README.
