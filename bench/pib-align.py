@@ -192,7 +192,13 @@ def align(vec: dict, src: list[str], tgt: list[str]) -> list[tuple[str, str, flo
 
     if not src or not tgt:
         return []
-    sim = lambda a, b: float(np.dot(vec[a], vec[b]))
+    # Every similarity the search can ask for, three matrix products up front:
+    # looked up cell by cell it was the slowest part of a run once the vectors
+    # came from the GPU (6% busy).
+    stack = lambda texts: np.stack([vec[t] for t in texts]) if texts else np.zeros((0, len(vec[src[0]])))
+    S1, T1 = stack(src), stack(tgt)
+    S2, T2 = stack([a + " " + b for a, b in zip(src, src[1:])]), stack([a + " " + b for a, b in zip(tgt, tgt[1:])])
+    one, two_one, one_two = (S1 @ T1.T).tolist(), (S2 @ T1.T).tolist(), (S1 @ T2.T).tolist()
     n, m = len(src), len(tgt)
     best = np.full((n + 1, m + 1), -1e9)
     back = {}
@@ -203,11 +209,11 @@ def align(vec: dict, src: list[str], tgt: list[str]) -> list[tuple[str, str, flo
                 continue
             moves = []
             if i < n and j < m:
-                moves.append((1, 1, sim(src[i], tgt[j])))
+                moves.append((1, 1, one[i][j]))
             if i + 1 < n and j < m:
-                moves.append((2, 1, sim(src[i] + " " + src[i + 1], tgt[j])))
+                moves.append((2, 1, two_one[i][j]))
             if i < n and j + 1 < m:
-                moves.append((1, 2, sim(src[i], tgt[j] + " " + tgt[j + 1])))
+                moves.append((1, 2, one_two[i][j]))
             if i < n:
                 moves.append((1, 0, SKIP))
             if j < m:
