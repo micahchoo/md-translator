@@ -26,8 +26,7 @@ B. Judge into the app
 C. Patterns from other translators
    1 copied answers — DONE ("Not a translation").  2 edit memory — DONE, live.
    3 kept terms — REJECTED (Tamil worse; sarvam keeps names unaided).  5 changed blocks only — DONE, live.
-   8 download note — DONE, live.  6 look-ahead — DEFERRED (no failure seen it would fix; the
-   parallel prompt has no place for it but an instruction). 4 notes per language — superseded by examples
+   8 download note — DONE, live.  6 look-ahead — REJECTED after an A/B (no gain; chrF lower in 4 of 6). 4 notes per language — superseded by examples
    (Sanskrit, Konkani, Dogri staged and testing).
    7 self-critique — REJECTED (chat mode reasons for 48 s and 4,000 tokens without answering).
 D. GT cache: minimal-pair consistency — covered (numbers check 100%; judge-own translates with and
