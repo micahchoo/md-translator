@@ -185,6 +185,18 @@ Four settings were each run on both sets against the same floors; the first thre
 
 **The rupee sign.** tessdata_fast's English model has no ₹ in its character set, so an image read as English can never return one: "₹200" comes back as "200" and "₹1,250" as "€1,250". Kannada's model has it and reads clean print correctly; Hindi's reads it as २. On the brochure Kannada with English misread four prices of five as "2200".
 
+**Designed pages and a layout model.** A brochure with three columns, white text in green boxes and text over a photograph read badly, and cutting each box out by hand took its left column from 60.5 to 83.0 chrF, against 64.3 for the best image treatment tried (CLAHE 58.9, edge detection 48.2). So the gap was layout, not contrast. To measure it on more than one page, `ocr-designed.ts` takes 22 screens of Indic news front pages in seven languages (BBC Hindi, Bengali, Marathi, Gujarati and Punjabi, Amar Ujala, Loksatta, Divya Bhaskar, Prajavani, The Hindu, Indian Express), the text the page's DOM shows in each screen as its reference; `ocr-layout.py` reads them and the 147 book pages three ways:
+
+| Reading | Designed · books |
+| --- | --- |
+| Tesseract's own layout | 57.0 · **74.2** |
+| PP-DocLayout-S regions, each read alone, then Tesseract on what they left | **63.7** · 72.5 |
+| The same, only where the model finds a picture | **63.5** · **74.1** |
+| The same, only where it finds two columns of text | 60.4 · 74.1 |
+| docling-layout-egret-medium in place of PP-DocLayout-S (78.5 MB; 23 pages with the brochure) | 63.1 · 72.8 |
+
+**Adopted:** PP-DocLayout-S, 4.8 MB, only where it finds a picture: layout on 21 of 22 designed pages and 7 of 147 book pages. It keeps 6.5 of the 6.7 points on designed pages and costs books 0.1, though not evenly: one Hindi book page whose ornament the model took for a picture went from 99.3 to 94.0. The rule was chosen on the same pages it is scored on, and a designed page with no picture is read as before. Egret was no better at sixteen times the size. Two things learned on the way: a crop with 6 pixels round a region cut Gurmukhi's marks (24 found 27% more letters), and whiting out the model's pictures before Tesseract's pass erased the brochure's text, which sits on one.
+
 ## Limits of these methods
 
 - **Small samples.** 10 to 20 rows per language is a screen. A margin of a point or two, as Sanskrit's, is noise.
@@ -218,6 +230,8 @@ uvx --from huggingface_hub hf download cis-lmu/glotlid model.bin --local-dir cor
 | `bun bench/packet.ts 25` | A review packet per language for a native reader: one offline HTML file each in `corpus/review/`, made from this README, with right / wrong / unsure per block and a button that saves the answers. |
 | `bun bench/judge.ts 15 20` | Measures the model as its own judge, on language and on negation. Resumes: a language already in `corpus/runs/judge.jsonl` is skipped. |
 | `bun bench/ocr-pages.ts 12` | Fetches 12 validated Wikisource pages a language, scan and text, into `corpus/ocr-pages/`. Skips languages already saved. |
+| `bun bench/ocr-designed.ts` | Screenshots of Indic news front pages with the text their DOM shows, into `corpus/ocr-designed/`. Needs Playwright's Chromium. |
+| `uv run bench/ocr-layout.py` | Tesseract's own layout against PP-DocLayout-S regions, and the routing rules, on designed pages and books. `--egret` adds docling-layout-egret-medium from `corpus/egret/`. |
 | `bun bench/ocr.ts synthetic` (or `pages`) | Reads the IN22 sentences, or the Wikisource pages, with Tesseract.js. Score with `uv run bench/score-ocr.py`. |
 | `bun bench/pib-bench.ts <sentences.jsonl> 200` | sarvam-30b and Google Translate on PIB sentence pairs, English into each language: LaBSE similarity at least 0.85, numbers agreeing, at most 5 pairs from one release. `GT_BUDGET` caps the characters sent to Google. Score with `uv run bench/score-pib.py`, which sets the PIB scores beside IN22's and counts pairs older than sarvam-30b. |
 
@@ -231,6 +245,6 @@ The packet's text is this project's public README, never the owner's documents. 
 
 [IN22-Gen](https://huggingface.co/datasets/ai4bharat/IN22-Gen) (AI4Bharat, CC BY 4.0), [GlotLID](https://huggingface.co/cis-lmu/glotlid). [FLORES+](https://huggingface.co/datasets/openlanguagedata/flores_plus) (CC BY-SA 4.0) was used in the first trial only. Its terms forbid re-hosting it where web crawlers can reach it, so no part of it is in this repository.
 
-Wikisource's transcriptions are under CC BY-SA 4.0 and its scans are mostly in the public domain; both stay in the git-ignored `corpus/`.
+Wikisource's transcriptions are under CC BY-SA 4.0 and its scans are mostly in the public domain; both stay in the git-ignored `corpus/`. The news screenshots and their text belong to their publishers and stay there too.
 
 PIB's releases and their official translations are Government of India works, so no open licence covers them. PIB's [Copyright Policy](https://www.pib.gov.in/content/3604_2_CopyrightPolicy.aspx) permits reproduction free of charge. The text must stay accurate, must not mislead, and must name the source. The permission does not cover third-party material inside a release.

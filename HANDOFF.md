@@ -38,10 +38,11 @@ handout: 4-6). Any language for PDFs; no-OCR languages keep a damaged layer with
 Tested: an English PDF, iihs/Tamil-Handout_RWA.pdf, a scan made from a Wikisource page. Not
 tested on a real Krutidev PDF (only a unit test with Krutidev-style text).
 Hard words removed (owner: no value). Nepali offered (778a846).
-Layout: PP-DocLayout-S (4.8 MB, scratchpad/layout) took the brochure 60 -> 85 but books -2.3,
-unstable to cropping, labelled a photo-backed column a picture. Not adopted. Next: a test set of
-designed pages from screenshots of Indic web pages (DOM innerText as reference, corpus/ only),
-then docling-egret-medium (78.5 MB). Preprocessing (CLAHE, edges, contrast) tested: not worth it.
+Layout (80c5162, 8520621): PP-DocLayout-S, our ONNX conversion in public/models (NOTICE.txt), used
+only where it finds a picture; regions read alone (psm 6, 24 px margin), then Tesseract psm 3 on the
+page with regions whited out, XY-cut at the widest gap. bench/ocr-designed.ts (22 news screens,
+corpus/ocr-designed) + bench/ocr-layout.py: designed 57.0 -> 63.5, books 74.2 -> 74.1. Egret 78.5 MB
+no better. Preprocessing (CLAHE, edges, contrast) not worth it. Rule chosen on the scored pages.
 After merge: remove the worktree, its corpus link, the exclude line; stop vite preview on :4173.
 
 ## State at the end of 2026-10-04 — read this first; dated sections below are the history
