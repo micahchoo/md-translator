@@ -98,6 +98,7 @@
           <label>Front matter keys to leave untranslated <input name="skipKeys" type="text" /></label>
           <label class="check"><input name="noteOnDownload" type="checkbox" /> End downloads with a note that a model made the translation</label>
           <label class="check"><input name="judge" type="checkbox" /> Let the model check its own answers for a lost "not" or a related language. This makes translation about three times slower. llama.cpp servers only.</label>
+          <div class="row"><span id="voices-stored" class="hint"></span> <button id="remove-voices" class="small ghost" type="button" hidden>Remove downloaded voices</button></div>
         </fieldset>
 
         <p id="settings-error" class="error" role="alert"></p>

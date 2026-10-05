@@ -6,7 +6,7 @@ import { directionLabel, dirOf, LANGUAGES } from './languages'
 import { createScorer, probe, type Score } from './judge'
 import { createClient, listModels } from './llm'
 import { DEFAULTS, formatExamples, loadSettings, parseExamples, saveSettings, toOptions, type Settings } from './settings'
-import { speak } from './speech'
+import { removeVoices, speak, storedVoices } from './speech'
 import { loadDocs, loadMemory, remember, saveDocs, saveMemory, type SavedDoc } from './store'
 import { editUnit, machineNote, progressOf, retryUnit, translateDocument } from './translate'
 
@@ -40,6 +40,8 @@ const el = {
   connection: $('connection'),
   settingsError: $('settings-error'),
   examplesLabel: $('examples-label'),
+  voicesStored: $('voices-stored'),
+  removeVoices: $<HTMLButtonElement>('remove-voices'),
 }
 const viewTabs = [...document.querySelectorAll<HTMLButtonElement>('.views [data-view]')]
 const viewPanes = [...document.querySelectorAll<HTMLElement>('section.view')]
@@ -98,6 +100,7 @@ const blocks = new BlockList(el.blocks, {
 })
 
 function render() {
+  stopIfStale()
   const d = doc()
   const units = d.units ?? []
   const md = units.length ? progressOf(d.source, units).markdown : ''
@@ -138,8 +141,10 @@ function render() {
   el.status.textContent = statusLine(d, done, flagged)
 
   const lang = d.lang ?? settings.language
-  const listening = LANGUAGES[lang].voice
-    ? { playing: playing?.doc === d.id ? playing.index : null, loading: !!playing?.loading }
+  const voice = LANGUAGES[lang].voice
+  const mine = playing?.doc === d.id ? playing : null
+  const listening = voice
+    ? { playing: mine?.index ?? null, loading: !!mine?.loading, progress: mine?.progress, accent: voice.accent }
     : undefined
   if (d.view === 'blocks' && units.length) blocks.show(units, lang, isBusy, el.onlyFlagged.checked, listening)
   el.follow.hidden = !(running && d.view === 'blocks' && !blocks.follow)
@@ -288,7 +293,25 @@ async function retry(i: number) {
 // ---- reading aloud ---------------------------------------------------------
 
 // One block plays at a time. espeak-ng loads on the first Play, not with the page.
-let playing: { doc: number; index: number; loading: boolean; audio?: HTMLAudioElement } | null = null
+let playing: {
+  doc: number
+  index: number
+  /** What is being read, and in which language: the audio belongs to these. */
+  lang?: string
+  output: string
+  loading: boolean
+  progress?: number
+  audio?: HTMLAudioElement
+} | null = null
+
+// A run into another language, a Retry, an Edit or a removed document changes
+// what the block says, and the audio stops with it. One rule, checked on every
+// render, so a new way to change a block cannot forget to stop it.
+function stopIfStale() {
+  if (!playing) return
+  const d = docs.find((x) => x.id === playing!.doc)
+  if (!d || d.lang !== playing.lang || d.units?.[playing.index]?.output !== playing.output) stopPlaying()
+}
 
 function stopPlaying() {
   if (playing?.audio) {
@@ -305,11 +328,15 @@ async function play(i: number) {
   stopPlaying()
   const output = d.units?.[i]?.output
   if (again || !voice || !output) return render()
-  const me: NonNullable<typeof playing> = { doc: d.id, index: i, loading: true }
+  const me: NonNullable<typeof playing> = { doc: d.id, index: i, lang: d.lang, output, loading: true }
   playing = me
   render()
   try {
-    const wav = await speak(voice, output)
+    const wav = await speak(voice, output, (loaded, total) => {
+      me.progress = total ? loaded / total : undefined
+      schedule()
+    })
+    me.progress = undefined
     if (playing !== me) return // Stop, or another block, was pressed while it loaded
     if (!wav) return (stopPlaying(), render())
     me.audio = new Audio(URL.createObjectURL(new Blob([wav], { type: 'audio/wav' })))
@@ -453,9 +480,25 @@ function fillForm(s: Settings) {
   el.connection.textContent = ''
 }
 
+async function showVoices() {
+  // Cache Storage exists only on https and localhost; elsewhere nothing is kept.
+  const { voices, bytes } = await storedVoices().catch(() => ({ voices: 0, bytes: 0 }))
+  el.voicesStored.textContent = voices
+    ? `Voices for reading aloud: ${voices} kept in this browser, ${Math.round(bytes / 1e6)} MB.`
+    : 'No voices for reading aloud are kept in this browser.'
+  el.removeVoices.hidden = !voices
+}
+
 $('open-settings').onclick = () => {
   fillForm(settings)
+  showVoices()
   el.dialog.showModal()
+}
+el.removeVoices.onclick = async () => {
+  stopPlaying()
+  render()
+  await removeVoices()
+  showVoices()
 }
 $('reset-settings').onclick = () => fillForm({ ...structuredClone(DEFAULTS), language: settings.language })
 $('test-connection').onclick = async () => {

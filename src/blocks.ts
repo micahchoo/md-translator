@@ -38,6 +38,10 @@ export interface Listening {
   playing: number | null
   /** The voice is still downloading or reading, so nothing is heard yet. */
   loading: boolean
+  /** How much of the voice has downloaded, 0 to 1, while it downloads. */
+  progress?: number
+  /** The language whose pronunciation is borrowed, when it is not this one's. */
+  accent?: string
 }
 
 const h = <K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string) => {
@@ -114,9 +118,11 @@ export class BlockList {
       head.append(retry, edit)
       const label = this.playLabel(i)
       if (label) {
+        const accent = this.listening?.accent
+        if (accent) head.append(h('span', 'tag', `${accent} pronunciation`))
         const play = h('button', 'small ghost', label)
         play.type = 'button'
-        play.title = label === 'Play' ? 'Read this translation aloud' : 'Stop reading'
+        play.title = label !== 'Play' ? 'Stop reading' : accent ? `Read with ${accent} pronunciation` : 'Read this translation aloud'
         play.onclick = () => this.handlers.play(i)
         head.append(play)
       }
@@ -142,7 +148,9 @@ export class BlockList {
   private playLabel(i: number): string | undefined {
     const l = this.listening
     if (!l || this.units?.[i].status !== 'done' || !this.units[i].output) return undefined
-    return l.playing !== i ? 'Play' : l.loading ? 'Loading…' : 'Stop'
+    if (l.playing !== i) return 'Play'
+    if (!l.loading) return 'Stop'
+    return l.progress === undefined ? 'Loading…' : `Voice ${Math.round(l.progress * 100)}%`
   }
 
   private editor(u: UnitResult, i: number, lang: string): HTMLElement {

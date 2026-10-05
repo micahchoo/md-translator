@@ -33,11 +33,17 @@ Your documents stay in this browser. If you stop a run, **Translate** continues 
 
 ## Reading aloud
 
-Translations into Bengali, Gujarati, Hindi, Kannada, Malayalam, Marathi, Nepali, Odia, Punjabi, Tamil, Telugu and Urdu, and into English, can be read aloud.
+Translations into Bengali, Bodo, Dogri, Gujarati, Hindi, Kannada, Konkani, Maithili, Malayalam, Marathi, Nepali, Odia, Punjabi, Sanskrit, Sindhi, Tamil, Telugu and Urdu, and into English, can be read aloud.
 
-In **Blocks**, press **Play** on a translated block. The voice is espeak-ng, which runs in the page. It sounds mechanical, but it says each word as the language writes it. The first Play downloads about 9 MB. Code, link addresses and formatting marks are not read.
+In **Blocks**, press **Play** on a translated block. The first Play in a language downloads its voice from Hugging Face, about 64 MB, and the button shows how much has arrived. After that it plays at once. The voice runs in your browser; your text and its sound go nowhere. Code, link addresses and formatting marks are not read.
 
-The other languages have no Play button. espeak-ng has no voice for Bodo, Dogri, Kashmiri, Maithili or Sanskrit. For Assamese, Konkani and Sindhi in Devanagari, it reads the words wrongly. Nobody who reads these languages has checked the voices yet.
+| Voice | Languages |
+| --- | --- |
+| Its own, human-sounding | Bengali, English, Hindi, Malayalam, Marathi, Nepali, Telugu, Urdu |
+| Hindi's, with Hindi pronunciation | Bodo, Dogri, Konkani, Maithili, Sanskrit, Sindhi |
+| Mechanical (espeak-ng) | Gujarati, Kannada, Odia, Punjabi, Tamil |
+
+The middle row's blocks say "Hindi pronunciation": a reader of the language will hear an accent, and Dogri and Bodo lose their tones. Assamese and Kashmiri have no Play button, because espeak-ng reads Assamese wrongly and has no rules for Kashmiri. Nobody who reads these languages has checked the voices yet.
 
 ## What stays unchanged
 
@@ -105,6 +111,15 @@ This translator is one web page and your own model server. Your documents stay o
 
 The model is sarvam-30b by Sarvam AI. The language tests use IN22-Gen by AI4Bharat (CC BY 4.0), whose human translations also give Bodo, Sindhi and Kashmiri their examples, and GlotLID.
 
-Reading aloud uses [espeak-ng](https://github.com/espeak-ng/espeak-ng), compiled to WebAssembly by [espeak-ng.js](https://github.com/ianmarmour/espeak-ng.js). It is under the GPL 3.0 or later and loads only when you first press Play.
+Reading aloud uses [espeak-ng](https://github.com/espeak-ng/espeak-ng), compiled to WebAssembly by [espeak-ng.js](https://github.com/ianmarmour/espeak-ng.js), under the GPL 3.0 or later, and [Piper](https://github.com/rhasspy/piper) voices from [piper-voices](https://huggingface.co/rhasspy/piper-voices), run by [ONNX Runtime](https://onnxruntime.ai/) (MIT). They load only when you first press Play. Each voice is under the licence of the recordings it learned from:
+
+| Voice | Licence |
+| --- | --- |
+| Hindi (rohan), Malayalam (arjun) | [Indic TTS](https://www.iitm.ac.in/donlab/indictts/), IIT Madras |
+| Telugu (padmavathi) | CC BY 4.0 |
+| Bengali, Marathi (google) | CC BY-SA 4.0 |
+| Nepali (chitwan) | CC0 |
+| Urdu (fasih) | MIT |
+| English (LJSpeech) | Public domain |
 
 The code is under the [MIT licence](LICENSE).

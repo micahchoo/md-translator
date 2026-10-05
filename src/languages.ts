@@ -26,6 +26,24 @@
 
 export type Pair = [english: string, translation: string]
 
+/** A text is read aloud in two steps: espeak-ng's rules for a language turn it
+ *  into IPA, and a Piper voice speaks that IPA. Where no Piper voice fits,
+ *  espeak-ng speaks it itself, mechanically.
+ *
+ *  Measured 2026-10-04 on each first example's IPA: espeak-ng read Assamese as
+ *  letter names and Konkani as garbage, and its Sindhi reads Arabic script, not
+ *  our Devanagari. It has no rules at all for Bodo, Dogri, Kashmiri, Maithili or
+ *  Sanskrit. The Devanagari languages among these take Hindi's rules and voice,
+ *  which the owner heard and accepted, and say so (`accent`). */
+export interface Voice {
+  /** espeak-ng's rules for the language: they make the IPA. */
+  espeak: string
+  /** A voice in rhasspy/piper-voices, by its name; see PIPER_VOICES in src/speech.ts. */
+  piper?: string
+  /** The language whose pronunciation is borrowed, when it is not this one's. */
+  accent?: string
+}
+
 export interface Language {
   code: string
   name: string
@@ -45,13 +63,8 @@ export interface Language {
   foreign?: RegExp
   /** Written right to left; the page sets `dir` from it. */
   dir?: 'rtl'
-  /** The espeak-ng voice that reads it aloud (src/speech.ts). Absent where
-   *  espeak-ng has none, or reads it wrongly: measured 2026-10-04 on each first
-   *  example's IPA, Assamese came back as letter names, Konkani as garbage, and
-   *  Sindhi in Devanagari as Nepali, since espeak's Sindhi reads Arabic script.
-   *  Bodo, Dogri, Kashmiri, Maithili and Sanskrit have no voice of their own,
-   *  and another language's would only sound close. */
-  voice?: string
+  /** How it is read aloud (src/speech.ts). Absent where nothing reads it well. */
+  voice?: Voice
   examples: Pair[]
 }
 
@@ -70,7 +83,7 @@ export const ANY_SOURCE = 'Original'
 
 export const LANGUAGES: Record<string, Language> = {
   // Into English first: the other direction from every entry below it.
-  en: { code: 'en', name: 'English', native: 'English', from: ANY_SOURCE, script: /[A-Za-z]/g, length: 1, voice: 'en-us', examples: [] },
+  en: { code: 'en', name: 'English', native: 'English', from: ANY_SOURCE, script: /[A-Za-z]/g, length: 1, voice: { espeak: 'en', piper: 'en_US-ljspeech-medium' }, examples: [] },
   as: {
     code: 'as',
     name: 'Assamese',
@@ -94,7 +107,7 @@ export const LANGUAGES: Record<string, Language> = {
     script: /[ঀ-৿]/g,
     length: 0.95,
     foreign: /[ৰৱ]/,
-    voice: 'bn',
+    voice: { espeak: 'bn', piper: 'bn_BD-google-medium' },
     examples: zip([
       'এটি কীভাবে কাজ করে',
       'এটি কি অফলাইনে কাজ করে?',
@@ -112,6 +125,7 @@ export const LANGUAGES: Record<string, Language> = {
     length: 1.02,
     foreign: /[ॻॼॾॿ]/,
     // IN22-Gen (AI4Bharat, CC BY 4.0), rows 268, 277, 76, 45, 221: human translations.
+    voice: { espeak: 'hi', piper: 'hi_IN-rohan-medium', accent: 'Hindi' },
     examples: [
       ['There is a medico-legal aspect.', 'बेवहाय मोनसे मुलियारि-आयेनारि बिथिं दं।'],
       ['What is the harm?', 'बेयाव मा खहा दं?'],
@@ -128,6 +142,7 @@ export const LANGUAGES: Record<string, Language> = {
     script: /[ऀ-ॿ]/g,
     length: 0.99,
     foreign: /[ॻॼॾॿ]/,
+    voice: { espeak: 'hi', piper: 'hi_IN-rohan-medium', accent: 'Hindi' },
     examples: zip([
       'एह् किस चाल्ली कम्म करदा ऐ',
       'केह् एह् ऑफलाइन कम्म करदा ऐ?',
@@ -143,7 +158,7 @@ export const LANGUAGES: Record<string, Language> = {
     from: 'English',
     script: /[઀-૿]/g,
     length: 0.93,
-    voice: 'gu',
+    voice: { espeak: 'gu' },
     examples: zip([
       'તે કેવી રીતે કામ કરે છે',
       'શું તે ઑફલાઇન કામ કરે છે?',
@@ -160,7 +175,7 @@ export const LANGUAGES: Record<string, Language> = {
     length: 0.99,
     from: 'English',
     script: /[ऀ-ॿ]/g,
-    voice: 'hi',
+    voice: { espeak: 'hi', piper: 'hi_IN-rohan-medium' },
     examples: zip([
       'यह कैसे काम करता है',
       'क्या यह ऑफ़लाइन काम करता है?',
@@ -176,7 +191,7 @@ export const LANGUAGES: Record<string, Language> = {
     length: 1.07,
     from: 'English',
     script: /[ಀ-೿]/g,
-    voice: 'kn',
+    voice: { espeak: 'kn' },
     examples: zip([
       'ಇದು ಹೇಗೆ ಕೆಲಸ ಮಾಡುತ್ತದೆ',
       'ಇದು ಆಫ್‌ಲೈನ್‌ನಲ್ಲಿ ಕೆಲಸ ಮಾಡುತ್ತದೆಯೇ?',
@@ -210,6 +225,7 @@ export const LANGUAGES: Record<string, Language> = {
     script: /[ऀ-ॿ]/g,
     length: 0.95,
     foreign: /[ॻॼॾॿ]/,
+    voice: { espeak: 'hi', piper: 'hi_IN-rohan-medium', accent: 'Hindi' },
     examples: zip([
       'हें कशें काम करता',
       'हें ऑफलायन काम करता काय?',
@@ -226,6 +242,7 @@ export const LANGUAGES: Record<string, Language> = {
     script: /[ऀ-ॿ]/g,
     length: 0.92,
     foreign: /[ॻॼॾॿ]/,
+    voice: { espeak: 'hi', piper: 'hi_IN-rohan-medium', accent: 'Hindi' },
     examples: zip([
       'ई कोना काज करैत अछि',
       'की ई ऑफलाइन काज करैत अछि?',
@@ -241,7 +258,7 @@ export const LANGUAGES: Record<string, Language> = {
     from: 'English',
     script: /[ഀ-ൿ]/g,
     length: 1.15,
-    voice: 'ml',
+    voice: { espeak: 'ml', piper: 'ml_IN-arjun-medium' },
     examples: zip([
       'ഇത് എങ്ങനെ പ്രവർത്തിക്കുന്നു',
       'ഇത് ഓഫ്‌ലൈനിൽ പ്രവർത്തിക്കുമോ?',
@@ -258,7 +275,7 @@ export const LANGUAGES: Record<string, Language> = {
     script: /[ऀ-ॿ]/g,
     length: 1.01,
     foreign: /[ॻॼॾॿ]/,
-    voice: 'mr',
+    voice: { espeak: 'mr', piper: 'mr_IN-google-medium' },
     examples: zip([
       'हे कसे कार्य करते',
       'हे ऑफलाइन कार्य करते का?',
@@ -275,7 +292,7 @@ export const LANGUAGES: Record<string, Language> = {
     script: /[ऀ-ॿ]/g,
     length: 0.96,
     foreign: /[ॻॼॾॿ]/,
-    voice: 'ne',
+    voice: { espeak: 'ne', piper: 'ne_NP-chitwan-medium' },
     examples: zip([
       'यो कसरी काम गर्छ',
       'के यो अफलाइन काम गर्छ?',
@@ -291,7 +308,7 @@ export const LANGUAGES: Record<string, Language> = {
     from: 'English',
     script: /[଀-୿]/g,
     length: 1.09,
-    voice: 'or',
+    voice: { espeak: 'or' },
     examples: zip([
       'ଏହା କିପରି କାମ କରେ',
       'ଏହା ଅଫଲାଇନରେ କାମ କରେ କି?',
@@ -307,7 +324,7 @@ export const LANGUAGES: Record<string, Language> = {
     from: 'English',
     script: /[਀-੿]/g,
     length: 0.92,
-    voice: 'pa',
+    voice: { espeak: 'pa' },
     examples: zip([
       'ਇਹ ਕਿਵੇਂ ਕੰਮ ਕਰਦਾ ਹੈ',
       'ਕੀ ਇਹ ਔਫਲਾਈਨ ਕੰਮ ਕਰਦਾ ਹੈ?',
@@ -324,6 +341,7 @@ export const LANGUAGES: Record<string, Language> = {
     script: /[ऀ-ॿ]/g,
     length: 0.98,
     foreign: /[ॻॼॾॿ]/,
+    voice: { espeak: 'hi', piper: 'hi_IN-rohan-medium', accent: 'Hindi' },
     examples: zip([
       'एतत् कथं कार्यं करोति',
       'किम् एतत् अन्तर्जालं विना कार्यं करोति?',
@@ -340,6 +358,7 @@ export const LANGUAGES: Record<string, Language> = {
     script: /[ऀ-ॿ]/g,
     length: 1.0,
     // IN22-Gen (AI4Bharat, CC BY 4.0), rows 268, 277, 76, 45, 221: human translations.
+    voice: { espeak: 'hi', piper: 'hi_IN-rohan-medium', accent: 'Hindi' },
     examples: [
       ['There is a medico-legal aspect.', 'हिकि तबई-कानूनी पहलू आहे।'],
       ['What is the harm?', 'कहिड़ो नुकसानि आहे?'],
@@ -355,7 +374,7 @@ export const LANGUAGES: Record<string, Language> = {
     from: 'English',
     script: /[஀-௿]/g,
     length: 1.17,
-    voice: 'ta',
+    voice: { espeak: 'ta' },
     examples: zip([
       'இது எப்படி வேலை செய்கிறது',
       'இது ஆஃப்லைனில் வேலை செய்யுமா?',
@@ -371,7 +390,7 @@ export const LANGUAGES: Record<string, Language> = {
     from: 'English',
     script: /[ఀ-౿]/g,
     length: 1.00,
-    voice: 'te',
+    voice: { espeak: 'te', piper: 'te_IN-padmavathi-medium' },
     examples: zip([
       'ఇది ఎలా పనిచేస్తుంది',
       'ఇది ఆఫ్‌లైన్‌లో పనిచేస్తుందా?',
@@ -388,7 +407,7 @@ export const LANGUAGES: Record<string, Language> = {
     script: /[؀-ۿ]/g,
     length: 0.97,
     dir: 'rtl',
-    voice: 'ur',
+    voice: { espeak: 'ur', piper: 'ur_PK-fasih-medium' },
     examples: zip([
       'یہ کیسے کام کرتا ہے',
       'کیا یہ آف لائن کام کرتا ہے؟',
