@@ -20,6 +20,8 @@ interface Doc extends SavedDoc {
   reading?: string
   /** The image is shown beside its text. */
   showImage?: boolean
+  /** An image waiting for the owner to name its language and press Read. */
+  unread?: boolean
 }
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T
@@ -49,6 +51,7 @@ const el = {
   reading: $('reading'),
   imageLang: $<HTMLSelectElement>('image-lang'),
   imageEnglish: $<HTMLInputElement>('image-english'),
+  readImage: $<HTMLButtonElement>('read-image'),
   hardCount: $('hard-count'),
   nextHard: $<HTMLButtonElement>('next-hard'),
   showImage: $<HTMLButtonElement>('show-image'),
@@ -85,7 +88,7 @@ let saveTimer = 0
 function persist() {
   clearTimeout(saveTimer)
   saveTimer = window.setTimeout(() => {
-    const ok = saveDocs(storage, docs.map(({ view, error, reading, showImage, ...d }) => d))
+    const ok = saveDocs(storage, docs.map(({ view, error, reading, showImage, unread, ...d }) => d))
     if (!ok) console.warn('Documents could not be saved in this browser.')
   }, 800)
 }
@@ -153,7 +156,7 @@ function render() {
   el.meter.max = Math.max(1, units.length)
   el.meter.value = done
   el.status.classList.toggle('error', d.status === 'error')
-  el.status.textContent = d.reading ?? statusLine(d, done, flagged)
+  el.status.textContent = d.reading ?? (d.unread ? 'Choose the language of the text in the image, then press Read.' : statusLine(d, done, flagged))
   renderReading(d)
 
   const lang = d.lang ?? settings.language
@@ -387,6 +390,10 @@ async function addFiles(files: FileList | File[]) {
     if (isImage(f)) {
       images.set(d.id, f)
       d.ocr = { lang, english, hard: [] }
+      // From English the image is English and is read at once. Into English
+      // its language is the owner's to name first: a reading in the wrong
+      // one is a wait, a dialog and a second wait.
+      if (lang !== 'en') Object.assign(d, { unread: true, showImage: true })
     }
     docs.push(d)
     added.push(d)
@@ -394,7 +401,8 @@ async function addFiles(files: FileList | File[]) {
   current = added[0].id
   persist()
   render()
-  for (const d of added) if (images.has(d.id)) readInto(d, lang, english)
+  for (const d of added) if (images.has(d.id) && !d.unread) readInto(d, lang, english)
+  if (added[0].unread) el.imageLang.focus()
 }
 
 // ---- reading images ---------------------------------------------------------
@@ -405,10 +413,13 @@ const images = new Map<number, Blob>()
 const imageUrls = new Map<number, string>()
 /** The latest reading asked of each document; an older one that finishes late is dropped. */
 const readings = new Map<number, number>()
+/** The text each image's last reading gave, to tell whether the owner has changed it since. */
+const lastRead = new Map<number, string>()
 
 function forgetImage(id: number) {
   images.delete(id)
   readings.delete(id)
+  lastRead.delete(id)
   const url = imageUrls.get(id)
   if (url) URL.revokeObjectURL(url)
   imageUrls.delete(id)
@@ -426,6 +437,9 @@ async function readInto(d: Doc, lang: string, english: boolean) {
   const me = (readings.get(d.id) ?? 0) + 1
   readings.set(d.id, me)
   const latest = () => readings.get(d.id) === me && docs.includes(d)
+  d.unread = false
+  // The controls show the reading under way, not the one before it.
+  d.ocr = { lang, english, hard: d.ocr?.hard ?? [] }
   d.reading = 'Reading the image…'
   render()
   try {
@@ -438,6 +452,7 @@ async function readInto(d: Doc, lang: string, english: boolean) {
     if (d.units) d.previous = d.units
     d.units = undefined
     d.source = r.text
+    lastRead.set(d.id, r.text)
     d.ocr = { lang, english, hard: r.hard }
     d.status = 'idle'
     d.error = undefined
@@ -470,9 +485,10 @@ function renderReading(d: Doc) {
   el.imageEnglish.parentElement!.title = image
     ? 'Read English words too, for a page that mixes them in. Leave it off for a page in one language: it reads that language a little worse.'
     : 'The image is not kept after the page is reloaded'
-  el.imageLang.title = image ? 'Read the image again in another language' : 'The image is not kept after the page is reloaded'
+  el.imageLang.title = !image ? 'The image is not kept after the page is reloaded' : d.unread ? 'The language of the text in the image' : 'Read the image again in another language'
+  el.readImage.hidden = !d.unread
   const hard = stillHard(d.source, d.ocr.hard).length
-  el.hardCount.textContent = d.reading ? '' : hard ? `${hard} ${hard === 1 ? 'word was' : 'words were'} hard to read` : 'Nothing left that was hard to read'
+  el.hardCount.textContent = d.reading || d.unread ? '' : hard ? `${hard} ${hard === 1 ? 'word was' : 'words were'} hard to read` : 'Nothing left that was hard to read'
   el.nextHard.hidden = !hard || !!d.reading
   el.showImage.hidden = !image
   el.showImage.setAttribute('aria-pressed', String(!!d.showImage))
@@ -482,30 +498,44 @@ function renderReading(d: Doc) {
   if (url && el.image.src !== url) el.image.src = url
 }
 
-/** Reads the image again, after the owner agrees to lose the text below. */
+/** Reads the image again; asks first only when the owner has changed the text it gave. */
 function readAgain(lang: string, english: boolean): boolean {
   const d = doc()
   const what = `${LANGUAGES[lang].name}${english ? ' with English' : ''}`
-  if (d.source.trim() && !confirm(`Read the image again as ${what}? The text below, with any changes you made, is replaced.`)) return false
+  const edited = d.source.trim() && d.source !== lastRead.get(d.id)
+  if (edited && !confirm(`Read the image again as ${what}? Your changes to the text below are lost.`)) return false
   readInto(d, lang, english)
   return true
+}
+
+/** The image's language and English, remembered for the next image. */
+function rememberReading(lang: string, english: boolean) {
+  if (settings.language === 'en') settings.imageLanguage = lang
+  if (lang !== 'en') settings.imageEnglish = english
+  saveSettings(storage, settings)
 }
 
 el.imageLang.onchange = () => {
   const d = doc()
   const lang = el.imageLang.value
-  if (!readAgain(lang, lang !== 'en' && !!d.ocr?.english)) return render()
-  // Into English, the choice is remembered for the next image.
-  if (settings.language === 'en') {
-    settings.imageLanguage = lang
-    saveSettings(storage, settings)
-  }
+  const english = lang !== 'en' && !!d.ocr?.english
+  // Before the first reading, a choice is only a choice; Read starts it.
+  if (d.unread) d.ocr = { ...d.ocr!, lang }
+  else if (!readAgain(lang, english)) return render()
+  rememberReading(lang, english)
+  render()
 }
 el.imageEnglish.onchange = () => {
   const d = doc()
-  if (!readAgain(d.ocr!.lang, el.imageEnglish.checked)) return render()
-  settings.imageEnglish = el.imageEnglish.checked
-  saveSettings(storage, settings)
+  const english = el.imageEnglish.checked
+  if (d.unread) d.ocr = { ...d.ocr!, english }
+  else if (!readAgain(d.ocr!.lang, english)) return render()
+  rememberReading(d.ocr!.lang, english)
+  render()
+}
+el.readImage.onclick = () => {
+  const d = doc()
+  if (d.ocr) readInto(d, d.ocr.lang, !!d.ocr.english)
 }
 el.nextHard.onclick = () => {
   const d = doc()
