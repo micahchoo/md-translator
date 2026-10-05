@@ -30,7 +30,7 @@ describe('README', () => {
 
   test('names exactly the languages that can be read from images', () => {
     const read = Object.values(LANGUAGES).filter((l) => l.code !== 'en' && l.ocr).map((l) => l.name).sort()
-    expect(named(section(readme, 'Reading images').trim().split('\n\n')[0])).toEqual(read)
+    expect(named(section(readme, 'Reading images and PDFs').trim().split('\n\n')[0])).toEqual(read)
   })
 
   test('explains every flag the app shows, by its label', () => {
