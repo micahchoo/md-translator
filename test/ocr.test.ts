@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { OCR_CANDIDATES } from '../bench/ocr'
 import { LANGUAGES } from '../src/languages'
-import { escapeMarkdown, hardWords, imageLanguage, imageLanguages, nextHard, pageText, stillHard, type ReadBlock } from '../src/ocr'
+import { escapeMarkdown, hardWords, imageLanguage, imageLanguages, models, nextHard, pageText, stillHard, type ReadBlock } from '../src/ocr'
 
 /** Tesseract's output for lines of words, each word at the given confidence.
  *  A line is as wide as its text, ten pixels a character, unless given a width. */
@@ -71,12 +71,37 @@ describe('the text an image becomes', () => {
     expect(pageText([b])).toBe('the first line runs the width and so does the second one then it ends.\n\nA new one starts here and runs to its end.')
   })
 
+  test('drops a paragraph Tesseract was unsure of in every word: a graphic read as letters', () => {
+    // A brochure's flowchart arrows came back as ಸ, ಠ್‌, ನ, ೯, each its own paragraph.
+    const b = block([['ಸ', 20]], [['01 ತಾಜಾ ಉತ್ಪನ್ನಗಳು', 90]], [['ಠ್‌ ನ', 35]])
+    expect(pageText([b])).toBe('01 ತಾಜಾ ಉತ್ಪನ್ನಗಳು')
+    expect(hardWords([b])).toEqual([])
+  })
+
+  test('keeps a paragraph with one sure word among unsure ones', () => {
+    expect(pageText([block([['ಮಸುಕು', 30, 300], ['ಸ್ಪಷ್ಟ ಪಠ್ಯ', 90, 300]])])).toBe('ಮಸುಕು ಸ್ಪಷ್ಟ ಪಠ್ಯ')
+  })
+
   test('drops empty lines and paragraphs', () => {
     expect(pageText([block([['  '], ['text']], [[' ']])])).toBe('text')
   })
 
   test('cannot become Markdown it never was', () => {
     expect(pageText([block([['# 5 is *not* a [link] or `code`']])])).toBe('\\# 5 is \\*not\\* a \\[link\\] or \\`code\\`')
+  })
+})
+
+describe('the models an image is read with', () => {
+  test("is the language's own model alone by default", () => {
+    expect(models('kn', false)).toBe('kan')
+  })
+
+  test('adds English when the image also has English', () => {
+    expect(models('kn', true)).toBe('kan+eng')
+  })
+
+  test('is English alone for English, asked or not', () => {
+    expect(models('en', true)).toBe('eng')
   })
 })
 
@@ -94,7 +119,7 @@ describe('escapeMarkdown', () => {
 
 describe('hard words', () => {
   test('lists words below the confidence floor, once each, in reading order', () => {
-    const b = block([['good', 95], ['ब्लर', 40], ['good', 95]], [['ब्लर', 30], ['धुंध', 50]])
+    const b = block([['good', 95], ['ब्लर', 40], ['good', 95]], [['ब्लर', 30], ['धुंध', 50], ['साफ़', 90]])
     expect(hardWords([b])).toEqual(['ब्लर', 'धुंध'])
   })
 

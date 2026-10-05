@@ -48,6 +48,7 @@ const el = {
   voicesStored: $('voices-stored'),
   reading: $('reading'),
   imageLang: $<HTMLSelectElement>('image-lang'),
+  imageEnglish: $<HTMLInputElement>('image-english'),
   hardCount: $('hard-count'),
   nextHard: $<HTMLButtonElement>('next-hard'),
   showImage: $<HTMLButtonElement>('show-image'),
@@ -141,7 +142,8 @@ function render() {
   el.stop.hidden = !isBusy
   el.copy.disabled = el.download.disabled = !md || running
 
-  const flagged = units.filter((u) => u.status === 'done' && u.flags.length).length
+  const hard = d.ocr?.hard ?? []
+  const flagged = units.filter((u) => u.status === 'done' && (u.flags.length || stillHard(u.unit.text, hard).length)).length
   el.onlyFlagged.parentElement!.hidden = !flagged || d.view !== 'blocks'
   el.onlyFlaggedText.textContent = `Show only the ${flagged} to check`
   if (!flagged) el.onlyFlagged.checked = false
@@ -160,7 +162,7 @@ function render() {
   const listening = voice
     ? { playing: mine?.index ?? null, loading: !!mine?.loading, progress: mine?.progress, accent: voice.accent }
     : undefined
-  if (d.view === 'blocks' && units.length) blocks.show(units, lang, isBusy, el.onlyFlagged.checked, listening)
+  if (d.view === 'blocks' && units.length) blocks.show(units, lang, isBusy, el.onlyFlagged.checked, listening, hard)
   el.follow.hidden = !(running && d.view === 'blocks' && !blocks.follow)
 }
 
@@ -378,12 +380,13 @@ async function addFiles(files: FileList | File[]) {
   // An untouched empty document is replaced, not kept beside the new ones.
   if (docs.length === 1 && !docs[0].source.trim() && docs[0].status === 'idle' && !docs[0].ocr) docs.length = 0
   const lang = imageLanguage(settings.language, settings.imageLanguage)
+  const english = lang !== 'en' && settings.imageEnglish
   const added: Doc[] = []
   for (const f of list) {
     const d: Doc = { id: nextId++, name: f.name, source: isImage(f) ? '' : await f.text(), status: 'idle', view: 'source' }
     if (isImage(f)) {
       images.set(d.id, f)
-      d.ocr = { lang, hard: [] }
+      d.ocr = { lang, english, hard: [] }
     }
     docs.push(d)
     added.push(d)
@@ -391,7 +394,7 @@ async function addFiles(files: FileList | File[]) {
   current = added[0].id
   persist()
   render()
-  for (const d of added) if (images.has(d.id)) readInto(d, lang)
+  for (const d of added) if (images.has(d.id)) readInto(d, lang, english)
 }
 
 // ---- reading images ---------------------------------------------------------
@@ -412,11 +415,12 @@ function forgetImage(id: number) {
 }
 
 /** Tesseract's progress, in the owner's words. */
-function readingStatus(status: string, lang: string): string {
-  return status.startsWith('recognizing') ? 'Reading the image…' : `Getting ${LANGUAGES[lang].name} letters, once…`
+function readingStatus(status: string, lang: string, english: boolean): string {
+  if (status.startsWith('recognizing')) return 'Reading the image…'
+  return `Getting ${LANGUAGES[lang].name}${english ? ' and English' : ''} letters, once…`
 }
 
-async function readInto(d: Doc, lang: string) {
+async function readInto(d: Doc, lang: string, english: boolean) {
   const image = images.get(d.id)
   if (!image) return
   const me = (readings.get(d.id) ?? 0) + 1
@@ -425,16 +429,16 @@ async function readInto(d: Doc, lang: string) {
   d.reading = 'Reading the image…'
   render()
   try {
-    const r = await readImage(image, lang, (status) => {
+    const r = await readImage(image, lang, english, (status) => {
       if (!latest()) return
-      d.reading = readingStatus(status, lang)
+      d.reading = readingStatus(status, lang, english)
       schedule()
     })
     if (!latest()) return
     if (d.units) d.previous = d.units
     d.units = undefined
     d.source = r.text
-    d.ocr = { lang, hard: r.hard }
+    d.ocr = { lang, english, hard: r.hard }
     d.status = 'idle'
     d.error = undefined
   } catch (e) {
@@ -460,6 +464,12 @@ function renderReading(d: Doc) {
     )
   el.imageLang.value = d.ocr.lang
   el.imageLang.disabled = !image || !!d.reading
+  el.imageEnglish.parentElement!.hidden = d.ocr.lang === 'en'
+  el.imageEnglish.checked = !!d.ocr.english
+  el.imageEnglish.disabled = el.imageLang.disabled
+  el.imageEnglish.parentElement!.title = image
+    ? 'Read English words too, for a page that mixes them in. Leave it off for a page in one language: it reads that language a little worse.'
+    : 'The image is not kept after the page is reloaded'
   el.imageLang.title = image ? 'Read the image again in another language' : 'The image is not kept after the page is reloaded'
   const hard = stillHard(d.source, d.ocr.hard).length
   el.hardCount.textContent = d.reading ? '' : hard ? `${hard} ${hard === 1 ? 'word was' : 'words were'} hard to read` : 'Nothing left that was hard to read'
@@ -472,19 +482,30 @@ function renderReading(d: Doc) {
   if (url && el.image.src !== url) el.image.src = url
 }
 
+/** Reads the image again, after the owner agrees to lose the text below. */
+function readAgain(lang: string, english: boolean): boolean {
+  const d = doc()
+  const what = `${LANGUAGES[lang].name}${english ? ' with English' : ''}`
+  if (d.source.trim() && !confirm(`Read the image again as ${what}? The text below, with any changes you made, is replaced.`)) return false
+  readInto(d, lang, english)
+  return true
+}
+
 el.imageLang.onchange = () => {
   const d = doc()
   const lang = el.imageLang.value
-  if (d.source.trim() && !confirm(`Read the image again as ${LANGUAGES[lang].name}? The text below, with any changes you made, is replaced.`)) {
-    el.imageLang.value = d.ocr!.lang
-    return
-  }
+  if (!readAgain(lang, lang !== 'en' && !!d.ocr?.english)) return render()
   // Into English, the choice is remembered for the next image.
   if (settings.language === 'en') {
     settings.imageLanguage = lang
     saveSettings(storage, settings)
   }
-  readInto(d, lang)
+}
+el.imageEnglish.onchange = () => {
+  const d = doc()
+  if (!readAgain(d.ocr!.lang, el.imageEnglish.checked)) return render()
+  settings.imageEnglish = el.imageEnglish.checked
+  saveSettings(storage, settings)
 }
 el.nextHard.onclick = () => {
   const d = doc()

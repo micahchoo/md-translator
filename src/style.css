@@ -82,6 +82,7 @@ body.dropping .work { outline: 2px dashed var(--accent); outline-offset: -4px; b
 /* An image's reading: its language, the words to check, the image beside the text. */
 .reading { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 0.85rem; }
 .reading label { display: inline-flex; align-items: center; gap: 6px; }
+.reading input[type='checkbox'] { width: auto; }
 .source-pane { flex: 1; display: grid; grid-template-columns: 1fr; gap: 8px; min-height: 0; }
 .source-pane.with-image { grid-template-columns: 1fr 1fr; }
 #image { width: 100%; max-height: 80dvh; object-fit: contain; object-position: top; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }

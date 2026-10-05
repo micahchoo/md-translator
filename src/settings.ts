@@ -23,6 +23,8 @@ export interface Settings {
   judge: boolean
   /** The language an image is read in when translating into English (src/ocr.ts). */
   imageLanguage: string
+  /** Images are read for English as well as their own language. */
+  imageEnglish: boolean
   /** Which one-time corrections the saved settings have had; see `loadSettings`. */
   revision: number
 }
@@ -40,6 +42,7 @@ export const DEFAULTS: Settings = {
   noteOnDownload: true,
   judge: false,
   imageLanguage: 'hi',
+  imageEnglish: false,
   revision: 1,
 }
 

@@ -10,7 +10,7 @@
 // Outputs go to corpus/runs/ocr/<set>[-<variant>].jsonl; score with
 // `uv run bench/score-ocr.py [variant]`. A variant is one setting the page
 // could ship, measured against the same floors as the base:
-//   eng      the language's model and English's together, for pages that mix them
+//   eng      Sauvola, with the language's model and English's together, for pages that mix them
 //   tiled    Tesseract's tiled Otsu thresholding instead of one global threshold
 //   sauvola  Sauvola's adaptive thresholding: for a grey page in a white margin
 //   hin      the Hindi model for every Devanagari language
@@ -56,7 +56,7 @@ const IMAGES = 'corpus/ocr-synthetic'
 const OUT = 'corpus/runs/ocr'
 
 type Variant = 'base' | 'eng' | 'tiled' | 'sauvola' | 'hin'
-const THRESHOLDING: Partial<Record<Variant, string>> = { tiled: '1', sauvola: '2' }
+const THRESHOLDING: Partial<Record<Variant, string>> = { tiled: '1', sauvola: '2', eng: '2' }
 
 function modelFor(code: string, variant: Variant): string {
   const l = OCR_CANDIDATES[code]
@@ -100,7 +100,9 @@ function pageDir(code: string, name: string): string | undefined {
 async function read(name: string, images: string[], variant: Variant): Promise<string[]> {
   await model(name)
   const worker = await createWorker(name, 1, { langPath: MODELS, gzip: false, cachePath: `${MODELS}/.cache` })
-  if (THRESHOLDING[variant]) await worker.setParameters({ thresholding_method: THRESHOLDING[variant] } as any)
+  // Automatic layout, as the page asks for: Tesseract's API default reads one
+  // block across every column, and chrF, blind to order, did not show it.
+  await worker.setParameters({ tessedit_pageseg_mode: '3', ...(THRESHOLDING[variant] && { thresholding_method: THRESHOLDING[variant] }) } as any)
   const out: string[] = []
   for (const img of images) out.push((await worker.recognize(img)).data.text.trim())
   await worker.terminate()
