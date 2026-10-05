@@ -1,12 +1,13 @@
 import { describe, expect, test } from 'bun:test'
 import { OCR_CANDIDATES } from '../bench/ocr'
 import { LANGUAGES } from '../src/languages'
-import { escapeMarkdown, imageLanguage, imageLanguages, models, pageText, type ReadBlock } from '../src/ocr'
+import { escapeMarkdown, imageLanguage, imageLanguages, models, pageText, paragraphRegions, regionText, type ReadBlock } from '../src/ocr'
 
 /** Tesseract's output for lines of words, each word at the given confidence.
  *  A line is as wide as its text, ten pixels a character, unless given a width. */
 const block = (...paras: [string, number?, number?][][]): ReadBlock => ({
-  paragraphs: paras.map((lines) => ({
+  paragraphs: paras.map((lines, i) => ({
+    bbox: { x0: 0, y0: i * 100, x1: 300, y1: i * 100 + 80 },
     lines: lines.map(([text, confidence = 95, width = text.length * 10]) => ({
       text: text + '\n',
       bbox: { x0: 0, x1: width },
@@ -91,6 +92,25 @@ describe('the text an image becomes', () => {
 
   test('cannot become Markdown it never was', () => {
     expect(pageText([block([['# 5 is *not* a [link] or `code`']])])).toBe('\\# 5 is \\*not\\* a \\[link\\] or \\`code\\`')
+  })
+})
+
+describe('a region read on its own', () => {
+  test('is one paragraph, whatever Tesseract split it into', () => {
+    expect(regionText([block([['ಮನೇಸೀರಿನಲ್ಲಿ, ನಾವು', 90]], [['ನೀಡುವ ಪ್ರತಿ', 90]])])).toBe('ಮನೇಸೀರಿನಲ್ಲಿ, ನಾವು ನೀಡುವ ಪ್ರತಿ')
+  })
+
+  test('drops what Tesseract was unsure of in every word, and escapes Markdown', () => {
+    expect(regionText([block([['ಸ', 20]], [['# 15 ಆರೋಗ್ಯ', 90]])])).toBe('\\# 15 ಆರೋಗ್ಯ')
+  })
+})
+
+describe("what the regions left, as Tesseract's paragraphs", () => {
+  test('keeps each paragraph with its box, to be put in reading order', () => {
+    expect(paragraphRegions([block([['first', 90]], [['ಸ', 10]], [['third', 90]])])).toEqual([
+      { box: [0, 0, 300, 80], text: 'first' },
+      { box: [0, 200, 300, 280], text: 'third' },
+    ])
   })
 })
 

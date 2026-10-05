@@ -14,6 +14,7 @@
 // Tesseract.js loads on the first image, never with the page: its engine is
 // 3.9 MB and each model 1 to 5 MB. Tesseract.js keeps the models in IndexedDB.
 import { LANGUAGES } from './languages'
+import { detect, readingOrder, type Region } from './layout'
 
 export const TESSDATA_COMMIT = '87416418657359cb625c412a48b6e1d6d41c29bd'
 const LANG_PATH = `https://cdn.jsdelivr.net/gh/tesseract-ocr/tessdata_fast@${TESSDATA_COMMIT}`
@@ -27,7 +28,10 @@ const SURE = 60
 
 /** The part of Tesseract's output read here, so tests need no Tesseract. */
 export interface ReadBlock {
-  paragraphs: { lines: { text: string; bbox: { x0: number; x1: number }; words: { text: string; confidence: number }[] }[] }[]
+  paragraphs: {
+    bbox: { x0: number; y0: number; x1: number; y1: number }
+    lines: { text: string; bbox: { x0: number; x1: number }; words: { text: string; confidence: number }[] }[]
+  }[]
 }
 
 /** The Tesseract models for an image in `code`, with English's when it also has English. */
@@ -109,6 +113,24 @@ function isText(p: ReadBlock['paragraphs'][number]): boolean {
   return p.lines.some((l) => l.words.some((w) => w.confidence >= SURE))
 }
 
+/** A paragraph's lines, joined. */
+const joined = (p: ReadBlock['paragraphs'][number]) => p.lines.map((l) => l.text.replace(/\s+/g, ' ').trim()).filter(Boolean).reduce(joinLine, '')
+
+/** A layout region read on its own: one paragraph, however Tesseract split it. */
+export function regionText(blocks: ReadBlock[]): string {
+  return escapeMarkdown(blocks.flatMap((b) => b.paragraphs.filter(isText).map(joined)).filter(Boolean).reduce(joinLine, ''))
+}
+
+/** What the regions left, as Tesseract's paragraphs with their boxes, to be put in reading order. */
+export function paragraphRegions(blocks: ReadBlock[]): Region[] {
+  return blocks.flatMap((b) =>
+    b.paragraphs.filter(isText).flatMap((p) => {
+      const text = joined(p)
+      return text ? [{ box: [p.bbox.x0, p.bbox.y0, p.bbox.x1, p.bbox.y1] as Region['box'], text: escapeMarkdown(text) }] : []
+    }),
+  )
+}
+
 // ---- reading, in the browser ----------------------------------------------
 
 type Worker = import('tesseract.js').Worker
@@ -140,17 +162,62 @@ function worker(model: string): Promise<Worker> {
   return w
 }
 
-/** An image read in the language `code`, with English as well when `english`.
- *  `onStatus` hears Tesseract's progress. */
+/** Readings on one worker run one after another: a reading changes the
+ *  worker's page mode, and two at once would change it under each other. */
+const queues = new Map<string, Promise<unknown>>()
+function queued<T>(model: string, job: () => Promise<T>): Promise<T> {
+  const next = (queues.get(model) ?? Promise.resolve()).then(job, job)
+  queues.set(model, next.catch(() => {}))
+  return next
+}
+
+/** Pixels around a region, so a letter's marks above and below the line are not cut. */
+const MARGIN = 24
+
+/**
+ * An image read in the language `code`, with English as well when `english`.
+ * Where the layout model finds a picture the page is designed, and each of its
+ * text regions is read on its own, then whatever they left; otherwise
+ * Tesseract's own layout reads the whole page. `onStatus` hears the progress.
+ */
 export async function readImage(image: Blob, code: string, english: boolean, onStatus?: (status: string) => void): Promise<string> {
   if (!LANGUAGES[code]?.ocr) throw new Error(`${LANGUAGES[code]?.name ?? code} cannot be read from images.`)
   const model = models(code, english)
-  if (onStatus) listeners.set(model, onStatus)
-  try {
-    const { data } = await (await worker(model)).recognize(image, {}, { blocks: true, text: false })
-    const blocks = (data.blocks ?? []) as ReadBlock[]
-    return pageText(blocks)
-  } finally {
-    listeners.delete(model)
-  }
+  const bitmap = await createImageBitmap(image)
+  onStatus?.('finding the layout')
+  // Layout only improves a reading; if it cannot load, the page is read without it.
+  const layout = await detect(bitmap).catch((e) => (console.warn('No layout:', e), { text: [], pictures: 0 }))
+  return queued(model, async () => {
+    if (onStatus) listeners.set(model, onStatus)
+    const w = await worker(model)
+    const { PSM } = await import('tesseract.js')
+    try {
+      if (!layout.pictures || !layout.text.length) {
+        const { data } = await w.recognize(image, {}, { blocks: true, text: false })
+        return pageText((data.blocks ?? []) as ReadBlock[])
+      }
+      await w.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_BLOCK })
+      for (const r of layout.text) {
+        const [x1, y1, x2, y2] = r.box
+        const left = Math.max(0, Math.floor(x1 - MARGIN))
+        const top = Math.max(0, Math.floor(y1 - MARGIN))
+        const rectangle = { left, top, width: Math.min(bitmap.width, Math.ceil(x2 + MARGIN)) - left, height: Math.min(bitmap.height, Math.ceil(y2 + MARGIN)) - top }
+        const { data } = await w.recognize(image, { rectangle }, { blocks: true, text: false })
+        r.text = regionText((data.blocks ?? []) as ReadBlock[])
+      }
+      await w.setParameters({ tessedit_pageseg_mode: PSM.AUTO })
+      // Tesseract's own layout on what the regions left: text the model missed is still read.
+      const rest = new OffscreenCanvas(bitmap.width, bitmap.height)
+      const ctx = rest.getContext('2d')!
+      ctx.drawImage(bitmap, 0, 0)
+      ctx.fillStyle = '#fff'
+      for (const { box: [x1, y1, x2, y2] } of layout.text) ctx.fillRect(x1 - 4, y1 - 4, x2 - x1 + 8, y2 - y1 + 8)
+      const { data } = await w.recognize(await rest.convertToBlob({ type: 'image/png' }), {}, { blocks: true, text: false })
+      const regions = [...layout.text, ...paragraphRegions((data.blocks ?? []) as ReadBlock[])]
+      return readingOrder(regions).map((r) => r.text).filter(Boolean).join('\n\n')
+    } finally {
+      await w.setParameters({ tessedit_pageseg_mode: PSM.AUTO }).catch(() => {})
+      listeners.delete(model)
+    }
+  })
 }
