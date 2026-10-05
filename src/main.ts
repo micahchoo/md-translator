@@ -6,7 +6,7 @@ import { directionLabel, dirOf, LANGUAGES } from './languages'
 import { createScorer, probe, type Score } from './judge'
 import { createClient, listModels } from './llm'
 import { DEFAULTS, formatExamples, loadSettings, parseExamples, saveSettings, toOptions, type Settings } from './settings'
-import { createPronouncer, phonemize } from './phonetics'
+import { speak } from './speech'
 import { loadDocs, loadMemory, remember, saveDocs, saveMemory, type SavedDoc } from './store'
 import { editUnit, machineNote, progressOf, retryUnit, translateDocument } from './translate'
 
@@ -34,7 +34,6 @@ const el = {
   meter: $<HTMLProgressElement>('meter'),
   onlyFlagged: $<HTMLInputElement>('only-flagged'),
   onlyFlaggedText: $('only-flagged-text'),
-  pronunciation: $<HTMLInputElement>('pronunciation'),
   follow: $<HTMLButtonElement>('follow'),
   dialog: $<HTMLDialogElement>('settings'),
   form: $<HTMLFormElement>('settings-form'),
@@ -83,11 +82,9 @@ function schedule() {
   if (!frame) frame = requestAnimationFrame(() => ((frame = 0), render()))
 }
 
-// espeak-ng loads on the first pronunciation asked for, not with the page.
-const pronouncer = createPronouncer(phonemize, schedule)
-
 const blocks = new BlockList(el.blocks, {
   retry: (i) => retry(i),
+  play: (i) => play(i),
   edit: (i, text) => {
     const d = doc()
     if (!d.units) return
@@ -141,11 +138,10 @@ function render() {
   el.status.textContent = statusLine(d, done, flagged)
 
   const lang = d.lang ?? settings.language
-  const voice = LANGUAGES[lang].phonetic
-  el.pronunciation.parentElement!.hidden = !voice || !units.length || d.view !== 'blocks'
-  el.pronunciation.checked = settings.pronunciation
-  const pronounce = voice && settings.pronunciation ? (output: string) => pronouncer.get(voice, output) : undefined
-  if (d.view === 'blocks' && units.length) blocks.show(units, lang, isBusy, el.onlyFlagged.checked, pronounce)
+  const listening = LANGUAGES[lang].voice
+    ? { playing: playing?.doc === d.id ? playing.index : null, loading: !!playing?.loading }
+    : undefined
+  if (d.view === 'blocks' && units.length) blocks.show(units, lang, isBusy, el.onlyFlagged.checked, listening)
   el.follow.hidden = !(running && d.view === 'blocks' && !blocks.follow)
 }
 
@@ -289,6 +285,47 @@ async function retry(i: number) {
   render()
 }
 
+// ---- reading aloud ---------------------------------------------------------
+
+// One block plays at a time. espeak-ng loads on the first Play, not with the page.
+let playing: { doc: number; index: number; loading: boolean; audio?: HTMLAudioElement } | null = null
+
+function stopPlaying() {
+  if (playing?.audio) {
+    playing.audio.pause()
+    URL.revokeObjectURL(playing.audio.src)
+  }
+  playing = null
+}
+
+async function play(i: number) {
+  const d = doc()
+  const voice = LANGUAGES[d.lang ?? settings.language].voice
+  const again = playing?.doc === d.id && playing.index === i
+  stopPlaying()
+  const output = d.units?.[i]?.output
+  if (again || !voice || !output) return render()
+  const me: NonNullable<typeof playing> = { doc: d.id, index: i, loading: true }
+  playing = me
+  render()
+  try {
+    const wav = await speak(voice, output)
+    if (playing !== me) return // Stop, or another block, was pressed while it loaded
+    if (!wav) return (stopPlaying(), render())
+    me.audio = new Audio(URL.createObjectURL(new Blob([wav], { type: 'audio/wav' })))
+    me.audio.onended = () => {
+      if (playing === me) stopPlaying()
+      render()
+    }
+    await me.audio.play()
+    me.loading = false
+  } catch (e) {
+    console.warn('Reading aloud failed:', e)
+    if (playing === me) stopPlaying()
+  }
+  render()
+}
+
 // ---- documents ------------------------------------------------------------
 
 async function addFiles(files: FileList | File[]) {
@@ -354,11 +391,6 @@ for (const t of viewTabs)
     render()
   }
 el.onlyFlagged.onchange = () => render()
-el.pronunciation.onchange = () => {
-  settings.pronunciation = el.pronunciation.checked
-  saveSettings(storage, settings)
-  render()
-}
 el.follow.onclick = () => {
   blocks.follow = true
   render()

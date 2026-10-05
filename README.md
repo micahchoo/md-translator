@@ -31,13 +31,13 @@ To use a server on another device, serve it over `https`, for example with `tail
 
 Your documents stay in this browser. If you stop a run, **Translate** continues from where it stopped. If you change the source after a run, only the new or changed blocks are sent to the model again; Co-op Translator works the same way. To translate everything afresh, press **Translate again** without changing the source.
 
-## Pronunciation
+## Reading aloud
 
-Bengali, Gujarati, Hindi, Kannada, Malayalam, Marathi, Nepali, Odia, Punjabi, Tamil, Telugu and Urdu, and English, can show how each translated block sounds, in IPA.
+Translations into Bengali, Gujarati, Hindi, Kannada, Malayalam, Marathi, Nepali, Odia, Punjabi, Tamil, Telugu and Urdu, and into English, can be read aloud.
 
-Turn on **Show pronunciation** in **Blocks**. The IPA comes from espeak-ng, which runs in the page. The first time, it downloads about 9 MB. Code, link addresses and formatting marks are not read.
+In **Blocks**, press **Play** on a translated block. The voice is espeak-ng, which runs in the page. It sounds mechanical, but it says each word as the language writes it. The first Play downloads about 9 MB. Code, link addresses and formatting marks are not read.
 
-The other languages do not have the option. espeak-ng has no voice for Bodo, Dogri, Kashmiri, Maithili or Sanskrit. For Assamese, Konkani and Sindhi in Devanagari, its output was wrong. Nobody who reads these languages has checked the IPA yet.
+The other languages have no Play button. espeak-ng has no voice for Bodo, Dogri, Kashmiri, Maithili or Sanskrit. For Assamese, Konkani and Sindhi in Devanagari, it reads the words wrongly. Nobody who reads these languages has checked the voices yet.
 
 ## What stays unchanged
 
@@ -66,7 +66,7 @@ Simple rules check every translated piece. When a rule fires, the translator tri
 
 ## What it cannot check
 
-The rules see letters, numbers, length and formatting, not meaning. With a llama.cpp server the model also checks its own answers for a lost "not" and for a related language, and in testing caught 95% of each. Other meaning errors pass unflagged: a Telugu answer turned Tuesday into Wednesday.
+The rules see letters, numbers, length and formatting, not meaning. If you turn it on in Settings, a llama.cpp server's model also checks its own answers for a lost "not" and for a related language, and in testing caught 95% of each. Other meaning errors pass unflagged: a Telugu answer turned Tuesday into Wednesday.
 
 Before you rely on a translation, have someone who reads the language check it.
 
@@ -78,7 +78,7 @@ Before you rely on a translation, have someone who reads the language check it.
 | Context blocks | How many earlier translated pieces the model sees, so it uses the same words for the same terms. |
 | Retries | Attempts after a flagged answer. |
 | System prompt | The opening instruction. `{L}` becomes the target language, `{S}` the source label. |
-| Model checks its own answers | On by default, with llama.cpp servers only. The model scores each answer whose English says "not" against the sentence without it, and a document's first blocks against related languages. It caught 95% of lost negations in testing, and makes a run about three times slower. |
+| Model checks its own answers | Off by default, and for llama.cpp servers only. The model scores each answer whose English says "not" against the sentence without it, and a document's first blocks against related languages. It caught 95% of lost negations in testing, and makes a run about three times slower. |
 | Note in downloads | On by default. A downloaded file ends with one line naming the model, the date, and how many blocks were flagged. Copy never adds it. |
 | Examples | Worked pairs shown to the model, five per language. Hindi's and Kannada's were written first; Bodo's, Sindhi's and Kashmiri's are human translations from IN22-Gen; the rest were written by Claude and checked against Google Translate both ways. English has none. |
 
@@ -86,7 +86,7 @@ Before you rely on a translation, have someone who reads the language check it.
 
 ```sh
 bun install
-bun test          # the checks, prompt, segmenting, settings and pronunciation
+bun test          # the checks, prompt, segmenting, settings and reading aloud
 bun run dev       # local page
 bun run build     # type check and production build
 ```
@@ -105,6 +105,6 @@ This translator is one web page and your own model server. Your documents stay o
 
 The model is sarvam-30b by Sarvam AI. The language tests use IN22-Gen by AI4Bharat (CC BY 4.0), whose human translations also give Bodo, Sindhi and Kashmiri their examples, and GlotLID.
 
-Pronunciation uses [espeak-ng](https://github.com/espeak-ng/espeak-ng), compiled to WebAssembly by [espeak-ng.js](https://github.com/ianmarmour/espeak-ng.js). It is under the GPL 3.0 or later and loads only when you turn pronunciation on.
+Reading aloud uses [espeak-ng](https://github.com/espeak-ng/espeak-ng), compiled to WebAssembly by [espeak-ng.js](https://github.com/ianmarmour/espeak-ng.js). It is under the GPL 3.0 or later and loads only when you first press Play.
 
 The code is under the [MIT licence](LICENSE).

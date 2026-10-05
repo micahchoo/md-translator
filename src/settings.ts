@@ -21,8 +21,8 @@ export interface Settings {
   noteOnDownload: boolean
   /** The model judges its own answers for a lost "not" and a related language (src/judge.ts). */
   judge: boolean
-  /** The Blocks view shows each translation's IPA, where its language has a voice. */
-  pronunciation: boolean
+  /** Which one-time corrections the saved settings have had; see `loadSettings`. */
+  revision: number
 }
 
 export const DEFAULTS: Settings = {
@@ -36,8 +36,8 @@ export const DEFAULTS: Settings = {
   examples: Object.fromEntries(Object.values(LANGUAGES).map((l) => [l.code, l.examples])),
   skipKeys: 'notion-id, base, tags, aliases, cssclasses',
   noteOnDownload: true,
-  judge: true,
-  pronunciation: false,
+  judge: false,
+  revision: 1,
 }
 
 const KEY = 'md-translator.settings'
@@ -47,6 +47,11 @@ const KEY = 'md-translator.settings'
 const ENGLISH_ONLY_PREAMBLE =
   'The following are English passages with faithful, complete {L} translations. ' +
   'Every sentence is translated. Markdown syntax, inline code, numbers and names are kept unchanged.'
+
+/** Revision 1, 2026-10-04: the judge became off by default. Every save stores
+ *  every setting, so a judge saved on before then was mostly the old default,
+ *  not a choice. It is turned off once; saved again, it carries revision 1. */
+const JUDGE_OFF = 1
 
 export function loadSettings(storage: Pick<Storage, 'getItem'>): Settings {
   let stored: Record<string, unknown> = {}
@@ -68,6 +73,7 @@ export function loadSettings(storage: Pick<Storage, 'getItem'>): Settings {
       continue
     }
     if (key === 'preamble' && v === ENGLISH_ONLY_PREAMBLE) continue
+    if (key === 'judge' && !(typeof stored.revision === 'number' && stored.revision >= JUDGE_OFF)) continue
     ;(out as unknown as Record<string, unknown>)[key] = v
   }
   return out

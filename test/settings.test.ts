@@ -33,6 +33,16 @@ describe('loadSettings', () => {
     expect(loadSettings(memory(JSON.stringify({ preamble: 'Mine.' }))).preamble).toBe('Mine.')
   })
 
+  test('the judge, saved on before it was off by default, is turned off once', () => {
+    const before = memory(JSON.stringify({ judge: true, endpoint: 'http://192.168.0.5:8086' }))
+    const loaded = loadSettings(before)
+    expect(loaded.judge).toBe(false)
+    expect(loaded.endpoint).toBe('http://192.168.0.5:8086')
+    // Turned on again and saved, it stays on.
+    saveSettings(before, { ...loaded, judge: true })
+    expect(loadSettings(before).judge).toBe(true)
+  })
+
   test('a value of the wrong type is ignored', () => {
     expect(loadSettings(memory(JSON.stringify({ passageLength: 'long', language: 'xx' })))).toEqual(DEFAULTS)
   })

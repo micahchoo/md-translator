@@ -24,13 +24,20 @@ export const FLAG_TEXT: Record<Flag, string> = {
 export interface BlockHandlers {
   retry(index: number): void
   edit(index: number, text: string): void
+  /** Plays a block, or stops it if it is the one playing. */
+  play(index: number): void
 }
 
 interface Row {
   el: HTMLElement
   key: string
-  /** The translation's IPA as last shown; a redraw outside `show` keeps it. */
-  ipa?: string
+}
+
+/** Where the language has a voice: which block is playing, if any. */
+export interface Listening {
+  playing: number | null
+  /** The voice is still downloading or reading, so nothing is heard yet. */
+  loading: boolean
 }
 
 const h = <K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string) => {
@@ -44,6 +51,7 @@ export class BlockList {
   private rows: Row[] = []
   private units: UnitResult[] | null = null
   private editing: number | null = null
+  private listening?: Listening
   /** Keep the running block in view; off as soon as the owner scrolls. */
   follow = true
 
@@ -58,8 +66,9 @@ export class BlockList {
     })
   }
 
-  /** `pronounce` gives a finished block's IPA, or undefined while it is not ready. */
-  show(units: UnitResult[], lang: string, busy: boolean, onlyFlagged: boolean, pronounce?: (output: string) => string | undefined) {
+  /** `listening` is absent where the language has no voice. */
+  show(units: UnitResult[], lang: string, busy: boolean, onlyFlagged: boolean, listening?: Listening) {
+    this.listening = listening
     if (units !== this.units || this.rows.length !== units.length) {
       this.units = units
       this.editing = null
@@ -72,8 +81,7 @@ export class BlockList {
       const hidden = onlyFlagged && !u.flags.length && u.status !== 'running'
       row.el.hidden = hidden
       if (u.status === 'running') running = row.el
-      row.ipa = !hidden && u.status === 'done' && u.output ? pronounce?.(u.output) : undefined
-      const key = [u.status, u.output, u.flags.join(), u.edited, busy, lang, this.editing === i, row.ipa].join('\u0000')
+      const key = [u.status, u.output, u.flags.join(), u.edited, busy, lang, this.editing === i, this.playLabel(i)].join('\u0000')
       if (key === row.key) return
       row.key = key
       this.fill(row.el, u, i, lang, busy)
@@ -104,6 +112,14 @@ export class BlockList {
         el.querySelector('textarea')?.focus()
       }
       head.append(retry, edit)
+      const label = this.playLabel(i)
+      if (label) {
+        const play = h('button', 'small ghost', label)
+        play.type = 'button'
+        play.title = label === 'Play' ? 'Read this translation aloud' : 'Stop reading'
+        play.onclick = () => this.handlers.play(i)
+        head.append(play)
+      }
     }
 
     const source = h('div', 'cell source', unmask(u.unit.text, u.unit.restore))
@@ -117,17 +133,16 @@ export class BlockList {
       target = h('div', 'cell target indic-text', unmask(u.output, u.unit.restore))
       target.lang = lang
       target.dir = dirOf(lang)
-      const ipa = this.rows[i].ipa
-      if (ipa) {
-        const line = h('div', 'phonetic', ipa)
-        line.lang = 'und-fonipa'
-        line.dir = 'ltr'
-        target.append(line)
-      }
     } else {
       target = h('div', 'cell target pending', u.status === 'running' ? 'Translating…' : 'Waiting')
     }
     el.replaceChildren(head, source, target)
+  }
+
+  private playLabel(i: number): string | undefined {
+    const l = this.listening
+    if (!l || this.units?.[i].status !== 'done' || !this.units[i].output) return undefined
+    return l.playing !== i ? 'Play' : l.loading ? 'Loading…' : 'Stop'
   }
 
   private editor(u: UnitResult, i: number, lang: string): HTMLElement {

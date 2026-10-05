@@ -8,6 +8,6 @@ declare module 'espeak-ng' {
     /** Emscripten's hook: instantiate the WASM yourself and hand the instance back. */
     instantiateWasm?: (imports: WebAssembly.Imports, receive: (instance: WebAssembly.Instance) => void) => object
   }): Promise<{
-    FS: { readFile(path: string, opts: { encoding: 'utf8' }): string }
+    FS: { readFile(path: string): Uint8Array<ArrayBuffer> }
   }>
 }

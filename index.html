@@ -53,7 +53,6 @@
       <div class="statusbar">
         <p id="status" class="status" role="status" aria-live="polite">Nothing translated yet.</p>
         <label class="only-flagged" hidden><input id="only-flagged" type="checkbox" /> <span id="only-flagged-text"></span></label>
-        <label class="pronunciation" hidden><input id="pronunciation" type="checkbox" /> Show pronunciation</label>
         <button id="follow" class="small ghost" type="button" hidden>Follow translation</button>
       </div>
       <progress id="meter" max="1" value="0" hidden></progress>
@@ -98,7 +97,7 @@
           <p class="hint">Pairs separated by a blank line. These teach the model the format; keep them general, not about one subject.</p>
           <label>Front matter keys to leave untranslated <input name="skipKeys" type="text" /></label>
           <label class="check"><input name="noteOnDownload" type="checkbox" /> End downloads with a note that a model made the translation</label>
-          <label class="check"><input name="judge" type="checkbox" /> Let the model check its own answers for a lost "not" or a related language (slower; llama.cpp servers only)</label>
+          <label class="check"><input name="judge" type="checkbox" /> Let the model check its own answers for a lost "not" or a related language. This makes translation about three times slower. llama.cpp servers only.</label>
         </fieldset>
 
         <p id="settings-error" class="error" role="alert"></p>

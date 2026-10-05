@@ -45,13 +45,13 @@ export interface Language {
   foreign?: RegExp
   /** Written right to left; the page sets `dir` from it. */
   dir?: 'rtl'
-  /** The espeak-ng voice that reads it aloud as IPA (src/phonetics.ts). Absent
-   *  where espeak-ng has none, or reads it wrongly: measured 2026-10-04 on each
-   *  first example, Assamese came back as letter names, Konkani as garbage, and
+  /** The espeak-ng voice that reads it aloud (src/speech.ts). Absent where
+   *  espeak-ng has none, or reads it wrongly: measured 2026-10-04 on each first
+   *  example's IPA, Assamese came back as letter names, Konkani as garbage, and
    *  Sindhi in Devanagari as Nepali, since espeak's Sindhi reads Arabic script.
    *  Bodo, Dogri, Kashmiri, Maithili and Sanskrit have no voice of their own,
    *  and another language's would only sound close. */
-  phonetic?: string
+  voice?: string
   examples: Pair[]
 }
 
@@ -70,7 +70,7 @@ export const ANY_SOURCE = 'Original'
 
 export const LANGUAGES: Record<string, Language> = {
   // Into English first: the other direction from every entry below it.
-  en: { code: 'en', name: 'English', native: 'English', from: ANY_SOURCE, script: /[A-Za-z]/g, length: 1, phonetic: 'en-us', examples: [] },
+  en: { code: 'en', name: 'English', native: 'English', from: ANY_SOURCE, script: /[A-Za-z]/g, length: 1, voice: 'en-us', examples: [] },
   as: {
     code: 'as',
     name: 'Assamese',
@@ -94,7 +94,7 @@ export const LANGUAGES: Record<string, Language> = {
     script: /[ঀ-৿]/g,
     length: 0.95,
     foreign: /[ৰৱ]/,
-    phonetic: 'bn',
+    voice: 'bn',
     examples: zip([
       'এটি কীভাবে কাজ করে',
       'এটি কি অফলাইনে কাজ করে?',
@@ -143,7 +143,7 @@ export const LANGUAGES: Record<string, Language> = {
     from: 'English',
     script: /[઀-૿]/g,
     length: 0.93,
-    phonetic: 'gu',
+    voice: 'gu',
     examples: zip([
       'તે કેવી રીતે કામ કરે છે',
       'શું તે ઑફલાઇન કામ કરે છે?',
@@ -160,7 +160,7 @@ export const LANGUAGES: Record<string, Language> = {
     length: 0.99,
     from: 'English',
     script: /[ऀ-ॿ]/g,
-    phonetic: 'hi',
+    voice: 'hi',
     examples: zip([
       'यह कैसे काम करता है',
       'क्या यह ऑफ़लाइन काम करता है?',
@@ -176,7 +176,7 @@ export const LANGUAGES: Record<string, Language> = {
     length: 1.07,
     from: 'English',
     script: /[ಀ-೿]/g,
-    phonetic: 'kn',
+    voice: 'kn',
     examples: zip([
       'ಇದು ಹೇಗೆ ಕೆಲಸ ಮಾಡುತ್ತದೆ',
       'ಇದು ಆಫ್‌ಲೈನ್‌ನಲ್ಲಿ ಕೆಲಸ ಮಾಡುತ್ತದೆಯೇ?',
@@ -241,7 +241,7 @@ export const LANGUAGES: Record<string, Language> = {
     from: 'English',
     script: /[ഀ-ൿ]/g,
     length: 1.15,
-    phonetic: 'ml',
+    voice: 'ml',
     examples: zip([
       'ഇത് എങ്ങനെ പ്രവർത്തിക്കുന്നു',
       'ഇത് ഓഫ്‌ലൈനിൽ പ്രവർത്തിക്കുമോ?',
@@ -258,7 +258,7 @@ export const LANGUAGES: Record<string, Language> = {
     script: /[ऀ-ॿ]/g,
     length: 1.01,
     foreign: /[ॻॼॾॿ]/,
-    phonetic: 'mr',
+    voice: 'mr',
     examples: zip([
       'हे कसे कार्य करते',
       'हे ऑफलाइन कार्य करते का?',
@@ -275,7 +275,7 @@ export const LANGUAGES: Record<string, Language> = {
     script: /[ऀ-ॿ]/g,
     length: 0.96,
     foreign: /[ॻॼॾॿ]/,
-    phonetic: 'ne',
+    voice: 'ne',
     examples: zip([
       'यो कसरी काम गर्छ',
       'के यो अफलाइन काम गर्छ?',
@@ -291,7 +291,7 @@ export const LANGUAGES: Record<string, Language> = {
     from: 'English',
     script: /[଀-୿]/g,
     length: 1.09,
-    phonetic: 'or',
+    voice: 'or',
     examples: zip([
       'ଏହା କିପରି କାମ କରେ',
       'ଏହା ଅଫଲାଇନରେ କାମ କରେ କି?',
@@ -307,7 +307,7 @@ export const LANGUAGES: Record<string, Language> = {
     from: 'English',
     script: /[਀-੿]/g,
     length: 0.92,
-    phonetic: 'pa',
+    voice: 'pa',
     examples: zip([
       'ਇਹ ਕਿਵੇਂ ਕੰਮ ਕਰਦਾ ਹੈ',
       'ਕੀ ਇਹ ਔਫਲਾਈਨ ਕੰਮ ਕਰਦਾ ਹੈ?',
@@ -355,7 +355,7 @@ export const LANGUAGES: Record<string, Language> = {
     from: 'English',
     script: /[஀-௿]/g,
     length: 1.17,
-    phonetic: 'ta',
+    voice: 'ta',
     examples: zip([
       'இது எப்படி வேலை செய்கிறது',
       'இது ஆஃப்லைனில் வேலை செய்யுமா?',
@@ -371,7 +371,7 @@ export const LANGUAGES: Record<string, Language> = {
     from: 'English',
     script: /[ఀ-౿]/g,
     length: 1.00,
-    phonetic: 'te',
+    voice: 'te',
     examples: zip([
       'ఇది ఎలా పనిచేస్తుంది',
       'ఇది ఆఫ్‌లైన్‌లో పనిచేస్తుందా?',
@@ -388,7 +388,7 @@ export const LANGUAGES: Record<string, Language> = {
     script: /[؀-ۿ]/g,
     length: 0.97,
     dir: 'rtl',
-    phonetic: 'ur',
+    voice: 'ur',
     examples: zip([
       'یہ کیسے کام کرتا ہے',
       'کیا یہ آف لائن کام کرتا ہے؟',
