@@ -144,6 +144,43 @@ Sanskrit, Konkani and Dogri, which had failed the first screen outright (Dogri w
 
 **Tried and rejected: Hindi's examples lent to languages without their own,** under their Hindi label. Bengali, Odia and Tamil improved; Assamese, Marathi and Nepali, the languages closest to Hindi, got worse (Assamese chrF 63 → 33). `starts.ts hindi` reproduces it.
 
+## Reading images (OCR)
+
+Whether Tesseract.js, running in the page with no server, reads each language well enough to offer it on attached images. `ocr.ts` reads two sets with the tessdata_fast models, pinned to one commit. `synthetic` is the 20 IN22 sentences drawn by pango-view as clean print and as a rough 150 dpi scan: half size, blurred, tilted and JPEG-compressed. `pages` is real scans from Wikisource, fetched by `ocr-pages.ts`: up to 12 pages a language, at most two from one book, each a page whose transcription a second person validated against the scan. The running header and footer are left out of the reference, though the scan shows them.
+
+Thirteen languages have a Wikisource. A language without one is read on the pages of its model's own language: Bodo, Dogri, Maithili, Sindhi and Nepali on the Hindi pages, Konkani on the Marathi ones. For those six the page score measures their model on old print, not the language itself; only the synthetic set reads their own text.
+
+Pages were left out only when the reference is not a reading of the image, never for being hard: a Ukrainian poster whose text is an English translation, Tagore's handwritten Gitanjali manuscript, and any page under half of whose letters are in the language's script (an English preface in a Sanskrit book, two bilingual dictionaries). Odia kept 7 pages and Sanskrit 8. Grey photographs, 500-pixel scans and dictionaries mostly in their own script stay in.
+
+The floors were chrF 85 on synthetic scans and 80 on real pages, fixed before any page was read. Twelve pages cannot place a score near 80 on either side of it: Hindi's 90% bootstrap range is 72 to 87. So after the results the owner chose the rule `score-ocr.py` applies now: **a language is offered unless the range of either score lies wholly below its floor.** That offers languages the evidence neither passes nor fails; the ones in that position are marked below.
+
+All with Sauvola thresholding (see the next table), chrF on synthetic scans and on real pages:
+
+| Language | Scan · page · verdict |
+| --- | --- |
+| Marathi, Konkani | 96.8, 96.7 · 90.8 · Offered |
+| Kannada | 96.7 · 87.0 · Offered |
+| Punjabi | 89.1 · 84.2 · Offered |
+| English | 99.1 · 84.6 · Offered; page range 73 to 95 |
+| Bengali | 88.8 · 83.7 · Offered; page range 78 to 88 |
+| Hindi, Bodo, Dogri, Maithili | 97.7, 90.9, 88.7, 92.5 · 79.8 · Offered; page range 72 to 87 |
+| Sindhi | 83.6 · 79.8 · Offered; scan range 82 to 86, misses letters only Sindhi writes |
+| Assamese | 92.2 · 77.9 · Offered; page range 71 to 83 |
+| Gujarati | 99.3 · 76.6 · Offered; page range 71 to 83 |
+| Nepali | 96.8 · 73.0 · Not offered: page range 68 to 79, on Hindi pages |
+| Malayalam, Telugu | 86.6, 94.2 · 69.9, 64.4 · Not offered |
+| Tamil, Odia, Sanskrit | 83.4, 78.2, 62.0 · 65.9, 42.4, 63.1 · Not offered |
+| Urdu, Kashmiri | 48.5, 21.9 · no Wikisource · Not offered; Tesseract reads Nastaliq badly |
+
+Four settings the page could ship were each run on both sets against the same floors:
+
+| Setting | Result |
+| --- | --- |
+| Sauvola thresholding | **Adopted.** Gujarati pages 55.2 to 76.6, English 80.3 to 84.6, most scans up 2 to 9 points, no page down more than 1.1. Four grey Gujarati photographs gave 98 characters of 1,584 under one global threshold, which split the white margin from the grey page instead of the letters from the page. |
+| Tiled Otsu thresholding | Rejected: pages lower in 12 of 13 sets (English 80.3 to 73.8). |
+| The language's model with English's | Rejected: meant for pages that mix in English, it lowered almost everything; Hindi pages 80.1 to 76.2, Urdu scans 49 to 35. |
+| Hindi's model for Nepali | Not evidence. Its pages rose 73.0 to 80.1, but they are Hindi pages; on Nepali text the Nepali model reads better (scans 96.4 against 92.8). |
+
 ## Limits of these methods
 
 - **Small samples.** 10 to 20 rows per language is a screen. A margin of a point or two, as Sanskrit's, is noise.
@@ -176,6 +213,8 @@ uvx --from huggingface_hub hf download cis-lmu/glotlid model.bin --local-dir cor
 | `bun bench/fresh.ts 10` | Into English from human text and from text the model cannot have seen. Score with `uv run bench/score-fresh.py`. |
 | `bun bench/packet.ts 25` | A review packet per language for a native reader: one offline HTML file each in `corpus/review/`, made from this README, with right / wrong / unsure per block and a button that saves the answers. |
 | `bun bench/judge.ts 15 20` | Measures the model as its own judge, on language and on negation. Resumes: a language already in `corpus/runs/judge.jsonl` is skipped. |
+| `bun bench/ocr-pages.ts 12` | Fetches 12 validated Wikisource pages a language, scan and text, into `corpus/ocr-pages/`. Skips languages already saved. |
+| `bun bench/ocr.ts synthetic` (or `pages`) | Reads the IN22 sentences, or the Wikisource pages, with Tesseract.js. Score with `uv run bench/score-ocr.py`. |
 | `bun bench/pib-bench.ts <sentences.jsonl> 200` | sarvam-30b and Google Translate on PIB sentence pairs, English into each language: LaBSE similarity at least 0.85, numbers agreeing, at most 5 pairs from one release. `GT_BUDGET` caps the characters sent to Google. Score with `uv run bench/score-pib.py`, which sets the PIB scores beside IN22's and counts pairs older than sarvam-30b. |
 
 The PIB data comes from [pib-parallel](https://github.com/micahchoo/pib-parallel), which fetches PIB's releases and their official translations from all 29 offices, aligns them into sentence pairs and measures how much is Google Translate. Its November 2025 output is published as [micaha/pib-parallel](https://huggingface.co/datasets/micaha/pib-parallel). So PIB covers 15 of the 22 scheduled languages, and three more (Mizo, Khasi, Tenyidei) that no other corpus here has. No office publishes Bodo, Dogri, Kashmiri, Maithili, Sanskrit, Santali or Sindhi. Regional offices also write original releases in their own language, which may have no English version. Mizo, Khasi and Tenyidei are written in Latin script, so their language comes from the feed, never the script.
@@ -187,5 +226,7 @@ The packet's text is this project's public README, never the owner's documents. 
 ## Data
 
 [IN22-Gen](https://huggingface.co/datasets/ai4bharat/IN22-Gen) (AI4Bharat, CC BY 4.0), [GlotLID](https://huggingface.co/cis-lmu/glotlid). [FLORES+](https://huggingface.co/datasets/openlanguagedata/flores_plus) (CC BY-SA 4.0) was used in the first trial only. Its terms forbid re-hosting it where web crawlers can reach it, so no part of it is in this repository.
+
+Wikisource's transcriptions are under CC BY-SA 4.0 and its scans are mostly in the public domain; both stay in the git-ignored `corpus/`.
 
 PIB's releases and their official translations are Government of India works, so no open licence covers them. PIB's [Copyright Policy](https://www.pib.gov.in/content/3604_2_CopyrightPolicy.aspx) permits reproduction free of charge. The text must stay accurate, must not mislead, and must name the source. The permission does not cover third-party material inside a release.
