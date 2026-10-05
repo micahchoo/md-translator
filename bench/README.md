@@ -185,17 +185,24 @@ Four settings were each run on both sets against the same floors; the first thre
 
 **The rupee sign.** tessdata_fast's English model has no ₹ in its character set, so an image read as English can never return one: "₹200" comes back as "200" and "₹1,250" as "€1,250". Kannada's model has it and reads clean print correctly; Hindi's reads it as २. On the brochure Kannada with English misread four prices of five as "2200".
 
-**Designed pages and a layout model.** A brochure with three columns, white text in green boxes and text over a photograph read badly, and cutting each box out by hand took its left column from 60.5 to 83.0 chrF, against 64.3 for the best image treatment tried (CLAHE 58.9, edge detection 48.2). So the gap was layout, not contrast. To measure it on more than one page, `ocr-designed.ts` takes 22 screens of Indic news front pages in seven languages (BBC Hindi, Bengali, Marathi, Gujarati and Punjabi, Amar Ujala, Loksatta, Divya Bhaskar, Prajavani, The Hindu, Indian Express), the text the page's DOM shows in each screen as its reference; `ocr-layout.py` reads them and the 147 book pages three ways:
+**Designed pages and a layout model.** A brochure with three columns, white text in green boxes and text over a photograph read badly, and cutting each box out by hand took its left column from 60.5 to 83.0 chrF, against 64.3 for the best image treatment tried (CLAHE 58.9, edge detection 48.2). So the gap was layout, not contrast. To measure it on more than one page, `ocr-designed.ts` takes 22 screens of Indic news front pages in seven languages (BBC Hindi, Bengali, Marathi, Gujarati and Punjabi, Amar Ujala, Loksatta, Divya Bhaskar, Prajavani, The Hindu, Indian Express), the text the page's DOM shows in each screen as its reference; `ocr-layout.py` reads them and the 147 book pages in each of these ways:
 
 | Reading | Designed · books |
 | --- | --- |
 | Tesseract's own layout | 57.0 · **74.2** |
-| PP-DocLayout-S regions, each read alone, then Tesseract on what they left | **63.7** · 72.5 |
-| The same, only where the model finds a picture | **63.5** · **74.1** |
-| The same, only where it finds two columns of text | 60.4 · 74.1 |
+| PP-DocLayout-S regions, first version | 63.7 · 72.5 |
+| The same, only where the model finds a picture | 63.5 · 74.1 |
 | docling-layout-egret-medium in place of PP-DocLayout-S (78.5 MB; 23 pages with the brochure) | 63.1 · 72.8 |
+| **PP-DocLayout-S regions as shipped** | **65.4** · **74.1** |
 
-**Adopted:** PP-DocLayout-S, 4.8 MB, only where it finds a picture: layout on 21 of 22 designed pages and 7 of 147 book pages. It keeps 6.5 of the 6.7 points on designed pages and costs books 0.1, though not evenly: one Hindi book page whose ornament the model took for a picture went from 99.3 to 94.0. The rule was chosen on the same pages it is scored on, and a designed page with no picture is read as before. Egret was no better at sixteen times the size. Two things learned on the way: a crop with 6 pixels round a region cut Gurmukhi's marks (24 found 27% more letters), and whiting out the model's pictures before Tesseract's pass erased the brochure's text, which sits on one.
+The first version lost 1.7 on books, so it was used only where the model found a picture. Reading the brochure closely found why regions read badly, and fixing it took the loss on books away, so the shipped version reads every page by its regions:
+
+- **Otsu, not Sauvola, inside a region.** A region has one background. On the brochure's green boxes Sauvola dropped whole lines at some sizes and returned nothing at others; Otsu read every box at every size.
+- **Enlarged where the lines are short.** A screenshot's lines are about 20 pixels high; read again at about 36, "(5 ಆರೋಗ್ಯ" became "15 ಆರೋಗ್ಯ" and more prices kept their ₹. Inverting white-on-colour text instead returned nothing.
+- **A margin that stops short of its neighbours.** 24 pixels round each region keeps Gurmukhi's marks (6 cut them; 24 found 27% more letters), but a box split into one region a line read each line's neighbours into it. Each side now stops halfway to the next region.
+- **Tesseract's pass over what the regions left keeps only what it is sure of on the whole** (mean confidence 60) and nothing that repeats a region; the photograph behind the brochure's boxes came back as "SOD ee ee Ors cee aa". A region keeps Tesseract's paragraph breaks, so a heading the model took in with its paragraph stays a heading.
+
+Tried and not adopted: whiting out the model's pictures (it labelled the arrows between the brochure's boxes pictures, and their boxes erased the text twice), a margin sized by line height (brochure better, news pages 4.4 worse), a word-confidence filter (it deleted a real word at 30), CLAHE and edge detection on the whole page (58.9 and 48.2 against 60.5 on the brochure's left column). Egret was no better at sixteen times the size.
 
 ## Limits of these methods
 

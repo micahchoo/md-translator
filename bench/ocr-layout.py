@@ -9,8 +9,10 @@
 Readings of every page, on designed pages (ocr-designed.ts) and on books (the
 Wikisource pages from ocr-pages.ts):
     whole   Tesseract's own layout
-    ppdl    PP-DocLayout-S regions (public/models), each read on its own, then
-            Tesseract's own layout on what they left, in XY-cut order
+    ppdl    PP-DocLayout-S regions (public/models), each read on its own (Otsu,
+            enlarged where the lines are short, a margin that stops short of
+            its neighbours), then Tesseract's own layout on what they left,
+            kept only where sure on the whole; in XY-cut order
     egret   docling-layout-egret-medium the same way (--egret; corpus/egret/)
 and, for ppdl, the routing rules: layout only where the model finds a picture,
 or text in two columns. Native Tesseract with the tessdata_fast models, Sauvola
@@ -62,32 +64,67 @@ def inside(a, b):
     ix = max(0, min(a[2], b[2]) - max(a[0], b[0])); iy = max(0, min(a[3], b[3]) - max(a[1], b[1]))
     return ix * iy / max(1, (a[2] - a[0]) * (a[3] - a[1]))
 
-def xycut(boxes):
-    if len(boxes) <= 1: return boxes
+def xycut(regions):
+    """XY-cut as the page does it: cut at the single widest gap, across or down, and recurse."""
+    if len(regions) <= 1: return regions
+    best = None
     for axis in (1, 0):
-        lo, hi = axis, axis + 2
-        bs = sorted(boxes, key=lambda b: b['box'][lo]); groups, end = [[bs[0]]], bs[0]['box'][hi]
-        for b in bs[1:]:
-            if b['box'][lo] >= end: groups.append([b])
-            else: groups[-1].append(b)
-            end = max(end, b['box'][hi])
-        if len(groups) > 1: return [x for g in groups for x in xycut(g)]
-    return sorted(boxes, key=lambda b: (b['box'][1], b['box'][0]))
+        rs = sorted(regions, key=lambda r: r['box'][axis]); end = rs[0]['box'][axis + 2]
+        for r in rs[1:]:
+            gap = r['box'][axis] - end
+            if gap >= 0 and (best is None or gap > best[0]): best = (gap, axis, r['box'][axis])
+            end = max(end, r['box'][axis + 2])
+    if best is None: return sorted(regions, key=lambda r: (r['box'][1], r['box'][0]))
+    _, axis, at = best
+    return xycut([r for r in regions if r['box'][axis] < at]) + xycut([r for r in regions if r['box'][axis] >= at])
 
-def tsv(path, model, psm):
-    out = subprocess.run(['tesseract', path, '-', '-l', model, '--psm', str(psm), '--tessdata-dir', T, '-c', 'thresholding_method=2', '-c', 'tessedit_create_tsv=1'], capture_output=True, text=True).stdout
-    paras = collections.OrderedDict()
+def tsv(path, model, psm, thresh='2'):
+    """Tesseract's paragraphs with box, a sure word, mean confidence; and the median line height."""
+    out = subprocess.run(['tesseract', path, '-', '-l', model, '--psm', str(psm), '--tessdata-dir', T, '-c', f'thresholding_method={thresh}', '-c', 'tessedit_create_tsv=1'], capture_output=True, text=True).stdout
+    paras = collections.OrderedDict(); heights = []
     for line in out.splitlines()[1:]:
         f = line.split('\t')
-        if len(f) < 12 or f[0] != '5' or not f[11].strip(): continue
+        if len(f) < 12: continue
+        if f[0] == '4': heights.append(int(f[9]))
+        if f[0] != '5' or not f[11].strip(): continue
         x, y, w, h, conf = int(f[6]), int(f[7]), int(f[8]), int(f[9]), float(f[10])
-        p = paras.setdefault((f[2], f[3]), {'words': [], 'box': [x, y, x + w, y + h], 'sure': False})
-        p['words'].append(f[11]); p['sure'] |= conf >= 60
+        p = paras.setdefault((f[2], f[3]), {'words': [], 'confs': [], 'box': [x, y, x + w, y + h]})
+        p['words'].append(f[11]); p['confs'].append(conf)
         b = p['box']; p['box'] = [min(b[0], x), min(b[1], y), max(b[2], x + w), max(b[3], y + h)]
-    return [{'box': p['box'], 'text': ' '.join(p['words'])} for p in paras.values() if p['sure']]
+    ps = [{'box': p['box'], 'text': ' '.join(p['words']), 'sure': max(p['confs']) >= 60, 'mean': sum(p['confs']) / len(p['confs'])} for p in paras.values()]
+    heights.sort()
+    return [p for p in ps if p['sure']], (heights[len(heights) // 2] if heights else 0)
+
+LINE = 36       # the line height Tesseract reads best at, roughly
+REST_MEAN = 60  # where the model saw no text, Tesseract must be this sure on the whole
+
+def read(img, path, model, psm, thresh):
+    """Read; if the lines come back much shorter than LINE, read again enlarged to it."""
+    img.save(path); ps, h = tsv(path, model, psm, thresh)
+    if 0 < h < LINE * 0.75:
+        f = min(3.0, LINE / h)
+        img.resize((round(img.width * f), round(img.height * f)), Image.LANCZOS).save(path)
+        ps, _ = tsv(path, model, psm, thresh)
+        for p in ps: p['box'] = [v / f for v in p['box']]
+    return ps
 
 def whole(path, model):
-    return '\n\n'.join(p['text'] for p in tsv(path, model, 3))
+    return '\n\n'.join(p['text'] for p in tsv(path, model, 3)[0])
+
+def margins(r, kept, W, H):
+    """A crop round region r: PAD on each side, cut to half the gap to any text
+    region beside it, so a crop never reads a neighbour's lines."""
+    x1, y1, x2, y2 = r['box']; m = [PAD] * 4
+    for k in kept:
+        if k is r: continue
+        a, b, c, d = k['box']
+        if a < x2 and c > x1:  # overlaps across: above or below
+            if d <= y1: m[1] = min(m[1], (y1 - d) / 2)
+            if b >= y2: m[3] = min(m[3], (b - y2) / 2)
+        if b < y2 and d > y1:  # overlaps down: left or right
+            if c <= x1: m[0] = min(m[0], (x1 - c) / 2)
+            if a >= x2: m[2] = min(m[2], (a - x2) / 2)
+    return (max(0, x1 - m[0]), max(0, y1 - m[1]), min(W, x2 + m[2]), min(H, y2 + m[3]))
 
 def layout(path, model, detect, tag):
     im = Image.open(path).convert('RGB')
@@ -97,13 +134,12 @@ def layout(path, model, detect, tag):
         if r['box'][2] - r['box'][0] < 8 or r['box'][3] - r['box'][1] < 8: continue
         if all(inside(r['box'], k['box']) < 0.5 and inside(k['box'], r['box']) < 0.5 for k in kept): kept.append(r)
     for i, r in enumerate(kept):
-        x1, y1, x2, y2 = r['box']; crop = f'{CROPS}/{tag}-{i}.png'
-        im.crop((max(0, x1 - PAD), max(0, y1 - PAD), min(im.width, x2 + PAD), min(im.height, y2 + PAD))).save(crop)
-        r['text'] = ' '.join(p['text'] for p in tsv(crop, model, 6))
+        # One background in a region: Otsu's one threshold, steadier than Sauvola's on a crop.
+        crop = im.crop(tuple(int(v) for v in margins(r, kept, im.width, im.height)))
+        r['text'] = '\n\n'.join(p['text'] for p in read(crop, f'{CROPS}/{tag}-{i}.png', model, 6, '0'))
     m = im.copy(); d = ImageDraw.Draw(m)
     for r in kept: d.rectangle([r['box'][0] - 4, r['box'][1] - 4, r['box'][2] + 4, r['box'][3] + 4], fill='white')
-    m.save(f'{CROPS}/{tag}-rest.png')
-    rest = tsv(f'{CROPS}/{tag}-rest.png', model, 3)
+    rest = [p for p in read(m, f'{CROPS}/{tag}-rest.png', model, 3, '2') if p['mean'] >= REST_MEAN and all(inside(p['box'], k['box']) < 0.3 for k in kept)]
     return '\n\n'.join(r['text'] for r in xycut(kept + rest) if r['text'])
 
 def pages(kind):

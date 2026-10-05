@@ -38,11 +38,14 @@ handout: 4-6). Any language for PDFs; no-OCR languages keep a damaged layer with
 Tested: an English PDF, iihs/Tamil-Handout_RWA.pdf, a scan made from a Wikisource page. Not
 tested on a real Krutidev PDF (only a unit test with Krutidev-style text).
 Hard words removed (owner: no value). Nepali offered (778a846).
-Layout (80c5162, 8520621): PP-DocLayout-S, our ONNX conversion in public/models (NOTICE.txt), used
-only where it finds a picture; regions read alone (psm 6, 24 px margin), then Tesseract psm 3 on the
-page with regions whited out, XY-cut at the widest gap. bench/ocr-designed.ts (22 news screens,
-corpus/ocr-designed) + bench/ocr-layout.py: designed 57.0 -> 63.5, books 74.2 -> 74.1. Egret 78.5 MB
-no better. Preprocessing (CLAHE, edges, contrast) not worth it. Rule chosen on the scored pages.
+Layout: PP-DocLayout-S (public/models, NOTICE.txt) on EVERY page; whole-page reading only when it
+finds no region or cannot load. Regions read alone: psm 6, Otsu (Sauvola drops lines on crops),
+enlarged to ~36 px lines when short, margin 24 px cut to half the gap to a neighbour region; then
+psm 3 Sauvola on the page with regions whited out, keeping paragraphs with mean conf >= 60 that do
+not repeat a region; XY-cut at the widest gap. bench/ocr-layout.py: designed 57.0 -> 65.4, books
+74.2 -> 74.1. Not adopted: masking pictures, relative margins, word filter, egret, CLAHE/edges.
+Still wrong on the brochure: stray symbols in one green box (arrows/photo); a box split into three
+one-line regions becomes three paragraphs (a sentence split across blocks); ₹ in 1 price of 6.
 After merge: remove the worktree, its corpus link, the exclude line; stop vite preview on :4173.
 
 ## State at the end of 2026-10-04 — read this first; dated sections below are the history

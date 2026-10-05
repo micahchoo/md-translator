@@ -14,7 +14,7 @@
 // Tesseract.js loads on the first image, never with the page: its engine is
 // 3.9 MB and each model 1 to 5 MB. Tesseract.js keeps the models in IndexedDB.
 import { LANGUAGES } from './languages'
-import { detect, readingOrder, type Region } from './layout'
+import { cropAround, detect, inside, readingOrder, type Region } from './layout'
 
 export const TESSDATA_COMMIT = '87416418657359cb625c412a48b6e1d6d41c29bd'
 const LANG_PATH = `https://cdn.jsdelivr.net/gh/tesseract-ocr/tessdata_fast@${TESSDATA_COMMIT}`
@@ -30,7 +30,7 @@ const SURE = 60
 export interface ReadBlock {
   paragraphs: {
     bbox: { x0: number; y0: number; x1: number; y1: number }
-    lines: { text: string; bbox: { x0: number; x1: number }; words: { text: string; confidence: number }[] }[]
+    lines: { text: string; bbox: { x0: number; x1: number; y0: number; y1: number }; words: { text: string; confidence: number }[] }[]
   }[]
 }
 
@@ -116,15 +116,29 @@ function isText(p: ReadBlock['paragraphs'][number]): boolean {
 /** A paragraph's lines, joined. */
 const joined = (p: ReadBlock['paragraphs'][number]) => p.lines.map((l) => l.text.replace(/\s+/g, ' ').trim()).filter(Boolean).reduce(joinLine, '')
 
-/** A layout region read on its own: one paragraph, however Tesseract split it. */
+/** A layout region read on its own, keeping Tesseract's paragraph breaks: a
+ *  heading the model took in with its paragraph stays a heading. */
 export function regionText(blocks: ReadBlock[]): string {
-  return escapeMarkdown(blocks.flatMap((b) => b.paragraphs.filter(isText).map(joined)).filter(Boolean).reduce(joinLine, ''))
+  return blocks.flatMap((b) => b.paragraphs.filter(isText).map(joined)).filter(Boolean).map(escapeMarkdown).join('\n\n')
 }
 
-/** What the regions left, as Tesseract's paragraphs with their boxes, to be put in reading order. */
-export function paragraphRegions(blocks: ReadBlock[]): Region[] {
+/** A paragraph's mean word confidence. */
+function meanConfidence(p: ReadBlock['paragraphs'][number]): number {
+  const words = p.lines.flatMap((l) => l.words)
+  return words.length ? words.reduce((s, w) => s + w.confidence, 0) / words.length : 0
+}
+
+/** The median height of the lines read, in pixels; 0 when none were. */
+export function lineHeight(blocks: ReadBlock[]): number {
+  const h = blocks.flatMap((b) => b.paragraphs.flatMap((p) => p.lines.map((l) => l.bbox.y1 - l.bbox.y0))).sort((a, b) => a - b)
+  return h.length ? h[Math.floor(h.length / 2)] : 0
+}
+
+/** Tesseract's paragraphs with their boxes, to be put in reading order: those
+ *  with a sure word and, where asked, a mean confidence of at least `minMean`. */
+export function paragraphRegions(blocks: ReadBlock[], minMean = 0): Region[] {
   return blocks.flatMap((b) =>
-    b.paragraphs.filter(isText).flatMap((p) => {
+    b.paragraphs.filter((p) => isText(p) && meanConfidence(p) >= minMean).flatMap((p) => {
       const text = joined(p)
       return text ? [{ box: [p.bbox.x0, p.bbox.y0, p.bbox.x1, p.bbox.y1] as Region['box'], text: escapeMarkdown(text) }] : []
     }),
@@ -171,14 +185,35 @@ function queued<T>(model: string, job: () => Promise<T>): Promise<T> {
   return next
 }
 
-/** Pixels around a region, so a letter's marks above and below the line are not cut. */
-const MARGIN = 24
+/** The line height Tesseract reads best at, roughly. A region whose lines are
+ *  much shorter, as a screenshot's are, is read again enlarged to it: a
+ *  brochure's 15 came back as (5 at 20 pixels a line and right at 36. */
+const LINE = 36
+/** Where the model saw no text, Tesseract must be at least this sure on the whole. */
+const REST_MEAN = 60
+
+/**
+ * A part of the page read again enlarged, when its lines came back much
+ * shorter than LINE; boxes are given back in the page's own pixels.
+ */
+async function enlarged(w: Worker, page: ImageBitmap, part: { left: number; top: number; width: number; height: number }, blocks: ReadBlock[]): Promise<ReadBlock[]> {
+  const h = lineHeight(blocks)
+  if (!h || h >= LINE * 0.75) return blocks
+  const f = Math.min(3, LINE / h)
+  const canvas = new OffscreenCanvas(Math.round(part.width * f), Math.round(part.height * f))
+  const ctx = canvas.getContext('2d')!
+  ctx.imageSmoothingQuality = 'high'
+  ctx.drawImage(page, part.left, part.top, part.width, part.height, 0, 0, canvas.width, canvas.height)
+  const read = ((await w.recognize(await canvas.convertToBlob({ type: 'image/png' }), {}, { blocks: true, text: false })).data.blocks ?? []) as ReadBlock[]
+  const back = (b: { x0: number; y0: number; x1: number; y1: number }) => ({ x0: part.left + b.x0 / f, y0: part.top + b.y0 / f, x1: part.left + b.x1 / f, y1: part.top + b.y1 / f })
+  return read.map((b) => ({ paragraphs: b.paragraphs.map((p) => ({ ...p, bbox: back(p.bbox), lines: p.lines.map((l) => ({ ...l, bbox: back(l.bbox) })) })) }))
+}
 
 /**
  * An image read in the language `code`, with English as well when `english`.
- * Where the layout model finds a picture the page is designed, and each of its
- * text regions is read on its own, then whatever they left; otherwise
- * Tesseract's own layout reads the whole page. `onStatus` hears the progress.
+ * The layout model finds the page's text regions and each is read on its own,
+ * then whatever they left; where it finds none, or cannot load, Tesseract's
+ * own layout reads the whole page. `onStatus` hears the progress.
  */
 export async function readImage(image: Blob, code: string, english: boolean, onStatus?: (status: string) => void): Promise<string> {
   if (!LANGUAGES[code]?.ocr) throw new Error(`${LANGUAGES[code]?.name ?? code} cannot be read from images.`)
@@ -186,37 +221,42 @@ export async function readImage(image: Blob, code: string, english: boolean, onS
   const bitmap = await createImageBitmap(image)
   onStatus?.('finding the layout')
   // Layout only improves a reading; if it cannot load, the page is read without it.
-  const layout = await detect(bitmap).catch((e) => (console.warn('No layout:', e), { text: [], pictures: 0 }))
+  const regions = await detect(bitmap).catch((e): Region[] => (console.warn('No layout:', e), []))
   return queued(model, async () => {
     if (onStatus) listeners.set(model, onStatus)
     const w = await worker(model)
     const { PSM } = await import('tesseract.js')
     try {
-      if (!layout.pictures || !layout.text.length) {
+      if (!regions.length) {
         const { data } = await w.recognize(image, {}, { blocks: true, text: false })
         return pageText((data.blocks ?? []) as ReadBlock[])
       }
-      await w.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_BLOCK })
-      for (const r of layout.text) {
-        const [x1, y1, x2, y2] = r.box
-        const left = Math.max(0, Math.floor(x1 - MARGIN))
-        const top = Math.max(0, Math.floor(y1 - MARGIN))
-        const rectangle = { left, top, width: Math.min(bitmap.width, Math.ceil(x2 + MARGIN)) - left, height: Math.min(bitmap.height, Math.ceil(y2 + MARGIN)) - top }
-        const { data } = await w.recognize(image, { rectangle }, { blocks: true, text: false })
-        r.text = regionText((data.blocks ?? []) as ReadBlock[])
+      // A region has one background, where one threshold for all of it is
+      // steadier than Sauvola's local ones: on a brochure's green boxes Sauvola
+      // dropped whole lines at some sizes, and Otsu read every box at every size.
+      await w.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_BLOCK, thresholding_method: '0' } as Record<string, string>)
+      for (const r of regions) {
+        const [x1, y1, x2, y2] = cropAround(r, regions, bitmap.width, bitmap.height)
+        const rectangle = { left: Math.floor(x1), top: Math.floor(y1), width: Math.ceil(x2) - Math.floor(x1), height: Math.ceil(y2) - Math.floor(y1) }
+        let blocks = (await w.recognize(image, { rectangle }, { blocks: true, text: false })).data.blocks as ReadBlock[] | null
+        blocks = await enlarged(w, bitmap, rectangle, blocks ?? [])
+        r.text = regionText(blocks)
       }
-      await w.setParameters({ tessedit_pageseg_mode: PSM.AUTO })
+      await w.setParameters({ tessedit_pageseg_mode: PSM.AUTO, thresholding_method: '2' } as Record<string, string>)
       // Tesseract's own layout on what the regions left: text the model missed is still read.
       const rest = new OffscreenCanvas(bitmap.width, bitmap.height)
       const ctx = rest.getContext('2d')!
       ctx.drawImage(bitmap, 0, 0)
       ctx.fillStyle = '#fff'
-      for (const { box: [x1, y1, x2, y2] } of layout.text) ctx.fillRect(x1 - 4, y1 - 4, x2 - x1 + 8, y2 - y1 + 8)
-      const { data } = await w.recognize(await rest.convertToBlob({ type: 'image/png' }), {}, { blocks: true, text: false })
-      const regions = [...layout.text, ...paragraphRegions((data.blocks ?? []) as ReadBlock[])]
-      return readingOrder(regions).map((r) => r.text).filter(Boolean).join('\n\n')
+      for (const { box: [x1, y1, x2, y2] } of regions) ctx.fillRect(x1 - 4, y1 - 4, x2 - x1 + 8, y2 - y1 + 8)
+      const page = { left: 0, top: 0, width: bitmap.width, height: bitmap.height }
+      const restBitmap = await createImageBitmap(rest)
+      const restBlocks = await enlarged(w, restBitmap, page, ((await w.recognize(await rest.convertToBlob({ type: 'image/png' }), {}, { blocks: true, text: false })).data.blocks ?? []) as ReadBlock[])
+      // Where the model saw no text, a paragraph must be sure on the whole and must not repeat a region.
+      const left = paragraphRegions(restBlocks, REST_MEAN).filter((p) => regions.every((r) => inside(p.box, r.box) < 0.3))
+      return readingOrder([...regions, ...left]).map((r) => r.text).filter(Boolean).join('\n\n')
     } finally {
-      await w.setParameters({ tessedit_pageseg_mode: PSM.AUTO }).catch(() => {})
+      await w.setParameters({ tessedit_pageseg_mode: PSM.AUTO, thresholding_method: '2' } as Record<string, string>).catch(() => {})
       listeners.delete(model)
     }
   })

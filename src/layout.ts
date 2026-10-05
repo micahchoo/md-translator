@@ -1,10 +1,8 @@
-// Where the text on a designed page is. PP-DocLayout-S (PaddlePaddle, Apache
-// 2.0), converted to ONNX and served from this site, finds a page's regions:
-// paragraphs, titles, captions and pictures. bench/ocr-layout.py measured it.
-// On 23 designed pages, reading its regions one by one beat Tesseract's own
-// layout by 6.7 points of chrF; on 147 pages of books it lost 1.7. So it is
-// used only on a page where it finds a picture: that kept 6.4 of the 6.7 on
-// designed pages and cost books 0.1. A page with no picture is read as before.
+// Where the text on a page is. PP-DocLayout-S (PaddlePaddle, Apache 2.0),
+// converted to ONNX and served from this site, finds a page's paragraphs,
+// titles and captions, and each is read on its own. bench/ocr-layout.py
+// measured it: on 22 designed pages (news fronts) 57.0 chrF with Tesseract's
+// own layout and 65.4 region by region; on 147 pages of books 74.2 and 74.1.
 //
 // It runs on ONNX Runtime, which reading aloud already loads, and loads on
 // the first image.
@@ -12,11 +10,8 @@
 export const LABELS = 'paragraph_title image text number abstract content figure_title formula table table_title reference doc_title footnote header algorithm footer seal chart_title chart formula_number header_image footer_image aside_text'.split(' ')
 /** Regions that are not text to read. */
 const NOT_TEXT = new Set(['image', 'chart', 'seal', 'header_image', 'footer_image', 'formula'])
-const PICTURES = new Set(['image', 'chart', 'header_image', 'footer_image'])
 /** A text region the detector is less sure of than this is left to Tesseract's own pass. */
 const TEXT_SCORE = 0.25
-/** A picture must be this sure to send a page to region-by-region reading. */
-const PICTURE_SCORE = 0.5
 /** Smaller than this many pixels a side, a region cannot hold a line. */
 const TOO_SMALL = 8
 
@@ -27,7 +22,7 @@ export interface Region {
 }
 
 /** The share of `a`'s area that lies inside `b`. */
-function inside(a: Box, b: Box): number {
+export function inside(a: Box, b: Box): number {
   const ix = Math.max(0, Math.min(a[2], b[2]) - Math.max(a[0], b[0]))
   const iy = Math.max(0, Math.min(a[3], b[3]) - Math.max(a[1], b[1]))
   return (ix * iy) / Math.max(1, (a[2] - a[0]) * (a[3] - a[1]))
@@ -35,22 +30,48 @@ function inside(a: Box, b: Box): number {
 
 /**
  * The detector's rows of six, [label, score, x1, y1, x2, y2] in page pixels,
- * as text regions to read and a count of pictures. A region mostly inside one
- * already kept, the more sure one, is the same text found twice.
+ * as text regions to read. A region mostly inside one already kept, the more
+ * sure one, is the same text found twice.
  */
-export function regionsOf(rows: ArrayLike<number>, width: number, height: number): { text: Region[]; pictures: number } {
+export function regionsOf(rows: ArrayLike<number>, width: number, height: number): Region[] {
   const found: { label: string; score: number; box: Box }[] = []
   for (let i = 0; i + 5 < rows.length; i += 6) {
     const box: Box = [Math.max(0, rows[i + 2]), Math.max(0, rows[i + 3]), Math.min(width, rows[i + 4]), Math.min(height, rows[i + 5])]
     found.push({ label: LABELS[rows[i]] ?? '', score: rows[i + 1], box })
   }
-  const pictures = found.filter((f) => PICTURES.has(f.label) && f.score >= PICTURE_SCORE).length
   const kept: Box[] = []
   for (const f of found.filter((f) => !NOT_TEXT.has(f.label) && f.score >= TEXT_SCORE).sort((a, b) => b.score - a.score)) {
     if (f.box[2] - f.box[0] < TOO_SMALL || f.box[3] - f.box[1] < TOO_SMALL) continue
     if (kept.every((k) => inside(f.box, k) < 0.5 && inside(k, f.box) < 0.5)) kept.push(f.box)
   }
-  return { text: kept.map((box) => ({ box, text: '' })), pictures }
+  return kept.map((box) => ({ box, text: '' }))
+}
+
+/** Pixels round a region, for a letter's marks above and below its line. */
+const MARGIN = 24
+
+/**
+ * The crop a region is read from: MARGIN on each side, cut to half the gap to
+ * any text region beside it, so a crop never reads a neighbour's lines. A
+ * green box split into one region a line came back with each line's
+ * neighbours read into it.
+ */
+export function cropAround(r: Region, regions: Region[], width: number, height: number): Box {
+  const [x1, y1, x2, y2] = r.box
+  const m = [MARGIN, MARGIN, MARGIN, MARGIN]
+  for (const k of regions) {
+    if (k === r) continue
+    const [a, b, c, d] = k.box
+    if (a < x2 && c > x1) {
+      if (d <= y1) m[1] = Math.min(m[1], (y1 - d) / 2)
+      if (b >= y2) m[3] = Math.min(m[3], (b - y2) / 2)
+    }
+    if (b < y2 && d > y1) {
+      if (c <= x1) m[0] = Math.min(m[0], (x1 - c) / 2)
+      if (a >= x2) m[2] = Math.min(m[2], (a - x2) / 2)
+    }
+  }
+  return [Math.max(0, x1 - m[0]), Math.max(0, y1 - m[1]), Math.min(width, x2 + m[2]), Math.min(height, y2 + m[3])]
 }
 
 /**
@@ -100,8 +121,8 @@ function detector() {
   return session
 }
 
-/** The text regions of a page and how many pictures it holds. */
-export async function detect(image: ImageBitmap): Promise<{ text: Region[]; pictures: number }> {
+/** The text regions of a page. */
+export async function detect(image: ImageBitmap): Promise<Region[]> {
   const { ort, session } = await detector()
   const canvas = new OffscreenCanvas(SIZE, SIZE)
   const ctx = canvas.getContext('2d')!

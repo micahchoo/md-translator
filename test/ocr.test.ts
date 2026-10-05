@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { OCR_CANDIDATES } from '../bench/ocr'
 import { LANGUAGES } from '../src/languages'
-import { escapeMarkdown, imageLanguage, imageLanguages, models, pageText, paragraphRegions, regionText, type ReadBlock } from '../src/ocr'
+import { escapeMarkdown, imageLanguage, imageLanguages, lineHeight, models, pageText, paragraphRegions, regionText, type ReadBlock } from '../src/ocr'
 
 /** Tesseract's output for lines of words, each word at the given confidence.
  *  A line is as wide as its text, ten pixels a character, unless given a width. */
@@ -10,7 +10,7 @@ const block = (...paras: [string, number?, number?][][]): ReadBlock => ({
     bbox: { x0: 0, y0: i * 100, x1: 300, y1: i * 100 + 80 },
     lines: lines.map(([text, confidence = 95, width = text.length * 10]) => ({
       text: text + '\n',
-      bbox: { x0: 0, x1: width },
+      bbox: { x0: 0, x1: width, y0: 0, y1: 20 },
       words: text.split(/\s+/).filter(Boolean).map((w) => ({ text: w, confidence })),
     })),
   })),
@@ -96,8 +96,8 @@ describe('the text an image becomes', () => {
 })
 
 describe('a region read on its own', () => {
-  test('is one paragraph, whatever Tesseract split it into', () => {
-    expect(regionText([block([['ಮನೇಸೀರಿನಲ್ಲಿ, ನಾವು', 90]], [['ನೀಡುವ ಪ್ರತಿ', 90]])])).toBe('ಮನೇಸೀರಿನಲ್ಲಿ, ನಾವು ನೀಡುವ ಪ್ರತಿ')
+  test("keeps Tesseract's paragraph breaks: a heading the model joined to its paragraph stays apart", () => {
+    expect(regionText([block([['02 ಋತುಮಾನ ಪ್ರಕಾರ', 90]], [['ನಾವು ಪ್ರಕೃತಿಯ', 90]])])).toBe('02 ಋತುಮಾನ ಪ್ರಕಾರ\n\nನಾವು ಪ್ರಕೃತಿಯ')
   })
 
   test('drops what Tesseract was unsure of in every word, and escapes Markdown', () => {
@@ -111,6 +111,24 @@ describe("what the regions left, as Tesseract's paragraphs", () => {
       { box: [0, 0, 300, 80], text: 'first' },
       { box: [0, 200, 300, 280], text: 'third' },
     ])
+  })
+
+  test('keeps only paragraphs Tesseract was sure of on the whole, where asked', () => {
+    // A photograph behind a box came back as "SOD ee ee Ors cee aa": one sure word, the rest guesses.
+    const b = block([['SOD', 70], ['ee ee Ors cee aa', 30]], [['ಮೈನೆಸಿರಿಯ ಉಗಮ', 90]])
+    expect(paragraphRegions([b], 60).map((r) => r.text)).toEqual(['ಮೈನೆಸಿರಿಯ ಉಗಮ'])
+  })
+})
+
+describe('lineHeight', () => {
+  test('is the median height of the lines read', () => {
+    const b = block([['a'], ['b'], ['c']])
+    b.paragraphs[0].lines[2].bbox = { x0: 0, x1: 10, y0: 0, y1: 60 }
+    expect(lineHeight([b])).toBe(20)
+  })
+
+  test('is zero when nothing was read', () => {
+    expect(lineHeight([])).toBe(0)
   })
 })
 
