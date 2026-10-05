@@ -1,11 +1,11 @@
 // The READMEs repeat facts the code holds: which languages are offered and
-// read aloud, what each flag says, which bench scripts exist. These tests fail when one side
+// read aloud or from images, what each flag says, which bench scripts exist. These tests fail when one side
 // moves without the other. Numbers from a bench run cannot be checked this way;
 // the rule in .claude/rules/translator-readmes.md covers those.
 import { describe, expect, test } from 'bun:test'
 import { readdirSync, readFileSync } from 'node:fs'
 import { CANDIDATES } from '../bench/candidates'
-import { FLAG_TEXT } from '../src/blocks'
+import { FLAG_TEXT, HARD_TEXT } from '../src/blocks'
 import { LANGUAGES } from '../src/languages'
 
 const readme = readFileSync('README.md', 'utf8')
@@ -28,9 +28,14 @@ describe('README', () => {
     expect(named(section(readme, 'Reading aloud').trim().split('\n\n')[0])).toEqual(voiced)
   })
 
+  test('names exactly the languages that can be read from images', () => {
+    const read = Object.values(LANGUAGES).filter((l) => l.code !== 'en' && l.ocr).map((l) => l.name).sort()
+    expect(named(section(readme, 'Reading images').trim().split('\n\n')[0])).toEqual(read)
+  })
+
   test('explains every flag the app shows, by its label', () => {
     const rows = section(readme, 'Warning flags').match(/^\| (?!Flag|---)[^|]+\|/gm)!.map((r) => r.slice(2, -2).trim())
-    expect(rows.sort()).toEqual(Object.values(FLAG_TEXT).sort())
+    expect(rows.sort()).toEqual([...Object.values(FLAG_TEXT), HARD_TEXT].sort())
   })
 })
 

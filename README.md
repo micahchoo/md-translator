@@ -24,12 +24,22 @@ To use a server on another device, serve it over `https`, for example with `tail
 ## How to use it
 
 1. Choose the direction, for example **English → Tamil** or **Any language → English**.
-2. Paste Markdown, or attach `.md` files. Each file opens as a tab.
+2. Paste Markdown, or attach `.md` files or images of text. Each file opens as a tab.
 3. Press **Translate**. **Blocks** shows each piece of the source beside its translation as it arrives.
 4. Press **Retry** or **Edit** on any block you want to change. Your edits are remembered: the same block in a later document, in the same direction, comes back with your words and is never sent to the model. Anuvaad keeps a translation memory for the same reason.
 5. **Copy** the result, or **Download** it as a `.md` file.
 
 Your documents stay in this browser. If you stop a run, **Translate** continues from where it stopped. If you change the source after a run, only the new or changed blocks are sent to the model again; Co-op Translator works the same way. To translate everything afresh, press **Translate again** without changing the source.
+
+## Reading images
+
+Text in an image can be the source: attach a PNG, JPEG or WebP, drop it on the page, or paste a screenshot into **Source**. Images can be read in Assamese, Bengali, Bodo, Dogri, Gujarati, Hindi, Kannada, Konkani, Maithili, Marathi, Punjabi and Sindhi, and in English.
+
+Translating into English, choose the image's language under **Read as**. Translating from English, the image is read as English. Tick **It also has English** for a page that mixes English in, such as a brochure: without it the English comes back as nonsense, and on a page in one language it reads that language a little worse. Both choices are remembered.
+
+What was read appears in **Source**. Check it before you translate, because a misread word becomes a mistranslated one. **Next hard word** selects each word the reader was unsure of, and **Show image** puts the picture beside the text. In **Blocks**, a block that still holds one of those words is flagged.
+
+Reading runs in your browser with Tesseract. The first image in a language downloads its letters, 1 to 5 MB, once. Print reads best. Text over a photo, white text on colour and handwriting read badly, and on one brochure the rupee sign came back as 2 in four prices of five, so check every price. Bodo, Dogri, Maithili and Sindhi are read with Hindi's letters and Konkani with Marathi's; Sindhi's ॻ ॼ ॾ ॿ come back as their nearest Hindi letters. Malayalam, Nepali, Odia, Sanskrit, Tamil, Telugu, Urdu and Kashmiri are not offered, because they failed the test in [bench/README.md](bench/README.md). That test could not tell whether Assamese, Bengali, Gujarati and Hindi read old printed books well enough, so checking the text matters most for them. The image is not kept after a reload; the text is.
 
 ## Reading aloud
 
@@ -57,6 +67,7 @@ Simple rules check every translated piece. When a rule fires, the translator tri
 
 | Flag | What happened |
 | --- | --- |
+| Hard to read | The source was read from an image, and this block still holds a word the reader was unsure of. Correct it in **Source**; no retry can fix a source. |
 | Not translated | The answer is still in the source language. |
 | Wrong script or letters | The answer is in another script, or uses letters this language never writes, as Sindhi ॾ in Nepali. |
 | Not a translation | The answer is the language's own name, or repeats an earlier block's answer for a different source. |
@@ -110,6 +121,8 @@ This translator is one web page and your own model server. Your documents stay o
 ## Credits
 
 The model is sarvam-30b by Sarvam AI. The language tests use IN22-Gen by AI4Bharat (CC BY 4.0), whose human translations also give Bodo, Sindhi and Kashmiri their examples, and GlotLID.
+
+Reading images uses [Tesseract](https://github.com/tesseract-ocr/tesseract) and its [tessdata_fast](https://github.com/tesseract-ocr/tessdata_fast) models, run by [Tesseract.js](https://github.com/naptha/tesseract.js), all under the Apache 2.0 licence. They load only when you first attach an image.
 
 Reading aloud uses [espeak-ng](https://github.com/espeak-ng/espeak-ng), compiled to WebAssembly by [espeak-ng.js](https://github.com/ianmarmour/espeak-ng.js), under the GPL 3.0 or later, and [Piper](https://github.com/rhasspy/piper) voices from [piper-voices](https://huggingface.co/rhasspy/piper-voices), run by [ONNX Runtime](https://onnxruntime.ai/) (MIT). They load only when you first press Play. Each voice is under the licence of the recordings it learned from:
 
