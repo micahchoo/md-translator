@@ -130,7 +130,7 @@ matched documents by MT + tf-idf (threshold 0.51) and sentences by Bleualign; ou
 - Code: github.com/micahchoo/pib-parallel (PRIVATE), local at ../pib-parallel. fetch.ts, align.py, copies.ts,
   gt.ts, crawl.sh, package.py, card/README.md; 35 bun + 24 pytest tests. md-translator's copies are deleted
   (27ee848); bench/pib-bench.ts and score-pib.py stay here and read pib-parallel's sentences.jsonl.
-- Data: huggingface.co/datasets/micaha/pib-parallel (PRIVATE): sentences (182,144) and documents (8,296)
+- Data: huggingface.co/datasets/micahchoo/pib-parallel (PRIVATE): sentences (182,144) and documents (8,296)
   Parquet + the card. load_dataset verified. Built from corpus/pib/pilot-v2/ with pib-parallel's tools.
 - Owner's remaining step: make both public (GitHub visibility; HF settings). THEN push md-translator: its
   bench README now links both, and pushing first would publish links that 404.
