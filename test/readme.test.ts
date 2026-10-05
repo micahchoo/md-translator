@@ -1,5 +1,5 @@
-// The READMEs repeat facts the code holds: which languages are offered, what
-// each flag says, which bench scripts exist. These tests fail when one side
+// The READMEs repeat facts the code holds: which languages are offered and
+// pronounced, what each flag says, which bench scripts exist. These tests fail when one side
 // moves without the other. Numbers from a bench run cannot be checked this way;
 // the rule in .claude/rules/translator-readmes.md covers those.
 import { describe, expect, test } from 'bun:test'
@@ -21,6 +21,11 @@ const section = (md: string, heading: string) => md.split(`\n## ${heading}\n`)[1
 describe('README', () => {
   test('names exactly the languages the app offers', () => {
     expect(named(section(readme, 'Languages').trim().split('\n\n')[0])).toEqual(offered)
+  })
+
+  test('names exactly the languages that show a pronunciation', () => {
+    const voiced = Object.values(LANGUAGES).filter((l) => l.code !== 'en' && l.phonetic).map((l) => l.name).sort()
+    expect(named(section(readme, 'Pronunciation').trim().split('\n\n')[0])).toEqual(voiced)
   })
 
   test('explains every flag the app shows, by its label', () => {

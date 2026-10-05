@@ -21,6 +21,8 @@ export interface Settings {
   noteOnDownload: boolean
   /** The model judges its own answers for a lost "not" and a related language (src/judge.ts). */
   judge: boolean
+  /** The Blocks view shows each translation's IPA, where its language has a voice. */
+  pronunciation: boolean
 }
 
 export const DEFAULTS: Settings = {
@@ -35,6 +37,7 @@ export const DEFAULTS: Settings = {
   skipKeys: 'notion-id, base, tags, aliases, cssclasses',
   noteOnDownload: true,
   judge: true,
+  pronunciation: false,
 }
 
 const KEY = 'md-translator.settings'

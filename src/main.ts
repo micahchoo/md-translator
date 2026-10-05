@@ -6,6 +6,7 @@ import { directionLabel, dirOf, LANGUAGES } from './languages'
 import { createScorer, probe, type Score } from './judge'
 import { createClient, listModels } from './llm'
 import { DEFAULTS, formatExamples, loadSettings, parseExamples, saveSettings, toOptions, type Settings } from './settings'
+import { createPronouncer, phonemize } from './phonetics'
 import { loadDocs, loadMemory, remember, saveDocs, saveMemory, type SavedDoc } from './store'
 import { editUnit, machineNote, progressOf, retryUnit, translateDocument } from './translate'
 
@@ -33,6 +34,7 @@ const el = {
   meter: $<HTMLProgressElement>('meter'),
   onlyFlagged: $<HTMLInputElement>('only-flagged'),
   onlyFlaggedText: $('only-flagged-text'),
+  pronunciation: $<HTMLInputElement>('pronunciation'),
   follow: $<HTMLButtonElement>('follow'),
   dialog: $<HTMLDialogElement>('settings'),
   form: $<HTMLFormElement>('settings-form'),
@@ -80,6 +82,9 @@ let frame = 0
 function schedule() {
   if (!frame) frame = requestAnimationFrame(() => ((frame = 0), render()))
 }
+
+// espeak-ng loads on the first pronunciation asked for, not with the page.
+const pronouncer = createPronouncer(phonemize, schedule)
 
 const blocks = new BlockList(el.blocks, {
   retry: (i) => retry(i),
@@ -135,7 +140,12 @@ function render() {
   el.status.classList.toggle('error', d.status === 'error')
   el.status.textContent = statusLine(d, done, flagged)
 
-  if (d.view === 'blocks' && units.length) blocks.show(units, d.lang ?? settings.language, isBusy, el.onlyFlagged.checked)
+  const lang = d.lang ?? settings.language
+  const voice = LANGUAGES[lang].phonetic
+  el.pronunciation.parentElement!.hidden = !voice || !units.length || d.view !== 'blocks'
+  el.pronunciation.checked = settings.pronunciation
+  const pronounce = voice && settings.pronunciation ? (output: string) => pronouncer.get(voice, output) : undefined
+  if (d.view === 'blocks' && units.length) blocks.show(units, lang, isBusy, el.onlyFlagged.checked, pronounce)
   el.follow.hidden = !(running && d.view === 'blocks' && !blocks.follow)
 }
 
@@ -344,6 +354,11 @@ for (const t of viewTabs)
     render()
   }
 el.onlyFlagged.onchange = () => render()
+el.pronunciation.onchange = () => {
+  settings.pronunciation = el.pronunciation.checked
+  saveSettings(storage, settings)
+  render()
+}
 el.follow.onclick = () => {
   blocks.follow = true
   render()

@@ -76,6 +76,8 @@ body.dropping .work { outline: 2px dashed var(--accent); outline-offset: -4px; b
 #meter::-moz-progress-bar { background: var(--accent); }
 .only-flagged { display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem; color: var(--warn); }
 .only-flagged input { width: auto; }
+.pronunciation { display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem; color: var(--muted); }
+.pronunciation input { width: auto; }
 
 .view { flex: 1; display: flex; min-height: 0; }
 textarea, input, select {
@@ -105,6 +107,9 @@ textarea, input, select {
 .cell { min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
 .cell.source { color: var(--muted); font-size: 0.92rem; }
 .cell.target { font-size: 1rem; }
+.cell .phonetic { margin-top: 4px; color: var(--muted); font-size: 0.85rem; }
+/* IPA reads left to right, but sits under the line it spells. */
+.cell[dir='rtl'] .phonetic { text-align: right; }
 .cell.pending { color: var(--muted); font-style: italic; font-size: 0.88rem; }
 .cell.editing { display: grid; gap: 6px; }
 .cell.editing textarea { font-family: var(--sans); resize: vertical; }

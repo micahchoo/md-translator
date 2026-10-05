@@ -29,6 +29,8 @@ export interface BlockHandlers {
 interface Row {
   el: HTMLElement
   key: string
+  /** The translation's IPA as last shown; a redraw outside `show` keeps it. */
+  ipa?: string
 }
 
 const h = <K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string) => {
@@ -56,7 +58,8 @@ export class BlockList {
     })
   }
 
-  show(units: UnitResult[], lang: string, busy: boolean, onlyFlagged: boolean) {
+  /** `pronounce` gives a finished block's IPA, or undefined while it is not ready. */
+  show(units: UnitResult[], lang: string, busy: boolean, onlyFlagged: boolean, pronounce?: (output: string) => string | undefined) {
     if (units !== this.units || this.rows.length !== units.length) {
       this.units = units
       this.editing = null
@@ -69,7 +72,8 @@ export class BlockList {
       const hidden = onlyFlagged && !u.flags.length && u.status !== 'running'
       row.el.hidden = hidden
       if (u.status === 'running') running = row.el
-      const key = [u.status, u.output, u.flags.join(), u.edited, busy, lang, this.editing === i].join('\u0000')
+      row.ipa = !hidden && u.status === 'done' && u.output ? pronounce?.(u.output) : undefined
+      const key = [u.status, u.output, u.flags.join(), u.edited, busy, lang, this.editing === i, row.ipa].join('\u0000')
       if (key === row.key) return
       row.key = key
       this.fill(row.el, u, i, lang, busy)
@@ -113,6 +117,13 @@ export class BlockList {
       target = h('div', 'cell target indic-text', unmask(u.output, u.unit.restore))
       target.lang = lang
       target.dir = dirOf(lang)
+      const ipa = this.rows[i].ipa
+      if (ipa) {
+        const line = h('div', 'phonetic', ipa)
+        line.lang = 'und-fonipa'
+        line.dir = 'ltr'
+        target.append(line)
+      }
     } else {
       target = h('div', 'cell target pending', u.status === 'running' ? 'Translating…' : 'Waiting')
     }

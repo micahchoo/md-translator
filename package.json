@@ -8,6 +8,7 @@
     "test": "bun test"
   },
   "dependencies": {
+    "espeak-ng": "1.0.2",
     "mdast-util-from-markdown": "^2.0.3",
     "mdast-util-frontmatter": "^2.0.1",
     "mdast-util-gfm": "^3.1.0",

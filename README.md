@@ -31,6 +31,14 @@ To use a server on another device, serve it over `https`, for example with `tail
 
 Your documents stay in this browser. If you stop a run, **Translate** continues from where it stopped. If you change the source after a run, only the new or changed blocks are sent to the model again; Co-op Translator works the same way. To translate everything afresh, press **Translate again** without changing the source.
 
+## Pronunciation
+
+Bengali, Gujarati, Hindi, Kannada, Malayalam, Marathi, Nepali, Odia, Punjabi, Tamil, Telugu and Urdu, and English, can show how each translated block sounds, in IPA.
+
+Turn on **Show pronunciation** in **Blocks**. The IPA comes from espeak-ng, which runs in the page. The first time, it downloads about 9 MB. Code, link addresses and formatting marks are not read.
+
+The other languages do not have the option. espeak-ng has no voice for Bodo, Dogri, Kashmiri, Maithili or Sanskrit. For Assamese, Konkani and Sindhi in Devanagari, its output was wrong. Nobody who reads these languages has checked the IPA yet.
+
 ## What stays unchanged
 
 Code, link addresses, numbers, emphasis marks, and the front matter keys named in Settings (`notion-id, base, tags, aliases, cssclasses` by default).
@@ -78,7 +86,7 @@ Before you rely on a translation, have someone who reads the language check it.
 
 ```sh
 bun install
-bun test          # the checks, prompt, segmenting and settings
+bun test          # the checks, prompt, segmenting, settings and pronunciation
 bun run dev       # local page
 bun run build     # type check and production build
 ```
@@ -96,5 +104,7 @@ This translator is one web page and your own model server. Your documents stay o
 ## Credits
 
 The model is sarvam-30b by Sarvam AI. The language tests use IN22-Gen by AI4Bharat (CC BY 4.0), whose human translations also give Bodo, Sindhi and Kashmiri their examples, and GlotLID.
+
+Pronunciation uses [espeak-ng](https://github.com/espeak-ng/espeak-ng), compiled to WebAssembly by [espeak-ng.js](https://github.com/ianmarmour/espeak-ng.js). It is under the GPL 3.0 or later and loads only when you turn pronunciation on.
 
 The code is under the [MIT licence](LICENSE).
