@@ -1,4 +1,4 @@
-# Markdown Translator
+# Indic Markdown Translator
 
 Translates Markdown documents between English and twenty Indian languages, using a model that runs on your own computer. Headings, lists, bold text, links and code come back where they were.
 
