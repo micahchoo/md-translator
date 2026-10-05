@@ -29,10 +29,19 @@ Offered (13): en as bn brx doi gu hi kn gom mai mr pa sd. Rule (owner, after res
 the 90% bootstrap range of a score lies wholly below its floor (scan 85, page 80). bench/ocr.ts,
 ocr-pages.ts (Wikisource Validated pages), score-ocr.py. Old one-block runs: corpus/runs/ocr/psm6/.
 Waiting on the owner: Nepali (range reaches 80 in some bootstraps, on Hindi pages); when to merge+push.
-Known faults: eng model has no ₹ at all (README says so); hard-word floor 60 is a guess (14/31 brochure
-blocks flagged); text over photos / white on colour; the width rule is a heuristic (first to go if a
-trained detector — PaddleOCR in ONNX, onnxruntime-web already shipped — comes in).
-Not started: PDFs (pdf.js text layer, script check, OCR fallback per page).
+Known faults: eng model has no ₹ at all (README says so); text over photos / white on colour; the
+width rule is a heuristic (first to go if a layout model wins).
+PDFs (431bee3 layer, then the page and README): src/pdf.ts uses a page's text layer when sound,
+else draws and OCRs it. Unsound = under 20 letters (scan), under half in the expected script
+(legacy font: Krutidev), or Indic syllable-rule breaks above 1 per 100 letters (InDesign Tamil
+handout: 4-6). Any language for PDFs; no-OCR languages keep a damaged layer with a warning.
+Tested: an English PDF, iihs/Tamil-Handout_RWA.pdf, a scan made from a Wikisource page. Not
+tested on a real Krutidev PDF (only a unit test with Krutidev-style text).
+Hard words removed (owner: no value). Nepali offered (778a846).
+Layout: PP-DocLayout-S (4.8 MB, scratchpad/layout) took the brochure 60 -> 85 but books -2.3,
+unstable to cropping, labelled a photo-backed column a picture. Not adopted. Next: a test set of
+designed pages from screenshots of Indic web pages (DOM innerText as reference, corpus/ only),
+then docling-egret-medium (78.5 MB). Preprocessing (CLAHE, edges, contrast) tested: not worth it.
 After merge: remove the worktree, its corpus link, the exclude line; stop vite preview on :4173.
 
 ## State at the end of 2026-10-04 — read this first; dated sections below are the history
