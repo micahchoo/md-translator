@@ -57,6 +57,18 @@ export function escapeMarkdown(line: string): string {
     .replace(/^(\s*\d+)([.)])(?=\s)/, '$1\\$2')
 }
 
+/**
+ * A paragraph so far with its next line. A Latin word broken by a hyphen at a
+ * line's end is joined again; any other hyphen at a line's end is kept,
+ * without a space, since it joined two words in print.
+ */
+export function joinLine(text: string, line: string): string {
+  if (!text) return line
+  if (/[a-z]-$/.test(text) && /^[a-z]/.test(line)) return text.slice(0, -1) + line
+  if (text.endsWith('-')) return text + line
+  return text + ' ' + line
+}
+
 /** A line this much narrower than its paragraph's widest one ends where it ends. */
 const SHORT = 0.7
 
@@ -65,9 +77,6 @@ const SHORT = 0.7
  * calls a whole column one paragraph, so its widths decide: in prose most
  * lines run the full width and only a short one ends a paragraph; where fewer
  * than half do (an index, a list, a poem) every line stands alone.
- *
- * A Latin word broken by a hyphen at a line's end is joined again; any other
- * hyphen at a line's end is kept, without a space, since it joined two words.
  */
 export function pageText(blocks: ReadBlock[]): string {
   const paras: string[] = []
@@ -81,10 +90,7 @@ export function pageText(blocks: ReadBlock[]): string {
       const prose = lines.filter(full).length * 2 >= lines.length
       let text = ''
       for (const l of lines) {
-        if (!text) text = l.text
-        else if (/[a-z]-$/.test(text) && /^[a-z]/.test(l.text)) text = text.slice(0, -1) + l.text
-        else if (text.endsWith('-')) text += l.text
-        else text += ' ' + l.text
+        text = joinLine(text, l.text)
         if (!prose || !full(l)) {
           paras.push(escapeMarkdown(text))
           text = ''
