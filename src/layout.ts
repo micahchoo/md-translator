@@ -98,6 +98,35 @@ export function readingOrder<R extends Region>(regions: R[]): R[] {
   return [...readingOrder(regions.filter((r) => r.box[axis] < at)), ...readingOrder(regions.filter((r) => r.box[axis] >= at))]
 }
 
+/**
+ * Regions one line high, stacked under each other with less than 0.6 of a
+ * line between them and overlapping by half their width, are one paragraph
+ * the model cut into lines: a box of three lines came back as three
+ * paragraphs, one sentence sent to translation in three blocks. A region of
+ * several lines is never joined, so a headline stays off the summary under it.
+ * `h` is a region's line height as read.
+ */
+export function joinLines<R extends Region & { h?: number }>(regions: R[]): R[] {
+  const oneLine = (r: R) => !!r.h && r.box[3] - r.box[1] < 1.6 * r.h
+  const out: (R & { open: boolean })[] = []
+  for (const r of [...regions].sort((a, b) => a.box[1] - b.box[1])) {
+    const above = oneLine(r) && r.text
+      ? out.find((o) => {
+          if (!o.open || !o.text) return false
+          const [a, b] = [o.box, r.box]
+          const overlap = Math.min(a[2], b[2]) - Math.max(a[0], b[0])
+          const gap = b[1] - a[3]
+          return overlap >= 0.5 * Math.min(a[2] - a[0], b[2] - b[0]) && gap >= 0 && gap < 0.6 * Math.min(r.h!, o.h!)
+        })
+      : undefined
+    if (above) {
+      above.text += ' ' + r.text
+      above.box = [Math.min(above.box[0], r.box[0]), above.box[1], Math.max(above.box[2], r.box[2]), r.box[3]]
+    } else out.push({ ...r, open: oneLine(r) })
+  }
+  return out.map(({ open, ...r }) => r as unknown as R)
+}
+
 // ---- detecting, in the browser --------------------------------------------
 
 /** Served from this site's public/models, beside the page. */

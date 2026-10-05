@@ -14,7 +14,7 @@
 // Tesseract.js loads on the first image, never with the page: its engine is
 // 3.9 MB and each model 1 to 5 MB. Tesseract.js keeps the models in IndexedDB.
 import { LANGUAGES } from './languages'
-import { cropAround, detect, inside, readingOrder, type Region } from './layout'
+import { cropAround, detect, inside, joinLines, readingOrder, type Region } from './layout'
 
 export const TESSDATA_COMMIT = '87416418657359cb625c412a48b6e1d6d41c29bd'
 const LANG_PATH = `https://cdn.jsdelivr.net/gh/tesseract-ocr/tessdata_fast@${TESSDATA_COMMIT}`
@@ -30,7 +30,7 @@ const SURE = 60
 export interface ReadBlock {
   paragraphs: {
     bbox: { x0: number; y0: number; x1: number; y1: number }
-    lines: { text: string; bbox: { x0: number; x1: number; y0: number; y1: number }; words: { text: string; confidence: number }[] }[]
+    lines: { text: string; bbox: { x0: number; x1: number; y0: number; y1: number }; words: { text: string; confidence: number; bbox: { x0: number; y0: number; x1: number; y1: number } }[] }[]
   }[]
 }
 
@@ -128,6 +128,27 @@ function meanConfidence(p: ReadBlock['paragraphs'][number]): number {
   return words.length ? words.reduce((s, w) => s + w.confidence, 0) / words.length : 0
 }
 
+/**
+ * Only the words at least half inside `box`; a line's text is its words again.
+ * A region's margin is there for the marks above and below its lines, and must
+ * not add words of its own: a caption's margin read the photograph beside it.
+ */
+export function wordsWithin(blocks: ReadBlock[], box: Region['box']): ReadBlock[] {
+  return blocks.map((b) => ({
+    paragraphs: b.paragraphs
+      .map((p) => ({
+        ...p,
+        lines: p.lines
+          .map((l) => {
+            const words = l.words.filter((w) => inside([w.bbox.x0, w.bbox.y0, w.bbox.x1, w.bbox.y1], box) >= 0.5)
+            return { ...l, words, text: words.map((w) => w.text).join(' ') }
+          })
+          .filter((l) => l.words.length),
+      }))
+      .filter((p) => p.lines.length),
+  }))
+}
+
 /** The median height of the lines read, in pixels; 0 when none were. */
 export function lineHeight(blocks: ReadBlock[]): number {
   const h = blocks.flatMap((b) => b.paragraphs.flatMap((p) => p.lines.map((l) => l.bbox.y1 - l.bbox.y0))).sort((a, b) => a - b)
@@ -206,7 +227,9 @@ async function enlarged(w: Worker, page: ImageBitmap, part: { left: number; top:
   ctx.drawImage(page, part.left, part.top, part.width, part.height, 0, 0, canvas.width, canvas.height)
   const read = ((await w.recognize(await canvas.convertToBlob({ type: 'image/png' }), {}, { blocks: true, text: false })).data.blocks ?? []) as ReadBlock[]
   const back = (b: { x0: number; y0: number; x1: number; y1: number }) => ({ x0: part.left + b.x0 / f, y0: part.top + b.y0 / f, x1: part.left + b.x1 / f, y1: part.top + b.y1 / f })
-  return read.map((b) => ({ paragraphs: b.paragraphs.map((p) => ({ ...p, bbox: back(p.bbox), lines: p.lines.map((l) => ({ ...l, bbox: back(l.bbox) })) })) }))
+  return read.map((b) => ({
+    paragraphs: b.paragraphs.map((p) => ({ ...p, bbox: back(p.bbox), lines: p.lines.map((l) => ({ ...l, bbox: back(l.bbox), words: l.words.map((w) => ({ ...w, bbox: back(w.bbox) })) })) })),
+  }))
 }
 
 /**
@@ -221,7 +244,7 @@ export async function readImage(image: Blob, code: string, english: boolean, onS
   const bitmap = await createImageBitmap(image)
   onStatus?.('finding the layout')
   // Layout only improves a reading; if it cannot load, the page is read without it.
-  const regions = await detect(bitmap).catch((e): Region[] => (console.warn('No layout:', e), []))
+  const regions: (Region & { h?: number })[] = await detect(bitmap).catch((e): Region[] => (console.warn('No layout:', e), []))
   return queued(model, async () => {
     if (onStatus) listeners.set(model, onStatus)
     const w = await worker(model)
@@ -240,7 +263,8 @@ export async function readImage(image: Blob, code: string, english: boolean, onS
         const rectangle = { left: Math.floor(x1), top: Math.floor(y1), width: Math.ceil(x2) - Math.floor(x1), height: Math.ceil(y2) - Math.floor(y1) }
         let blocks = (await w.recognize(image, { rectangle }, { blocks: true, text: false })).data.blocks as ReadBlock[] | null
         blocks = await enlarged(w, bitmap, rectangle, blocks ?? [])
-        r.text = regionText(blocks)
+        r.h = lineHeight(blocks)
+        r.text = regionText(wordsWithin(blocks, r.box))
       }
       await w.setParameters({ tessedit_pageseg_mode: PSM.AUTO, thresholding_method: '2' } as Record<string, string>)
       // Tesseract's own layout on what the regions left: text the model missed is still read.
@@ -254,7 +278,7 @@ export async function readImage(image: Blob, code: string, english: boolean, onS
       const restBlocks = await enlarged(w, restBitmap, page, ((await w.recognize(await rest.convertToBlob({ type: 'image/png' }), {}, { blocks: true, text: false })).data.blocks ?? []) as ReadBlock[])
       // Where the model saw no text, a paragraph must be sure on the whole and must not repeat a region.
       const left = paragraphRegions(restBlocks, REST_MEAN).filter((p) => regions.every((r) => inside(p.box, r.box) < 0.3))
-      return readingOrder([...regions, ...left]).map((r) => r.text).filter(Boolean).join('\n\n')
+      return readingOrder([...joinLines(regions), ...left]).map((r) => r.text).filter(Boolean).join('\n\n')
     } finally {
       await w.setParameters({ tessedit_pageseg_mode: PSM.AUTO, thresholding_method: '2' } as Record<string, string>).catch(() => {})
       listeners.delete(model)

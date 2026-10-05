@@ -42,10 +42,11 @@ Layout: PP-DocLayout-S (public/models, NOTICE.txt) on EVERY page; whole-page rea
 finds no region or cannot load. Regions read alone: psm 6, Otsu (Sauvola drops lines on crops),
 enlarged to ~36 px lines when short, margin 24 px cut to half the gap to a neighbour region; then
 psm 3 Sauvola on the page with regions whited out, keeping paragraphs with mean conf >= 60 that do
-not repeat a region; XY-cut at the widest gap. bench/ocr-layout.py: designed 57.0 -> 65.4, books
-74.2 -> 74.1. Not adopted: masking pictures, relative margins, word filter, egret, CLAHE/edges.
-Still wrong on the brochure: stray symbols in one green box (arrows/photo); a box split into three
-one-line regions becomes three paragraphs (a sentence split across blocks); ₹ in 1 price of 6.
+not repeat a region; XY-cut at the widest gap. bench/ocr-layout.py: designed 57.0 -> 65.8, books
+74.2 -> 74.0. Words kept to their region (half inside); one-line regions stacked < 0.6 line apart joined. Not adopted: masking pictures, relative margins, word filter, egret, CLAHE/edges.
+Brochure left column chrF 92.7 (60.5 at the start); all six prices right; ~93% of words right, the
+rest Tesseract's Kannada misreads (ಋ as ಖ/ಚ, ಘ as ಥ). Open: owner saw an English translation with a
+comma after every word from block 7 on; not reproduced with default settings (asked for theirs).
 After merge: remove the worktree, its corpus link, the exclude line; stop vite preview on :4173.
 
 ## State at the end of 2026-10-04 — read this first; dated sections below are the history

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { cropAround, LABELS, readingOrder, regionsOf, type Region } from '../src/layout'
+import { cropAround, joinLines, LABELS, readingOrder, regionsOf, type Region } from '../src/layout'
 
 /** One detector row: [label index, score, x1, y1, x2, y2], as PP-DocLayout-S gives it. */
 const row = (label: string, score: number, x1: number, y1: number, x2: number, y2: number) => [LABELS.indexOf(label), score, x1, y1, x2, y2]
@@ -35,6 +35,29 @@ describe('the crop round a region', () => {
 
   test('stays on the page', () => {
     expect(cropAround(box(5, 5, 595, 395), [], 600, 400)).toEqual([0, 0, 600, 400])
+  })
+})
+
+describe('joinLines', () => {
+  const line = (y: number, text: string, x1 = 100, x2 = 300) => ({ box: [x1, y, x2, y + 20] as Region['box'], text, h: 20 })
+
+  test('joins regions one line high stacked under each other: a box the model cut into lines', () => {
+    const r = joinLines([line(100, 'ಮನೆಸಿರಿ ಸಮುದಾಯ-ಚಾಲಿತ'), line(130, 'ಪೌಷ್ಟಿಕಾಂಶದ ಕೇಂದ್ರವಾಗಿ'), line(160, 'ಇದು CHL ನ')])
+    expect(r.map((x) => x.text)).toEqual(['ಮನೆಸಿರಿ ಸಮುದಾಯ-ಚಾಲಿತ ಪೌಷ್ಟಿಕಾಂಶದ ಕೇಂದ್ರವಾಗಿ ಇದು CHL ನ'])
+    expect(r[0].box).toEqual([100, 100, 300, 180])
+  })
+
+  test('keeps apart lines further apart than 0.6 of a line', () => {
+    expect(joinLines([line(100, 'a'), line(135, 'b')])).toHaveLength(2)
+  })
+
+  test('keeps apart lines side by side, in columns', () => {
+    expect(joinLines([line(100, 'a', 0, 200), line(130, 'b', 300, 500)])).toHaveLength(2)
+  })
+
+  test('never joins a region of several lines: a headline stays off the summary under it', () => {
+    const summary = { box: [100, 130, 300, 210] as Region['box'], text: 'summary', h: 20 }
+    expect(joinLines([line(100, 'headline'), summary])).toHaveLength(2)
   })
 })
 

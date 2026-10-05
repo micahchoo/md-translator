@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { OCR_CANDIDATES } from '../bench/ocr'
 import { LANGUAGES } from '../src/languages'
-import { escapeMarkdown, imageLanguage, imageLanguages, lineHeight, models, pageText, paragraphRegions, regionText, type ReadBlock } from '../src/ocr'
+import { escapeMarkdown, imageLanguage, imageLanguages, lineHeight, models, pageText, paragraphRegions, regionText, wordsWithin, type ReadBlock } from '../src/ocr'
 
 /** Tesseract's output for lines of words, each word at the given confidence.
  *  A line is as wide as its text, ten pixels a character, unless given a width. */
@@ -11,7 +11,7 @@ const block = (...paras: [string, number?, number?][][]): ReadBlock => ({
     lines: lines.map(([text, confidence = 95, width = text.length * 10]) => ({
       text: text + '\n',
       bbox: { x0: 0, x1: width, y0: 0, y1: 20 },
-      words: text.split(/\s+/).filter(Boolean).map((w) => ({ text: w, confidence })),
+      words: text.split(/\s+/).filter(Boolean).map((w, j) => ({ text: w, confidence, bbox: { x0: j * 50, x1: j * 50 + 40, y0: 0, y1: 20 } })),
     })),
   })),
 })
@@ -117,6 +117,19 @@ describe("what the regions left, as Tesseract's paragraphs", () => {
     // A photograph behind a box came back as "SOD ee ee Ors cee aa": one sure word, the rest guesses.
     const b = block([['SOD', 70], ['ee ee Ors cee aa', 30]], [['ಮೈನೆಸಿರಿಯ ಉಗಮ', 90]])
     expect(paragraphRegions([b], 60).map((r) => r.text)).toEqual(['ಮೈನೆಸಿರಿಯ ಉಗಮ'])
+  })
+})
+
+describe('wordsWithin', () => {
+  test("keeps the words at least half inside the region, dropping the margin's own", () => {
+    // A caption's margin read the edge of the photograph beside it as "Ee".
+    const b = block([['Ee ಮನೆಸಿರಿ ರಾಗಿ', 90]])
+    const kept = wordsWithin([b], [45, 0, 200, 20])
+    expect(kept[0].paragraphs[0].lines[0].text).toBe('ಮನೆಸಿರಿ ರಾಗಿ')
+  })
+
+  test('drops a line, and a paragraph, left with no word', () => {
+    expect(wordsWithin([block([['Ee', 90]], [['ರಾಗಿ', 90]])], [0, 100, 300, 180])[0].paragraphs).toHaveLength(0)
   })
 })
 

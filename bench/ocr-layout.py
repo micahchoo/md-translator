@@ -78,8 +78,9 @@ def xycut(regions):
     _, axis, at = best
     return xycut([r for r in regions if r['box'][axis] < at]) + xycut([r for r in regions if r['box'][axis] >= at])
 
-def tsv(path, model, psm, thresh='2'):
-    """Tesseract's paragraphs with box, a sure word, mean confidence; and the median line height."""
+def tsv(path, model, psm, thresh='2', within=None):
+    """Tesseract's paragraphs with box, a sure word, mean confidence; and the median line height.
+    With `within`, a box in the image's pixels, only words at least half inside it count."""
     out = subprocess.run(['tesseract', path, '-', '-l', model, '--psm', str(psm), '--tessdata-dir', T, '-c', f'thresholding_method={thresh}', '-c', 'tessedit_create_tsv=1'], capture_output=True, text=True).stdout
     paras = collections.OrderedDict(); heights = []
     for line in out.splitlines()[1:]:
@@ -88,6 +89,7 @@ def tsv(path, model, psm, thresh='2'):
         if f[0] == '4': heights.append(int(f[9]))
         if f[0] != '5' or not f[11].strip(): continue
         x, y, w, h, conf = int(f[6]), int(f[7]), int(f[8]), int(f[9]), float(f[10])
+        if within is not None and inside([x, y, x + w, y + h], within) < 0.5: continue
         p = paras.setdefault((f[2], f[3]), {'words': [], 'confs': [], 'box': [x, y, x + w, y + h]})
         p['words'].append(f[11]); p['confs'].append(conf)
         b = p['box']; p['box'] = [min(b[0], x), min(b[1], y), max(b[2], x + w), max(b[3], y + h)]
@@ -98,15 +100,38 @@ def tsv(path, model, psm, thresh='2'):
 LINE = 36       # the line height Tesseract reads best at, roughly
 REST_MEAN = 60  # where the model saw no text, Tesseract must be this sure on the whole
 
-def read(img, path, model, psm, thresh):
-    """Read; if the lines come back much shorter than LINE, read again enlarged to it."""
-    img.save(path); ps, h = tsv(path, model, psm, thresh)
+WORDS_WITHIN = os.environ.get('WORDS_WITHIN', '1') == '1'
+JOIN_LINES = os.environ.get('JOIN_LINES', '1') == '1'
+
+def read(img, path, model, psm, thresh, within=None):
+    """Read; if the lines come back much shorter than LINE, read again enlarged to it.
+    Returns the paragraphs and the median line height in the image's own pixels."""
+    img.save(path); ps, h = tsv(path, model, psm, thresh, within)
     if 0 < h < LINE * 0.75:
         f = min(3.0, LINE / h)
         img.resize((round(img.width * f), round(img.height * f)), Image.LANCZOS).save(path)
-        ps, _ = tsv(path, model, psm, thresh)
+        ps, _ = tsv(path, model, psm, thresh, within and [v * f for v in within])
         for p in ps: p['box'] = [v / f for v in p['box']]
-    return ps
+    return ps, h
+
+def join_lines(regions):
+    """Regions one line high, stacked under each other with less than 0.6 of a line between
+    them and overlapping by half their width, are one paragraph the model cut into lines."""
+    out = []
+    for r in sorted(regions, key=lambda r: r['box'][1]):
+        h = r.get('h') or 0
+        one = h and r['box'][3] - r['box'][1] < 1.6 * h
+        for o in out:
+            oh = o.get('h') or 0
+            if not (one and oh and o['last'] and r['text'] and o['text']): continue
+            a, b = o['box'], r['box']
+            overlap = min(a[2], b[2]) - max(a[0], b[0])
+            if overlap >= 0.5 * min(a[2] - a[0], b[2] - b[0]) and 0 <= b[1] - a[3] < 0.6 * min(h, oh):
+                o['text'] += ' ' + r['text']; o['box'] = [min(a[0], b[0]), a[1], max(a[2], b[2]), b[3]]
+                break
+        else:
+            out.append({**r, 'last': bool(one)})
+    return out
 
 def whole(path, model):
     return '\n\n'.join(p['text'] for p in tsv(path, model, 3)[0])
@@ -135,11 +160,16 @@ def layout(path, model, detect, tag):
         if all(inside(r['box'], k['box']) < 0.5 and inside(k['box'], r['box']) < 0.5 for k in kept): kept.append(r)
     for i, r in enumerate(kept):
         # One background in a region: Otsu's one threshold, steadier than Sauvola's on a crop.
-        crop = im.crop(tuple(int(v) for v in margins(r, kept, im.width, im.height)))
-        r['text'] = '\n\n'.join(p['text'] for p in read(crop, f'{CROPS}/{tag}-{i}.png', model, 6, '0'))
+        cx1, cy1, cx2, cy2 = (int(v) for v in margins(r, kept, im.width, im.height))
+        crop = im.crop((cx1, cy1, cx2, cy2))
+        # The margin may add a line's marks, not words of its own: a word counts only half inside the region.
+        within = [r['box'][0] - cx1, r['box'][1] - cy1, r['box'][2] - cx1, r['box'][3] - cy1] if WORDS_WITHIN else None
+        ps, r['h'] = read(crop, f'{CROPS}/{tag}-{i}.png', model, 6, '0', within)
+        r['text'] = '\n\n'.join(p['text'] for p in ps)
     m = im.copy(); d = ImageDraw.Draw(m)
     for r in kept: d.rectangle([r['box'][0] - 4, r['box'][1] - 4, r['box'][2] + 4, r['box'][3] + 4], fill='white')
-    rest = [p for p in read(m, f'{CROPS}/{tag}-rest.png', model, 3, '2') if p['mean'] >= REST_MEAN and all(inside(p['box'], k['box']) < 0.3 for k in kept)]
+    rest = [p for p in read(m, f'{CROPS}/{tag}-rest.png', model, 3, '2')[0] if p['mean'] >= REST_MEAN and all(inside(p['box'], k['box']) < 0.3 for k in kept)]
+    if JOIN_LINES: kept = join_lines(kept)
     return '\n\n'.join(r['text'] for r in xycut(kept + rest) if r['text'])
 
 def pages(kind):
