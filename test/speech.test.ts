@@ -35,6 +35,10 @@ describe('speak, with espeak-ng alone', () => {
   test('every Piper voice a language names is one the page knows', () => {
     for (const lang of Object.values(LANGUAGES)) if (lang.voice?.piper) expect(PIPER_VOICES).toHaveProperty(lang.voice.piper)
   })
+
+  test('every Piper voice is pinned to a commit, so its URL never serves another file', () => {
+    for (const [name, { url }] of Object.entries(PIPER_VOICES)) expect(url).toMatch(new RegExp(`^https://huggingface\\.co/[^/]+/[^/]+/resolve/[0-9a-f]{40}/(.+/)?${name}$`))
+  })
 })
 
 describe('phonemes: the IPA a Piper voice is given', () => {

@@ -213,7 +213,7 @@ export const LANGUAGES: Record<string, Language> = {
     length: 1.07,
     from: 'English',
     script: /[ಀ-೿]/g,
-    voice: { espeak: 'kn' },
+    voice: { espeak: 'kn', piper: 'kn_IN-syspin_male-medium' },
     ocr: { model: 'kan' },
     examples: zip([
       'ಇದು ಹೇಗೆ ಕೆಲಸ ಮಾಡುತ್ತದೆ',

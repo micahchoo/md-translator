@@ -113,23 +113,26 @@ export function wavOf(samples: Float32Array, rate: number): Uint8Array<ArrayBuff
 }
 
 /**
- * The Piper voices the page uses, from rhasspy/piper-voices at one commit, so
- * a file can never change under us. They load from Hugging Face, not from this
- * site: hosting them here would spend half of GitHub Pages' 1 GB on eight
- * voices, and redistribute voices whose terms bind whoever redistributes them.
- * Credits are in the README. `bytes` is the model's size, for the download's
- * progress: a server that compresses a file drops its Content-Length.
+ * The Piper voices the page uses, each at one commit of its Hugging Face repo,
+ * so a file can never change under us: rhasspy/piper-voices for most, and
+ * micaha/piper-kn for the Kannada voice trained for this page. They load from
+ * Hugging Face, not from this site: hosting them here would spend half of
+ * GitHub Pages' 1 GB on the voices, and redistribute voices whose terms bind
+ * whoever redistributes them. Credits are in the README. `url` lacks the
+ * `.onnx` / `.onnx.json` ending. `bytes` is the model's size, for the
+ * download's progress: a server that compresses a file drops its Content-Length.
  */
-export const PIPER_COMMIT = 'c10ece1aade47bb51c153c893d14e5bf8e5b7117'
-export const PIPER_VOICES: Record<string, { path: string; bytes: number }> = {
-  'bn_BD-google-medium': { path: 'bn/bn_BD/google/medium/bn_BD-google-medium', bytes: 76782515 },
-  'en_US-ljspeech-medium': { path: 'en/en_US/ljspeech/medium/en_US-ljspeech-medium', bytes: 63531379 },
-  'hi_IN-rohan-medium': { path: 'hi/hi_IN/rohan/medium/hi_IN-rohan-medium', bytes: 62950044 },
-  'ml_IN-arjun-medium': { path: 'ml/ml_IN/arjun/medium/ml_IN-arjun-medium', bytes: 62950044 },
-  'mr_IN-google-medium': { path: 'mr/mr_IN/google/medium/mr_IN-google-medium', bytes: 76768179 },
-  'ne_NP-chitwan-medium': { path: 'ne/ne_NP/chitwan/medium/ne_NP-chitwan-medium', bytes: 62950044 },
-  'te_IN-padmavathi-medium': { path: 'te/te_IN/padmavathi/medium/te_IN-padmavathi-medium', bytes: 63516050 },
-  'ur_PK-fasih-medium': { path: 'ur/ur_PK/fasih/medium/ur_PK-fasih-medium', bytes: 63532015 },
+const rhasspy = (path: string) => `https://huggingface.co/rhasspy/piper-voices/resolve/c10ece1aade47bb51c153c893d14e5bf8e5b7117/${path}`
+export const PIPER_VOICES: Record<string, { url: string; bytes: number }> = {
+  'bn_BD-google-medium': { url: rhasspy('bn/bn_BD/google/medium/bn_BD-google-medium'), bytes: 76782515 },
+  'en_US-ljspeech-medium': { url: rhasspy('en/en_US/ljspeech/medium/en_US-ljspeech-medium'), bytes: 63531379 },
+  'hi_IN-rohan-medium': { url: rhasspy('hi/hi_IN/rohan/medium/hi_IN-rohan-medium'), bytes: 62950044 },
+  'kn_IN-syspin_male-medium': { url: 'https://huggingface.co/micaha/piper-kn/resolve/c73546cb70012e28f6093a61c71162924398fee1/kn_IN-syspin_male-medium', bytes: 63516051 },
+  'ml_IN-arjun-medium': { url: rhasspy('ml/ml_IN/arjun/medium/ml_IN-arjun-medium'), bytes: 62950044 },
+  'mr_IN-google-medium': { url: rhasspy('mr/mr_IN/google/medium/mr_IN-google-medium'), bytes: 76768179 },
+  'ne_NP-chitwan-medium': { url: rhasspy('ne/ne_NP/chitwan/medium/ne_NP-chitwan-medium'), bytes: 62950044 },
+  'te_IN-padmavathi-medium': { url: rhasspy('te/te_IN/padmavathi/medium/te_IN-padmavathi-medium'), bytes: 63516050 },
+  'ur_PK-fasih-medium': { url: rhasspy('ur/ur_PK/fasih/medium/ur_PK-fasih-medium'), bytes: 63532015 },
 }
 
 interface PiperConfig {
@@ -142,7 +145,7 @@ interface PiperConfig {
 export type Progress = (loaded: number, total: number) => void
 
 const CACHE = 'md-translator-voices'
-const urlOf = (name: string) => `https://huggingface.co/rhasspy/piper-voices/resolve/${PIPER_COMMIT}/${PIPER_VOICES[name].path}`
+const urlOf = (name: string) => PIPER_VOICES[name].url
 const CURRENT = new Set(Object.keys(PIPER_VOICES).flatMap((n) => [`${urlOf(n)}.onnx`, `${urlOf(n)}.onnx.json`]))
 
 // The cache, with every voice the page no longer uses removed the first time it

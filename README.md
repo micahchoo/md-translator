@@ -51,9 +51,9 @@ In **Blocks**, press **Play** on a translated block. The first Play in a languag
 
 | Voice | Languages |
 | --- | --- |
-| Its own, human-sounding | Bengali, English, Hindi, Malayalam, Marathi, Nepali, Telugu, Urdu |
+| Its own, human-sounding | Bengali, English, Hindi, Kannada, Malayalam, Marathi, Nepali, Telugu, Urdu |
 | Hindi's, with Hindi pronunciation | Bodo, Dogri, Konkani, Maithili, Sanskrit, Sindhi |
-| Mechanical (espeak-ng) | Gujarati, Kannada, Odia, Punjabi, Tamil |
+| Mechanical (espeak-ng) | Gujarati, Odia, Punjabi, Tamil |
 
 The middle row's blocks say "Hindi pronunciation": a reader of the language will hear an accent, and Dogri and Bodo lose their tones. Assamese and Kashmiri have no Play button, because espeak-ng reads Assamese wrongly and has no rules for Kashmiri. Nobody who reads these languages has checked the voices yet.
 
@@ -126,13 +126,14 @@ The model is sarvam-30b by Sarvam AI. The language tests use IN22-Gen by AI4Bhar
 
 Reading images uses [Tesseract](https://github.com/tesseract-ocr/tesseract) and its [tessdata_fast](https://github.com/tesseract-ocr/tessdata_fast) models, run by [Tesseract.js](https://github.com/naptha/tesseract.js), all under the Apache 2.0 licence. They load only when you first attach an image. PDFs are read by [pdf.js](https://github.com/mozilla/pdf.js) (Apache 2.0), which loads with the first PDF. The layout model is [PP-DocLayout-S](https://huggingface.co/PaddlePaddle/PP-DocLayout-S) by PaddlePaddle (Apache 2.0), converted to ONNX and served with this page; `public/models/NOTICE.txt` says how.
 
-Reading aloud uses [espeak-ng](https://github.com/espeak-ng/espeak-ng), compiled to WebAssembly by [espeak-ng.js](https://github.com/ianmarmour/espeak-ng.js), under the GPL 3.0 or later, and [Piper](https://github.com/rhasspy/piper) voices from [piper-voices](https://huggingface.co/rhasspy/piper-voices), run by [ONNX Runtime](https://onnxruntime.ai/) (MIT). They load only when you first press Play. Each voice is under the licence of the recordings it learned from:
+Reading aloud uses [espeak-ng](https://github.com/espeak-ng/espeak-ng), compiled to WebAssembly by [espeak-ng.js](https://github.com/ianmarmour/espeak-ng.js), under the GPL 3.0 or later, and [Piper](https://github.com/rhasspy/piper) voices from [piper-voices](https://huggingface.co/rhasspy/piper-voices) and, for Kannada, [piper-kn](https://huggingface.co/micaha/piper-kn), trained for this page, run by [ONNX Runtime](https://onnxruntime.ai/) (MIT). They load only when you first press Play. Each voice is under the licence of the recordings it learned from:
 
 | Voice | Licence |
 | --- | --- |
 | Hindi (rohan), Malayalam (arjun) | [Indic TTS](https://www.iitm.ac.in/donlab/indictts/), IIT Madras |
 | Telugu (padmavathi) | CC BY 4.0 |
 | Bengali, Marathi (google) | CC BY-SA 4.0 |
+| Kannada (SYSPIN male) | [SYSPIN](https://syspin.iisc.ac.in/datasets), IISc, CC BY 4.0; fine-tuned from lessac, whose recordings are under a [research licence](https://www.cstr.ed.ac.uk/projects/blizzard/2013/lessac_blizzard2013/license.html), so non-commercial use only |
 | Nepali (chitwan) | CC0 |
 | Urdu (fasih) | MIT |
 | English (LJSpeech) | Public domain |
