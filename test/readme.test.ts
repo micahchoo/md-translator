@@ -5,7 +5,7 @@
 import { describe, expect, test } from 'bun:test'
 import { readdirSync, readFileSync } from 'node:fs'
 import { CANDIDATES } from '../bench/candidates'
-import { FLAG_TEXT, HARD_TEXT } from '../src/blocks'
+import { FLAG_TEXT } from '../src/blocks'
 import { LANGUAGES } from '../src/languages'
 
 const readme = readFileSync('README.md', 'utf8')
@@ -35,7 +35,7 @@ describe('README', () => {
 
   test('explains every flag the app shows, by its label', () => {
     const rows = section(readme, 'Warning flags').match(/^\| (?!Flag|---)[^|]+\|/gm)!.map((r) => r.slice(2, -2).trim())
-    expect(rows.sort()).toEqual([...Object.values(FLAG_TEXT), HARD_TEXT].sort())
+    expect(rows.sort()).toEqual(Object.values(FLAG_TEXT).sort())
   })
 })
 

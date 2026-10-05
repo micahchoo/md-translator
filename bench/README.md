@@ -169,7 +169,7 @@ All with Sauvola thresholding (see the next table), chrF on synthetic scans and 
 | Sindhi | 83.6 · 81.3 · Offered; scan range 81 to 86, misses letters only Sindhi writes |
 | Assamese | 92.1 · 78.1 · Offered; page range 71 to 85 |
 | Gujarati | 99.3 · 75.8 · Offered; page range 70 to 82 |
-| Nepali | 96.8 · 74.1 · Not offered yet: on Hindi pages, its range tops out at 80.6 in one bootstrap and 81.7 in another, so the draw decides whether it reaches the floor; it waits on the owner |
+| Nepali | 96.8 · 74.1 · Offered; on Hindi pages its range tops out at 80.6 in one bootstrap and 81.7 in another, so the draw decides whether it reaches the floor, and the owner chose to offer it |
 | Malayalam, Telugu | 86.6, 94.2 · 70.1, 64.0 · Not offered |
 | Tamil, Odia, Sanskrit | 83.4, 78.2, 62.0 · 65.8, 42.6, 62.9 · Not offered |
 | Urdu, Kashmiri | 48.8, 21.5 · no Wikisource · Not offered; Tesseract reads Nastaliq badly |

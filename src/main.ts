@@ -5,7 +5,7 @@ import { BlockList } from './blocks'
 import { directionLabel, dirOf, LANGUAGES } from './languages'
 import { createScorer, probe, type Score } from './judge'
 import { createClient, listModels } from './llm'
-import { imageLanguage, imageLanguages, nextHard, readImage, stillHard } from './ocr'
+import { imageLanguage, imageLanguages, readImage } from './ocr'
 import { DEFAULTS, formatExamples, loadSettings, parseExamples, saveSettings, toOptions, type Settings } from './settings'
 import { removeVoices, speak, storedVoices } from './speech'
 import { loadDocs, loadMemory, remember, saveDocs, saveMemory, type SavedDoc } from './store'
@@ -52,8 +52,6 @@ const el = {
   imageLang: $<HTMLSelectElement>('image-lang'),
   imageEnglish: $<HTMLInputElement>('image-english'),
   readImage: $<HTMLButtonElement>('read-image'),
-  hardCount: $('hard-count'),
-  nextHard: $<HTMLButtonElement>('next-hard'),
   showImage: $<HTMLButtonElement>('show-image'),
   image: $<HTMLImageElement>('image'),
   sourcePane: document.querySelector<HTMLElement>('.source-pane')!,
@@ -145,8 +143,7 @@ function render() {
   el.stop.hidden = !isBusy
   el.copy.disabled = el.download.disabled = !md || running
 
-  const hard = d.ocr?.hard ?? []
-  const flagged = units.filter((u) => u.status === 'done' && (u.flags.length || stillHard(u.unit.text, hard).length)).length
+  const flagged = units.filter((u) => u.status === 'done' && u.flags.length).length
   el.onlyFlagged.parentElement!.hidden = !flagged || d.view !== 'blocks'
   el.onlyFlaggedText.textContent = `Show only the ${flagged} to check`
   if (!flagged) el.onlyFlagged.checked = false
@@ -165,7 +162,7 @@ function render() {
   const listening = voice
     ? { playing: mine?.index ?? null, loading: !!mine?.loading, progress: mine?.progress, accent: voice.accent }
     : undefined
-  if (d.view === 'blocks' && units.length) blocks.show(units, lang, isBusy, el.onlyFlagged.checked, listening, hard)
+  if (d.view === 'blocks' && units.length) blocks.show(units, lang, isBusy, el.onlyFlagged.checked, listening)
   el.follow.hidden = !(running && d.view === 'blocks' && !blocks.follow)
 }
 
@@ -389,11 +386,12 @@ async function addFiles(files: FileList | File[]) {
     const d: Doc = { id: nextId++, name: f.name, source: isImage(f) ? '' : await f.text(), status: 'idle', view: 'source' }
     if (isImage(f)) {
       images.set(d.id, f)
-      d.ocr = { lang, english, hard: [] }
+      // The picture beside its text is how the owner checks a reading.
+      Object.assign(d, { ocr: { lang, english }, showImage: true })
       // From English the image is English and is read at once. Into English
       // its language is the owner's to name first: a reading in the wrong
       // one is a wait, a dialog and a second wait.
-      if (lang !== 'en') Object.assign(d, { unread: true, showImage: true })
+      if (lang !== 'en') d.unread = true
     }
     docs.push(d)
     added.push(d)
@@ -439,11 +437,11 @@ async function readInto(d: Doc, lang: string, english: boolean) {
   const latest = () => readings.get(d.id) === me && docs.includes(d)
   d.unread = false
   // The controls show the reading under way, not the one before it.
-  d.ocr = { lang, english, hard: d.ocr?.hard ?? [] }
+  d.ocr = { lang, english }
   d.reading = 'Reading the image…'
   render()
   try {
-    const r = await readImage(image, lang, english, (status) => {
+    const text = await readImage(image, lang, english, (status) => {
       if (!latest()) return
       d.reading = readingStatus(status, lang, english)
       schedule()
@@ -451,9 +449,8 @@ async function readInto(d: Doc, lang: string, english: boolean) {
     if (!latest()) return
     if (d.units) d.previous = d.units
     d.units = undefined
-    d.source = r.text
-    lastRead.set(d.id, r.text)
-    d.ocr = { lang, english, hard: r.hard }
+    d.source = text
+    lastRead.set(d.id, text)
     d.status = 'idle'
     d.error = undefined
   } catch (e) {
@@ -487,9 +484,6 @@ function renderReading(d: Doc) {
     : 'The image is not kept after the page is reloaded'
   el.imageLang.title = !image ? 'The image is not kept after the page is reloaded' : d.unread ? 'The language of the text in the image' : 'Read the image again in another language'
   el.readImage.hidden = !d.unread
-  const hard = stillHard(d.source, d.ocr.hard).length
-  el.hardCount.textContent = d.reading || d.unread ? '' : hard ? `${hard} ${hard === 1 ? 'word was' : 'words were'} hard to read` : 'Nothing left that was hard to read'
-  el.nextHard.hidden = !hard || !!d.reading
   el.showImage.hidden = !image
   el.showImage.setAttribute('aria-pressed', String(!!d.showImage))
   el.showImage.textContent = d.showImage ? 'Hide image' : 'Show image'
@@ -536,17 +530,6 @@ el.imageEnglish.onchange = () => {
 el.readImage.onclick = () => {
   const d = doc()
   if (d.ocr) readInto(d, d.ocr.lang, !!d.ocr.english)
-}
-el.nextHard.onclick = () => {
-  const d = doc()
-  const at = nextHard(el.source.value, stillHard(el.source.value, d.ocr?.hard ?? []), el.source.selectionEnd)
-  if (!at) return
-  el.source.focus()
-  el.source.setSelectionRange(at.start, at.end)
-  // A textarea does not scroll to a selection it was given; put the line mid-view.
-  const lines = el.source.value.split('\n').length
-  const line = el.source.value.slice(0, at.start).split('\n').length
-  el.source.scrollTop = Math.max(0, (line / lines) * el.source.scrollHeight - el.source.clientHeight / 2)
 }
 el.showImage.onclick = () => {
   const d = doc()

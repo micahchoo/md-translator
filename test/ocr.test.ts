@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { OCR_CANDIDATES } from '../bench/ocr'
 import { LANGUAGES } from '../src/languages'
-import { escapeMarkdown, hardWords, imageLanguage, imageLanguages, models, nextHard, pageText, stillHard, type ReadBlock } from '../src/ocr'
+import { escapeMarkdown, imageLanguage, imageLanguages, models, pageText, type ReadBlock } from '../src/ocr'
 
 /** Tesseract's output for lines of words, each word at the given confidence.
  *  A line is as wide as its text, ten pixels a character, unless given a width. */
@@ -16,9 +16,9 @@ const block = (...paras: [string, number?, number?][][]): ReadBlock => ({
 })
 
 describe('which languages an image may be in', () => {
-  test('offers exactly the thirteen bench/ocr.ts did not fail', () => {
+  test('offers exactly the fourteen bench/ocr.ts did not fail', () => {
     expect(imageLanguages().map((l) => l.code).sort()).toEqual(
-      ['as', 'bn', 'brx', 'doi', 'en', 'gom', 'gu', 'hi', 'kn', 'mai', 'mr', 'pa', 'sd'],
+      ['as', 'bn', 'brx', 'doi', 'en', 'gom', 'gu', 'hi', 'kn', 'mai', 'mr', 'ne', 'pa', 'sd'],
     )
   })
 
@@ -75,7 +75,6 @@ describe('the text an image becomes', () => {
     // A brochure's flowchart arrows came back as ಸ, ಠ್‌, ನ, ೯, each its own paragraph.
     const b = block([['ಸ', 20]], [['01 ತಾಜಾ ಉತ್ಪನ್ನಗಳು', 90]], [['ಠ್‌ ನ', 35]])
     expect(pageText([b])).toBe('01 ತಾಜಾ ಉತ್ಪನ್ನಗಳು')
-    expect(hardWords([b])).toEqual([])
   })
 
   test('keeps a paragraph with one sure word among unsure ones', () => {
@@ -114,36 +113,5 @@ describe('escapeMarkdown', () => {
 
   test('leaves a number in a sentence alone', () => {
     expect(escapeMarkdown('In 2026. it was')).toBe('In 2026. it was')
-  })
-})
-
-describe('hard words', () => {
-  test('lists words below the confidence floor, once each, in reading order', () => {
-    const b = block([['good', 95], ['ब्लर', 40], ['good', 95]], [['ब्लर', 30], ['धुंध', 50], ['साफ़', 90]])
-    expect(hardWords([b])).toEqual(['ब्लर', 'धुंध'])
-  })
-
-  test('never lists marks or numbers', () => {
-    expect(hardWords([block([['—', 10], ['१२', 10]])])).toEqual([])
-  })
-
-  test('forgets a word the owner corrected', () => {
-    expect(stillHard('the corrected text', ['corected', 'text'])).toEqual(['text'])
-  })
-})
-
-describe('nextHard', () => {
-  const text = 'alpha beta gamma beta'
-
-  test('finds the earliest hard word after the cursor', () => {
-    expect(nextHard(text, ['gamma', 'beta'], 7)).toEqual({ start: 11, end: 16 })
-  })
-
-  test('wraps to the start when none is after the cursor', () => {
-    expect(nextHard(text, ['beta'], 20)).toEqual({ start: 6, end: 10 })
-  })
-
-  test('is null when every hard word is gone', () => {
-    expect(nextHard(text, ['delta'], 0)).toBeNull()
   })
 })

@@ -67,9 +67,10 @@ export interface Language {
   voice?: Voice
   /** How an attached image in this language is read (src/ocr.ts). Absent
    *  where bench/ocr.ts measured a score wholly below its floor: Malayalam,
-   *  Nepali, Odia, Sanskrit, Tamil and Telugu on real pages, Urdu and Kashmiri
-   *  everywhere. Hindi's, Assamese's, Bengali's and Gujarati's page scores
-   *  straddle the floor, and the owner chose to offer them. */
+   *  Odia, Sanskrit, Tamil and Telugu on real pages, Urdu and Kashmiri
+   *  everywhere. Hindi's, Assamese's, Bengali's, Gujarati's and Nepali's page
+   *  scores straddle the floor, and the owner chose to offer them; Nepali's
+   *  pages are Hindi ones, since it has no Wikisource. */
   ocr?: Ocr
   examples: Pair[]
 }
@@ -318,6 +319,7 @@ export const LANGUAGES: Record<string, Language> = {
     length: 0.96,
     foreign: /[ॻॼॾॿ]/,
     voice: { espeak: 'ne', piper: 'ne_NP-chitwan-medium' },
+    ocr: { model: 'nep' },
     examples: zip([
       'यो कसरी काम गर्छ',
       'के यो अफलाइन काम गर्छ?',

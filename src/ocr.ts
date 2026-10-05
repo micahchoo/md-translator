@@ -22,16 +22,8 @@ const LANG_PATH = `https://cdn.jsdelivr.net/gh/tesseract-ocr/tessdata_fast@${TES
 const CORE = new URL('../node_modules/tesseract.js-core/tesseract-core-simd-lstm.wasm.js', import.meta.url)
 const WORKER = new URL('../node_modules/tesseract.js/dist/worker.min.js', import.meta.url)
 
-/** A word Tesseract was less sure of than this is listed for the owner to
- *  check. Not measured: a guess at where Tesseract's confidences turn to
- *  misreadings, to be tuned against what owners correct. */
-export const HARD_BELOW = 60
-
-/** What one reading produced: Markdown paragraphs, and the words to check. */
-export interface Reading {
-  text: string
-  hard: string[]
-}
+/** A paragraph with no word Tesseract was at least this sure of is dropped. */
+const SURE = 60
 
 /** The part of Tesseract's output read here, so tests need no Tesseract. */
 export interface ReadBlock {
@@ -106,39 +98,7 @@ export function pageText(blocks: ReadBlock[]): string {
 /** A paragraph with no word Tesseract was sure of is a graphic read as
  *  letters: a brochure's arrows came back as ಸ, ಠ್‌, ನ. It is left out. */
 function isText(p: ReadBlock['paragraphs'][number]): boolean {
-  return p.lines.some((l) => l.words.some((w) => w.confidence >= HARD_BELOW))
-}
-
-/** Words read with low confidence, once each, in reading order. */
-export function hardWords(blocks: ReadBlock[], below = HARD_BELOW): string[] {
-  const out = new Set<string>()
-  for (const b of blocks)
-    for (const p of b.paragraphs.filter(isText))
-      for (const l of p.lines)
-        for (const w of l.words) {
-          const word = w.text.trim()
-          if (w.confidence < below && /\p{L}/u.test(word)) out.add(word)
-        }
-  return [...out]
-}
-
-/** The hard words still in the text: one the owner corrected is gone. */
-export const stillHard = (text: string, hard: string[]) => hard.filter((w) => text.includes(w))
-
-/**
- * Where the next hard word is after `from`, wrapping to the start; null when
- * none is left. Earliest in the text first, whichever word it is.
- */
-export function nextHard(text: string, hard: string[], from: number): { start: number; end: number } | null {
-  let best: { start: number; end: number } | null = null
-  let first: { start: number; end: number } | null = null
-  for (const w of hard) {
-    const after = text.indexOf(w, from)
-    if (after >= 0 && (!best || after < best.start)) best = { start: after, end: after + w.length }
-    const start = text.indexOf(w)
-    if (start >= 0 && (!first || start < first.start)) first = { start, end: start + w.length }
-  }
-  return best ?? first
+  return p.lines.some((l) => l.words.some((w) => w.confidence >= SURE))
 }
 
 // ---- reading, in the browser ----------------------------------------------
@@ -174,14 +134,14 @@ function worker(model: string): Promise<Worker> {
 
 /** An image read in the language `code`, with English as well when `english`.
  *  `onStatus` hears Tesseract's progress. */
-export async function readImage(image: Blob, code: string, english: boolean, onStatus?: (status: string) => void): Promise<Reading> {
+export async function readImage(image: Blob, code: string, english: boolean, onStatus?: (status: string) => void): Promise<string> {
   if (!LANGUAGES[code]?.ocr) throw new Error(`${LANGUAGES[code]?.name ?? code} cannot be read from images.`)
   const model = models(code, english)
   if (onStatus) listeners.set(model, onStatus)
   try {
     const { data } = await (await worker(model)).recognize(image, {}, { blocks: true, text: false })
     const blocks = (data.blocks ?? []) as ReadBlock[]
-    return { text: pageText(blocks), hard: hardWords(blocks) }
+    return pageText(blocks)
   } finally {
     listeners.delete(model)
   }

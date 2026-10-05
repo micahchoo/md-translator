@@ -1,16 +1,10 @@
 // The aligned view: one row per unit, English beside its translation. Rows are
 // built once per run and patched while text streams in, so a long document
 // does not rebuild hundreds of rows on every token.
-import { stillHard } from './ocr'
 import type { Flag } from './checks'
 import { dirOf } from './languages'
 import { unmask } from './segment'
 import type { UnitResult } from './translate'
-
-/** A block whose source, read from an image, still holds a word the reading
- *  was unsure of. Not a Flag: no retry can fix a source, so it never reaches
- *  the checks or their retries, and it goes when the owner corrects the word. */
-export const HARD_TEXT = 'Hard to read'
 
 export const FLAG_TEXT: Record<Flag, string> = {
   empty: 'Nothing came back',
@@ -59,8 +53,6 @@ const h = <K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: s
 
 export class BlockList {
   private rows: Row[] = []
-  /** The words to check, when the source was read from an image. */
-  private hard: string[] = []
   private units: UnitResult[] | null = null
   private editing: number | null = null
   private listening?: Listening
@@ -78,11 +70,9 @@ export class BlockList {
     })
   }
 
-  /** `listening` is absent where the language has no voice; `hard` holds the
-   *  words to check when the source was read from an image. */
-  show(units: UnitResult[], lang: string, busy: boolean, onlyFlagged: boolean, listening?: Listening, hard: string[] = []) {
+  /** `listening` is absent where the language has no voice. */
+  show(units: UnitResult[], lang: string, busy: boolean, onlyFlagged: boolean, listening?: Listening) {
     this.listening = listening
-    this.hard = hard
     if (units !== this.units || this.rows.length !== units.length) {
       this.units = units
       this.editing = null
@@ -92,11 +82,10 @@ export class BlockList {
     let running: HTMLElement | null = null
     units.forEach((u, i) => {
       const row = this.rows[i]
-      const isHard = this.isHard(u)
-      const hidden = onlyFlagged && !u.flags.length && !isHard && u.status !== 'running'
+      const hidden = onlyFlagged && !u.flags.length && u.status !== 'running'
       row.el.hidden = hidden
       if (u.status === 'running') running = row.el
-      const key = [u.status, u.output, u.flags.join(), isHard, u.edited, busy, lang, this.editing === i, this.playLabel(i)].join('\u0000')
+      const key = [u.status, u.output, u.flags.join(), u.edited, busy, lang, this.editing === i, this.playLabel(i)].join('\u0000')
       if (key === row.key) return
       row.key = key
       this.fill(row.el, u, i, lang, busy)
@@ -104,20 +93,13 @@ export class BlockList {
     if (running && this.follow) (running as HTMLElement).scrollIntoView({ block: 'nearest' })
   }
 
-  private isHard(u: UnitResult): boolean {
-    return stillHard(u.unit.text, this.hard).length > 0
-  }
-
   private fill(el: HTMLElement, u: UnitResult, i: number, lang: string, busy: boolean) {
-    const isHard = this.isHard(u)
-    el.className = `block is-${u.status}${u.flags.length || isHard ? ' is-flagged' : ''}`
+    el.className = `block is-${u.status}${u.flags.length ? ' is-flagged' : ''}`
     const head = h('header', 'block-head')
     head.append(h('span', 'num', String(i + 1)))
     if (u.unit.kind === 'value') head.append(h('span', 'tag', 'Property'))
     if (u.edited) head.append(h('span', 'tag', 'Edited'))
-    const flags = [...(isHard ? [HARD_TEXT] : []), ...u.flags.map((f) => FLAG_TEXT[f])]
-    if (flags.length) head.append(h('span', 'tag warn', flags.join(' · ')))
-    if (isHard) head.lastElementChild!.setAttribute('title', 'A word in the source was hard to read in the image. Correct it in Source, then translate again.')
+    if (u.flags.length) head.append(h('span', 'tag warn', u.flags.map((f) => FLAG_TEXT[f]).join(' · ')))
     head.append(h('span', 'spacer'))
     if (u.status === 'done' && this.editing !== i) {
       const retry = h('button', 'small ghost', 'Retry')

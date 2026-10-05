@@ -33,13 +33,13 @@ Your documents stay in this browser. If you stop a run, **Translate** continues 
 
 ## Reading images
 
-Text in an image can be the source: attach a PNG, JPEG or WebP, drop it on the page, or paste a screenshot into **Source**. Images can be read in Assamese, Bengali, Bodo, Dogri, Gujarati, Hindi, Kannada, Konkani, Maithili, Marathi, Punjabi and Sindhi, and in English.
+Text in an image can be the source: attach a PNG, JPEG or WebP, drop it on the page, or paste a screenshot into **Source**. Images can be read in Assamese, Bengali, Bodo, Dogri, Gujarati, Hindi, Kannada, Konkani, Maithili, Marathi, Nepali, Punjabi and Sindhi, and in English.
 
 Translating into English, choose the image's language under **Read as**. Translating from English, the image is read as English. Tick **It also has English** for a page that mixes English in, such as a brochure: without it the English comes back as nonsense, and on a page in one language it reads that language a little worse. Both choices are remembered.
 
-What was read appears in **Source**. Check it before you translate, because a misread word becomes a mistranslated one. **Next hard word** selects each word the reader was unsure of, and **Show image** puts the picture beside the text. In **Blocks**, a block that still holds one of those words is flagged.
+What was read appears in **Source**, with the picture beside it. Check it before you translate, because a misread word becomes a mistranslated one.
 
-Reading runs in your browser with Tesseract. The first image in a language downloads its letters, 1 to 5 MB, once. Print reads best. Text over a photo, white text on colour and handwriting read badly, and the rupee sign is often lost: an image read as English never returns ₹ at all, since its letters have none, and on one Kannada brochure four prices of five came back with ₹ read as 2. Check every price. Bodo, Dogri, Maithili and Sindhi are read with Hindi's letters and Konkani with Marathi's; Sindhi's ॻ ॼ ॾ ॿ come back as their nearest Hindi letters. Malayalam, Nepali, Odia, Sanskrit, Tamil, Telugu, Urdu and Kashmiri are not offered, because they failed the test in [bench/README.md](bench/README.md). That test could not tell whether Assamese, Bengali, Gujarati and Hindi read old printed books well enough, so checking the text matters most for them. The image is not kept after a reload; the text is.
+Reading runs in your browser with Tesseract. The first image in a language downloads its letters, 1 to 5 MB, once. Print reads best. Text over a photo, white text on colour and handwriting read badly, and the rupee sign is often lost: an image read as English never returns ₹ at all, since its letters have none, and on one Kannada brochure four prices of five came back with ₹ read as 2. Check every price. Bodo, Dogri, Maithili and Sindhi are read with Hindi's letters and Konkani with Marathi's; Sindhi's ॻ ॼ ॾ ॿ come back as their nearest Hindi letters. Malayalam, Odia, Sanskrit, Tamil, Telugu, Urdu and Kashmiri are not offered, because they failed the test in [bench/README.md](bench/README.md). That test could not tell whether Assamese, Bengali, Gujarati, Hindi and Nepali read old printed books well enough, so checking the text matters most for them. The image is not kept after a reload; the text is.
 
 ## Reading aloud
 
@@ -67,7 +67,6 @@ Simple rules check every translated piece. When a rule fires, the translator tri
 
 | Flag | What happened |
 | --- | --- |
-| Hard to read | The source was read from an image, and this block still holds a word the reader was unsure of. Correct it in **Source**; no retry can fix a source. |
 | Not translated | The answer is still in the source language. |
 | Wrong script or letters | The answer is in another script, or uses letters this language never writes, as Sindhi ॾ in Nepali. |
 | Not a translation | The answer is the language's own name, or repeats an earlier block's answer for a different source. |
