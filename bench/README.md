@@ -154,32 +154,36 @@ Pages were left out only when the reference is not a reading of the image, never
 
 The floors were chrF 85 on synthetic scans and 80 on real pages, fixed before any page was read. Twelve pages cannot place a score near 80 on either side of it: Hindi's 90% bootstrap range is 72 to 87. So after the results the owner chose the rule `score-ocr.py` applies now: **a language is offered unless the range of either score lies wholly below its floor.** That offers languages the evidence neither passes nor fails; the ones in that position are marked below.
 
+Every run reads with Tesseract's automatic page layout. The first runs did not: Tesseract's API reads a page as one block unless asked, straight across its columns, and chrF, which barely notices order, showed nothing. A two-column brochure found it, every line of one column spliced to the next. Rerun with automatic layout, scores moved by a point or two (Hindi pages 79.8 to 81.3, Kannada 87.0 to 85.9); the earlier runs are kept in `corpus/runs/ocr/psm6/`.
+
 All with Sauvola thresholding (see the next table), chrF on synthetic scans and on real pages:
 
 | Language | Scan · page · verdict |
 | --- | --- |
-| Marathi, Konkani | 96.8, 96.7 · 90.8 · Offered |
-| Kannada | 96.7 · 87.0 · Offered |
-| Punjabi | 89.1 · 84.2 · Offered |
-| English | 99.1 · 84.6 · Offered; page range 73 to 95 |
-| Bengali | 88.8 · 83.7 · Offered; page range 78 to 88 |
-| Hindi, Bodo, Dogri, Maithili | 97.7, 90.9, 88.7, 92.5 · 79.8 · Offered; page range 72 to 87 |
-| Sindhi | 83.6 · 79.8 · Offered; scan range 82 to 86, misses letters only Sindhi writes |
-| Assamese | 92.2 · 77.9 · Offered; page range 71 to 83 |
-| Gujarati | 99.3 · 76.6 · Offered; page range 71 to 83 |
-| Nepali | 96.8 · 73.0 · Not offered: page range 68 to 79, on Hindi pages |
-| Malayalam, Telugu | 86.6, 94.2 · 69.9, 64.4 · Not offered |
-| Tamil, Odia, Sanskrit | 83.4, 78.2, 62.0 · 65.9, 42.4, 63.1 · Not offered |
-| Urdu, Kashmiri | 48.5, 21.9 · no Wikisource · Not offered; Tesseract reads Nastaliq badly |
+| Marathi, Konkani | 96.8, 96.7 · 88.9 · Offered |
+| Kannada | 95.6 · 85.9 · Offered |
+| English | 99.1 · 85.9 · Offered; page range 79 to 95 |
+| Bengali | 88.8 · 83.8 · Offered; page range 78 to 88 |
+| Punjabi | 89.3 · 82.2 · Offered; page range 79 to 86 |
+| Hindi, Bodo, Dogri, Maithili | 97.7, 90.7, 88.7, 92.5 · 81.3 · Offered; page range 73 to 90 |
+| Sindhi | 83.6 · 81.3 · Offered; scan range 81 to 86, misses letters only Sindhi writes |
+| Assamese | 92.1 · 78.1 · Offered; page range 71 to 85 |
+| Gujarati | 99.3 · 75.8 · Offered; page range 70 to 82 |
+| Nepali | 96.8 · 74.1 · Not offered yet: on Hindi pages, its range tops out at 80.6 in one bootstrap and 81.7 in another, so the draw decides whether it reaches the floor; it waits on the owner |
+| Malayalam, Telugu | 86.6, 94.2 · 70.1, 64.0 · Not offered |
+| Tamil, Odia, Sanskrit | 83.4, 78.2, 62.0 · 65.8, 42.6, 62.9 · Not offered |
+| Urdu, Kashmiri | 48.8, 21.5 · no Wikisource · Not offered; Tesseract reads Nastaliq badly |
 
-Four settings the page could ship were each run on both sets against the same floors:
+Four settings were each run on both sets against the same floors; the first three with one block per page, the English one again with automatic layout:
 
 | Setting | Result |
 | --- | --- |
 | Sauvola thresholding | **Adopted.** Gujarati pages 55.2 to 76.6, English 80.3 to 84.6, most scans up 2 to 9 points, no page down more than 1.1. Four grey Gujarati photographs gave 98 characters of 1,584 under one global threshold, which split the white margin from the grey page instead of the letters from the page. |
 | Tiled Otsu thresholding | Rejected: pages lower in 12 of 13 sets (English 80.3 to 73.8). |
-| The language's model with English's | Rejected: meant for pages that mix in English, it lowered almost everything; Hindi pages 80.1 to 76.2, Urdu scans 49 to 35. |
+| The language's model with English's | **Offered, off by default.** On books it reads worse: Hindi pages 81.3 to 77.4, Gujarati 75.8 to 71.1, Sindhi scans 83.6 to 80.6, Urdu scans 49 to 36. On the brochure that found the layout fault, without it every English line came back as nonsense ("Manesiri Women-led producer Collective" as `ಗ1813051/1111013300-100`). The owner ticks It also has English for such a page. |
 | Hindi's model for Nepali | Not evidence. Its pages rose 73.0 to 80.1, but they are Hindi pages; on Nepali text the Nepali model reads better (scans 96.4 against 92.8). |
+
+**The rupee sign.** tessdata_fast's English model has no ₹ in its character set, so an image read as English can never return one: "₹200" comes back as "200" and "₹1,250" as "€1,250". Kannada's model has it and reads clean print correctly; Hindi's reads it as २. On the brochure Kannada with English misread four prices of five as "2200".
 
 ## Limits of these methods
 
