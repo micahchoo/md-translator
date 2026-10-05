@@ -3,11 +3,13 @@ import { OCR_CANDIDATES } from '../bench/ocr'
 import { LANGUAGES } from '../src/languages'
 import { escapeMarkdown, hardWords, imageLanguage, imageLanguages, nextHard, pageText, stillHard, type ReadBlock } from '../src/ocr'
 
-/** Tesseract's output for lines of words, each word at the given confidence. */
-const block = (...paras: [string, number?][][]): ReadBlock => ({
+/** Tesseract's output for lines of words, each word at the given confidence.
+ *  A line is as wide as its text, ten pixels a character, unless given a width. */
+const block = (...paras: [string, number?, number?][][]): ReadBlock => ({
   paragraphs: paras.map((lines) => ({
-    lines: lines.map(([text, confidence = 95]) => ({
+    lines: lines.map(([text, confidence = 95, width = text.length * 10]) => ({
       text: text + '\n',
+      bbox: { x0: 0, x1: width },
       words: text.split(/\s+/).filter(Boolean).map((w) => ({ text: w, confidence })),
     })),
   })),
@@ -46,7 +48,7 @@ describe('which languages an image may be in', () => {
 
 describe('the text an image becomes', () => {
   test('joins the lines of a paragraph and separates paragraphs by a blank line', () => {
-    const b = block([['जो वकील होकर'], ['अदालतों को छोड़ देगा।']], [['दूसरा अनुच्छेद।']])
+    const b = block([['जो वकील होकर', 95, 210], ['अदालतों को छोड़ देगा।']], [['दूसरा अनुच्छेद।']])
     expect(pageText([b])).toBe('जो वकील होकर अदालतों को छोड़ देगा।\n\nदूसरा अनुच्छेद।')
   })
 
@@ -55,7 +57,18 @@ describe('the text an image becomes', () => {
   })
 
   test('keeps a hyphen at a line end that joins two words', () => {
-    expect(pageText([block([['वादी-'], ['प्रतिवादी']])])).toBe('वादी-प्रतिवादी')
+    expect(pageText([block([['वादी-', 95, 90], ['प्रतिवादी']])])).toBe('वादी-प्रतिवादी')
+  })
+
+  test('ends a paragraph after a line much shorter than its widest', () => {
+    // An index, a list or a poem: Tesseract calls the whole column one paragraph.
+    const b = block([['Apples, 12'], ['Bananas and other fruit, 40'], ['Cherries, 7']])
+    expect(pageText([b])).toBe('Apples, 12\n\nBananas and other fruit, 40\n\nCherries, 7')
+  })
+
+  test('joins the full-width lines of prose before a short last line', () => {
+    const b = block([['the first line runs the width'], ['and so does the second one'], ['then it ends.'], ['A new one starts here and runs'], ['to its end.']])
+    expect(pageText([b])).toBe('the first line runs the width and so does the second one then it ends.\n\nA new one starts here and runs to its end.')
   })
 
   test('drops empty lines and paragraphs', () => {

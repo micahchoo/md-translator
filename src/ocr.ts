@@ -32,7 +32,7 @@ export interface Reading {
 
 /** The part of Tesseract's output read here, so tests need no Tesseract. */
 export interface ReadBlock {
-  paragraphs: { lines: { text: string; words: { text: string; confidence: number }[] }[] }[]
+  paragraphs: { lines: { text: string; bbox: { x0: number; x1: number }; words: { text: string; confidence: number }[] }[] }[]
 }
 
 /** The languages an image may be read in: those with a model that passed. */
@@ -56,23 +56,38 @@ export function escapeMarkdown(line: string): string {
     .replace(/^(\s*\d+)([.)])(?=\s)/, '$1\\$2')
 }
 
+/** A line this much narrower than its paragraph's widest one ends where it ends. */
+const SHORT = 0.7
+
 /**
- * Lines joined into paragraphs, a blank line between paragraphs. A Latin word
- * broken by a hyphen at a line's end is joined again; any other hyphen at a
- * line's end is kept, without a space, since it joined two words in print.
+ * Lines joined into paragraphs, a blank line between paragraphs. Tesseract
+ * calls a whole column one paragraph, so its widths decide: in prose most
+ * lines run the full width and only a short one ends a paragraph; where fewer
+ * than half do (an index, a list, a poem) every line stands alone.
+ *
+ * A Latin word broken by a hyphen at a line's end is joined again; any other
+ * hyphen at a line's end is kept, without a space, since it joined two words.
  */
 export function pageText(blocks: ReadBlock[]): string {
   const paras: string[] = []
   for (const b of blocks)
     for (const p of b.paragraphs) {
+      const lines = p.lines
+        .map((l) => ({ text: l.text.replace(/\s+/g, ' ').trim(), width: l.bbox.x1 - l.bbox.x0 }))
+        .filter((l) => l.text)
+      const widest = Math.max(0, ...lines.map((l) => l.width))
+      const full = (l: { width: number }) => l.width >= SHORT * widest
+      const prose = lines.filter(full).length * 2 >= lines.length
       let text = ''
-      for (const l of p.lines) {
-        const line = l.text.replace(/\s+/g, ' ').trim()
-        if (!line) continue
-        if (!text) text = line
-        else if (/[a-z]-$/.test(text) && /^[a-z]/.test(line)) text = text.slice(0, -1) + line
-        else if (text.endsWith('-')) text += line
-        else text += ' ' + line
+      for (const l of lines) {
+        if (!text) text = l.text
+        else if (/[a-z]-$/.test(text) && /^[a-z]/.test(l.text)) text = text.slice(0, -1) + l.text
+        else if (text.endsWith('-')) text += l.text
+        else text += ' ' + l.text
+        if (!prose || !full(l)) {
+          paras.push(escapeMarkdown(text))
+          text = ''
+        }
       }
       if (text) paras.push(escapeMarkdown(text))
     }
