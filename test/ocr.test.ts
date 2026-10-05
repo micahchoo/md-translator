@@ -44,6 +44,10 @@ describe('which languages an image may be in', () => {
   test('falls back to Hindi when the chosen language cannot be read', () => {
     expect(imageLanguage('en', 'ta')).toBe('hi')
   })
+
+  test('keeps any language for a PDF, whose text layer needs no reading', () => {
+    expect(imageLanguage('en', 'ta', true)).toBe('ta')
+  })
 })
 
 describe('the text an image becomes', () => {

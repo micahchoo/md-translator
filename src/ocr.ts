@@ -40,13 +40,15 @@ export function models(code: string, english: boolean): string {
 export const imageLanguages = () => Object.values(LANGUAGES).filter((l) => l.ocr)
 
 /**
- * The language of an image's text. Into an Indian language the source is
- * English; into English it is the owner's choice, since Tesseract must know
- * the script before it reads.
+ * The language of an image's or a PDF's text. Into an Indian language the
+ * source is English; into English it is the owner's choice, since Tesseract
+ * must know the script before it reads. A PDF may be in any language, since
+ * its text layer needs no reading; an image only in one that can be read.
  */
-export function imageLanguage(target: string, chosen: string): string {
+export function imageLanguage(target: string, chosen: string, pdf = false): string {
   if (target !== 'en') return 'en'
-  return LANGUAGES[chosen]?.ocr ? chosen : 'hi'
+  const ok = pdf ? chosen in LANGUAGES && chosen !== 'en' : !!LANGUAGES[chosen]?.ocr
+  return ok ? chosen : 'hi'
 }
 
 /** Characters that would turn read text into Markdown it never was. */

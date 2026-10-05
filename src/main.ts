@@ -6,6 +6,7 @@ import { directionLabel, dirOf, LANGUAGES } from './languages'
 import { createScorer, probe, type Score } from './judge'
 import { createClient, listModels } from './llm'
 import { imageLanguage, imageLanguages, readImage } from './ocr'
+import { readPdf } from './pdf'
 import { DEFAULTS, formatExamples, loadSettings, parseExamples, saveSettings, toOptions, type Settings } from './settings'
 import { removeVoices, speak, storedVoices } from './speech'
 import { loadDocs, loadMemory, remember, saveDocs, saveMemory, type SavedDoc } from './store'
@@ -52,6 +53,7 @@ const el = {
   imageLang: $<HTMLSelectElement>('image-lang'),
   imageEnglish: $<HTMLInputElement>('image-english'),
   readImage: $<HTMLButtonElement>('read-image'),
+  readingNote: $('reading-note'),
   showImage: $<HTMLButtonElement>('show-image'),
   image: $<HTMLImageElement>('image'),
   sourcePane: document.querySelector<HTMLElement>('.source-pane')!,
@@ -153,7 +155,7 @@ function render() {
   el.meter.max = Math.max(1, units.length)
   el.meter.value = done
   el.status.classList.toggle('error', d.status === 'error')
-  el.status.textContent = d.reading ?? (d.unread ? 'Choose the language of the text in the image, then press Read.' : statusLine(d, done, flagged))
+  el.status.textContent = d.reading ?? (d.unread ? `Choose the language of the text in the ${isPdf(d) ? 'PDF' : 'image'}, then press Read.` : statusLine(d, done, flagged))
   renderReading(d)
 
   const lang = d.lang ?? settings.language
@@ -373,21 +375,23 @@ async function play(i: number) {
 // ---- documents ------------------------------------------------------------
 
 const isImage = (f: File) => /^image\/(png|jpeg|webp)$/.test(f.type)
+const isPdf = (f: { name: string; type?: string }) => f.type === 'application/pdf' || /\.pdf$/i.test(f.name)
 
 async function addFiles(files: FileList | File[]) {
-  const list = [...files].filter((f) => isImage(f) || /\.(md|markdown|txt)$/i.test(f.name) || f.type.startsWith('text/'))
+  const list = [...files].filter((f) => isImage(f) || isPdf(f) || /\.(md|markdown|txt)$/i.test(f.name) || f.type.startsWith('text/'))
   if (!list.length) return
   // An untouched empty document is replaced, not kept beside the new ones.
   if (docs.length === 1 && !docs[0].source.trim() && docs[0].status === 'idle' && !docs[0].ocr) docs.length = 0
-  const lang = imageLanguage(settings.language, settings.imageLanguage)
-  const english = lang !== 'en' && settings.imageEnglish
   const added: Doc[] = []
   for (const f of list) {
-    const d: Doc = { id: nextId++, name: f.name, source: isImage(f) ? '' : await f.text(), status: 'idle', view: 'source' }
-    if (isImage(f)) {
+    const read = isImage(f) || isPdf(f)
+    const d: Doc = { id: nextId++, name: f.name, source: read ? '' : await f.text(), status: 'idle', view: 'source' }
+    if (read) {
+      const lang = imageLanguage(settings.language, settings.imageLanguage, isPdf(f))
+      const english = lang !== 'en' && settings.imageEnglish
       images.set(d.id, f)
       // The picture beside its text is how the owner checks a reading.
-      Object.assign(d, { ocr: { lang, english }, showImage: true })
+      Object.assign(d, { ocr: { lang, english }, showImage: isImage(f) })
       // From English the image is English and is read at once. Into English
       // its language is the owner's to name first: a reading in the wrong
       // one is a wait, a dialog and a second wait.
@@ -399,7 +403,7 @@ async function addFiles(files: FileList | File[]) {
   current = added[0].id
   persist()
   render()
-  for (const d of added) if (images.has(d.id) && !d.unread) readInto(d, lang, english)
+  for (const d of added) if (images.has(d.id) && !d.unread) readInto(d, d.ocr!.lang, !!d.ocr!.english)
   if (added[0].unread) el.imageLang.focus()
 }
 
@@ -438,14 +442,25 @@ async function readInto(d: Doc, lang: string, english: boolean) {
   d.unread = false
   // The controls show the reading under way, not the one before it.
   d.ocr = { lang, english }
-  d.reading = 'Reading the image…'
+  const pdf = isPdf(d)
+  d.reading = pdf ? 'Opening the PDF…' : 'Reading the image…'
   render()
   try {
-    const text = await readImage(image, lang, english, (status) => {
-      if (!latest()) return
-      d.reading = readingStatus(status, lang, english)
-      schedule()
-    })
+    let text: string
+    if (pdf) {
+      const r = await readPdf(image, lang, english, (status) => {
+        if (!latest()) return
+        d.reading = status
+        schedule()
+      })
+      text = r.text
+      d.ocr = { lang, english, pdf: { pages: r.pages, read: r.read, damaged: r.damaged } }
+    } else
+      text = await readImage(image, lang, english, (status) => {
+        if (!latest()) return
+        d.reading = readingStatus(status, lang, english)
+        schedule()
+      })
     if (!latest()) return
     if (d.units) d.previous = d.units
     d.units = undefined
@@ -456,7 +471,7 @@ async function readInto(d: Doc, lang: string, english: boolean) {
   } catch (e) {
     if (!latest()) return
     d.status = 'error'
-    d.error = `The image could not be read: ${e instanceof Error ? e.message : String(e)}`
+    d.error = `The ${pdf ? 'PDF' : 'image'} could not be read: ${e instanceof Error ? e.message : String(e)}`
   } finally {
     if (readings.get(d.id) === me) d.reading = undefined
   }
@@ -470,10 +485,13 @@ function renderReading(d: Doc) {
   el.sourcePane.classList.toggle('with-image', !!(d.ocr && image && d.showImage))
   el.image.hidden = !(d.ocr && image && d.showImage)
   if (!d.ocr) return
-  if (el.imageLang.options.length !== imageLanguages().length)
-    el.imageLang.replaceChildren(
-      ...imageLanguages().map((l) => new Option(l.ocr!.borrowed ? `${l.name} (with ${l.ocr!.borrowed} letters)` : l.name, l.code)),
-    )
+  // A PDF may be in any language: its text layer needs no reading.
+  const choices = isPdf(d) ? Object.values(LANGUAGES) : imageLanguages()
+  const label = (l: (typeof choices)[number]) => (!l.ocr ? `${l.name} (text only)` : l.ocr.borrowed ? `${l.name} (with ${l.ocr.borrowed} letters)` : l.name)
+  if (el.imageLang.dataset.kind !== (isPdf(d) ? 'pdf' : 'image')) {
+    el.imageLang.replaceChildren(...choices.map((l) => new Option(label(l), l.code)))
+    el.imageLang.dataset.kind = isPdf(d) ? 'pdf' : 'image'
+  }
   el.imageLang.value = d.ocr.lang
   el.imageLang.disabled = !image || !!d.reading
   el.imageEnglish.parentElement!.hidden = d.ocr.lang === 'en'
@@ -484,12 +502,29 @@ function renderReading(d: Doc) {
     : 'The image is not kept after the page is reloaded'
   el.imageLang.title = !image ? 'The image is not kept after the page is reloaded' : d.unread ? 'The language of the text in the image' : 'Read the image again in another language'
   el.readImage.hidden = !d.unread
-  el.showImage.hidden = !image
+  el.readingNote.textContent = d.reading || d.unread ? '' : pdfNote(d)
+  el.showImage.hidden = !image || isPdf(d)
   el.showImage.setAttribute('aria-pressed', String(!!d.showImage))
   el.showImage.textContent = d.showImage ? 'Hide image' : 'Show image'
   if (image && d.showImage && !imageUrls.has(d.id)) imageUrls.set(d.id, URL.createObjectURL(image))
   const url = imageUrls.get(d.id)
   if (url && el.image.src !== url) el.image.src = url
+}
+
+/** How a PDF's pages were read, and a warning where a damaged text layer had to stay. */
+function pdfNote(d: Doc): string {
+  const p = d.ocr?.pdf
+  if (!p) return ''
+  const pages = (n: number) => `${n} ${n === 1 ? 'page' : 'pages'}`
+  const fromText = p.pages - p.read
+  const how = !p.read
+    ? `${pages(p.pages)} from the PDF's text`
+    : !fromText
+      ? `${pages(p.pages)} read as ${p.read === 1 ? 'an image' : 'images'}: the PDF has no usable text`
+      : `${pages(fromText)} from the PDF's text, ${pages(p.read)} read as ${p.read === 1 ? 'an image' : 'images'}`
+  const name = LANGUAGES[d.ocr!.lang].name
+  const warn = p.damaged ? ` · the text of ${p.damaged} ${p.damaged === 1 ? 'page looks' : 'pages looks'} damaged, and ${name} cannot be read from images: check it` : ''
+  return how + warn
 }
 
 /** Reads the image again; asks first only when the owner has changed the text it gave. */
@@ -618,7 +653,7 @@ el.copy.onclick = async () => {
 }
 el.download.onclick = () => {
   const d = doc()
-  const base = d.name.replace(/\.(md|markdown|txt|png|jpe?g|webp)$/i, '') || 'translation'
+  const base = d.name.replace(/\.(md|markdown|txt|png|jpe?g|webp|pdf)$/i, '') || 'translation'
   const a = document.createElement('a')
   const flagged = (d.units ?? []).filter((u) => u.flags.length).length
   const lang = LANGUAGES[d.lang ?? settings.language]
