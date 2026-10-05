@@ -16,6 +16,25 @@ Design record and measurements: `.brainstorm/sessions/0001-md-translator.md`.
 - Aligned view (`src/blocks.ts`): Source / Blocks / Markdown views, per-block Retry and Edit, follow the running block, show only flagged. `src/store.ts` keeps documents in localStorage; a stopped run resumes.
 - Indented code is disabled (pasted text is indented prose); text inside HTML blocks is translated, tags and code/pre/script/style/comments are not.
 
+## OCR — branch `ocr`, NOT pushed (2026-10-04, late) — read first if continuing OCR
+Attached images become the source, read in the browser by Tesseract.js (src/ocr.ts). Worktree:
+scratchpad/ocr-wt (its corpus/ is a symlink to the main corpus; `/corpus` is in .git/info/exclude).
+Commits on `ocr` after main 345305e: 4496652 pure layer + `Language.ocr`; 4ba1365 page (Attach/paste
+images, reading bar: Read as, It also has English, Next hard word, Show image); 0b0ed7a line-width
+paragraphs; b62f842 automatic layout (psm 3), English on request, graphic paragraphs dropped, Hard to
+read flag (blocks.ts HARD_TEXT, not a Flag: no retry fixes a source); c0a0e54 README; 1af5ef0 into
+English an image waits for Read; f550249 bench README with psm-3 numbers. 166 tests pass.
+Settings: tessdata_fast @87416418, Sauvola, psm 3, language model alone unless the owner ticks English.
+Offered (13): en as bn brx doi gu hi kn gom mai mr pa sd. Rule (owner, after results): offered unless
+the 90% bootstrap range of a score lies wholly below its floor (scan 85, page 80). bench/ocr.ts,
+ocr-pages.ts (Wikisource Validated pages), score-ocr.py. Old one-block runs: corpus/runs/ocr/psm6/.
+Waiting on the owner: Nepali (range reaches 80 in some bootstraps, on Hindi pages); when to merge+push.
+Known faults: eng model has no ₹ at all (README says so); hard-word floor 60 is a guess (14/31 brochure
+blocks flagged); text over photos / white on colour; the width rule is a heuristic (first to go if a
+trained detector — PaddleOCR in ONNX, onnxruntime-web already shipped — comes in).
+Not started: PDFs (pdf.js text layer, script check, OCR fallback per page).
+After merge: remove the worktree, its corpus link, the exclude line; stop vite preview on :4173.
+
 ## State at the end of 2026-10-04 — read this first; dated sections below are the history
 Live after the final push: Any language → English, and English → 20 Indian languages (Assamese, Bengali,
 Bodo, Dogri, Gujarati, Hindi, Kannada, Kashmiri, Konkani, Maithili, Malayalam, Marathi, Nepali, Odia,
