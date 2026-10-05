@@ -80,6 +80,7 @@ Simple rules check every translated piece. When a rule fires, the translator tri
 | May be missing text | The answer is much shorter than this language normally is. |
 | May have added text | The answer is much longer than this language normally is. |
 | Cut off | The answer stops at "…" and the source does not. |
+| Odd form | The answer's form is not its source's: a comma after most words, a phrase repeated back to back, or English in capitals throughout. A flagged answer is never shown to the model as context, so one odd answer cannot spread to the blocks after it. |
 | Nothing came back | The model returned no text. |
 
 ## What it cannot check

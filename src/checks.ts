@@ -3,7 +3,7 @@
 // retried, and still flagged it is shown to the reader.
 import { LANGUAGES, type Language, type Pair } from './languages'
 
-export type Flag = 'empty' | 'untranslated' | 'script' | 'unrelated' | 'meaning' | 'language' | 'partial' | 'markup' | 'numbers' | 'short' | 'long' | 'truncated'
+export type Flag = 'empty' | 'untranslated' | 'script' | 'unrelated' | 'meaning' | 'language' | 'partial' | 'markup' | 'numbers' | 'short' | 'long' | 'truncated' | 'form'
 
 // What an answer that never left its source looks like. From English: Latin
 // letters, lower-case words (acronyms and names are kept on purpose), and a run
@@ -93,6 +93,36 @@ function sourceLength(src: string): number {
   return best.length
 }
 
+// An answer's form against its source's. A flagged answer is never shown to
+// the model as context, so a form that drifted cannot spread: on a brochure
+// one answer with a comma after every word was passed on, and every block
+// after it came back the same way.
+const COMMA = /[,،、]/g
+const wordsOf = (s: string) => s.split(/\s+/).filter((w) => /[\p{L}\p{N}]/u.test(w))
+
+/** True when the answer's form is not its source's: a comma after most words,
+ *  a phrase looped, or an English answer in capitals throughout. */
+export function formDrift(source: string, output: string, lang: Language): boolean {
+  const ow = wordsOf(output)
+  if (ow.length < 4) return false
+  const sw = wordsOf(source)
+  const rate = (s: string, w: string[]) => count(s, COMMA) / Math.max(1, w.length)
+  if (rate(output, ow) >= 0.5 && rate(output, ow) >= 2 * rate(source, sw) + 0.2) return true
+  // A loop is the same words back to back, "X X X": a list may name "State
+  // Bank of" four times, apart, and the source does too in its own script.
+  const w = ow.map((x) => x.toLowerCase().replace(/[^\p{L}\p{M}\p{N}]/gu, ''))
+  for (let n = 1; n <= 6; n++)
+    for (let i = 0; i + 3 * n <= w.length; i++) {
+      const g = w.slice(i, i + n).join(' ')
+      if (g && w.slice(i + n, i + 2 * n).join(' ') === g && w.slice(i + 2 * n, i + 3 * n).join(' ') === g) return true
+    }
+  if (lang.code === 'en') {
+    const latin = count(output, /[A-Za-z]/g)
+    if (latin >= 15 && count(output, /[A-Z]/g) / latin >= 0.8 && !/[A-Z]{2}/.test(source.replace(/[^A-Z]/g, ' ').replace(/\b[A-Z]\b/g, ''))) return true
+  }
+  return false
+}
+
 /**
  * `earlier` is what the document already holds: the examples shown and every
  * block before this one, as source and answer. An answer repeated there for a
@@ -128,5 +158,6 @@ export function check(source: string, output: string, lang: Language, earlier: P
   if (src.length >= 40 && ratio < SHORT) flags.push('short')
   if (src.length >= 15 && ratio > (src.length < 40 ? LONG_SHORT_SOURCE : LONG)) flags.push('long')
   if (/(?:\.\.\.|…)\s*$/.test(output) && !/(?:\.\.\.|…)\s*$/.test(source)) flags.push('truncated')
+  if (formDrift(source, output, lang)) flags.push('form')
   return flags
 }

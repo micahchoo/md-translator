@@ -5,6 +5,8 @@
 //
 //   bun bench/contrast.ts            all 1,024 rows, shipped languages
 //
+// The form kinds (commas, loop, capitals) were added 2026-10-05 for the form check.
+//
 // Recall: the share of corrupted copies that raise a flag in the kind's set.
 // False alarms: the share of untouched pairs that raise any flag at all.
 import { check, type Flag } from '../src/checks'
@@ -106,6 +108,11 @@ export function corrupt(rows: Row[], column: string): Item[] {
       add('good', msrc, mgood, [])
       add('markup lost', msrc, mbad, ['markup'])
       add('text added', src, `${good} ${next[outCol]}`, ['long'])
+      // A form passed from one answer to the next through the context: a comma
+      // after every word, a phrase looped, English in capitals throughout.
+      if (words(good).length >= 4) add('commas', src, words(good).join(', '), ['form'])
+      if (words(good).length >= 3) add('loop', src, `${good} ${Array(3).fill(words(good).slice(-3).join(' ')).join(' ')}`, ['form'])
+      if (dir === 'into-en') add('capitals', src, good.toUpperCase(), ['form'])
     }
   })
   return items

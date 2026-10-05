@@ -29,19 +29,24 @@ A second test: each of 10 IN22 sentences per language went into English twice, f
 
 We took correct translations, damaged each one in one known way, and counted how often the checks noticed.
 
-**Damage made by a program**, from the professional pairs: all 1,024 sentences, 11 languages, both directions. The damage is crude, but we know exactly what is wrong.
+**Damage made by a program**, from the professional pairs: all 1,024 sentences, the 20 offered languages, both directions. The damage is crude, but we know exactly what is wrong.
 
 | Damage | Caught, from English | Caught, into English |
 | --- | --- | --- |
 | Source returned unchanged | 100% | 100% |
 | Another script | 100% | 100% |
-| Related language, same script | 20%: only Bengali, by the letter ৰ | — |
-| Half left untranslated | 79% | 93% |
-| Cut short | 97% | 98% |
+| Related language, same script | 17%: only Bengali, by the letter ৰ | — |
+| Half left untranslated | 79% | 94% |
+| Cut short | 96% | 96% |
 | Formatting lost | 100% | 100% |
-| Text added | 90% | 91% |
+| Text added | 90% | 92% |
 | A number changed | 100% | 100% |
-| *Correct translation, no flag* | *97%* | *97%* |
+| A comma after every word | 100% | 100% |
+| A phrase repeated back to back | 100% | 100% |
+| English in capitals throughout | — | 99% |
+| *Correct translation, no flag* | *96%* | *96%* |
+
+The last three are the form check (`checks.ts#formDrift`), added 2026-10-05 after a brochure's English came back with a comma after every word from its seventh block on: one such answer, unflagged, was shown to the model as context and copied by every block after it. A flagged answer is never shown as context, so the flag also stops the copying. It wrongly flags 4 of 40,960 correct translations from English and none into English. Its first version also counted a phrase repeated anywhere and flagged 239, on lists such as "State Bank of Bikaner and Jaipur, State Bank of Hyderabad"; only a phrase repeated back to back counts now.
 
 **Damage that reads naturally**, made with Google Translate. We changed the English in one way, for example by deleting a "not", and translated both versions. The two results differ only by the change. A pair was kept only if the change survived translation and stayed in one place; for a lost "not", a translation back into English had to confirm it. The rate kept shows where Google Translate itself is weaker.
 

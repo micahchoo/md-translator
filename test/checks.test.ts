@@ -166,3 +166,29 @@ describe('each failure seen in the trials is caught', () => {
     expect(check('Some text here.', '  ', hi)).toEqual(['empty'])
   })
 })
+
+describe('an answer whose form drifted from its source', () => {
+  const en = LANGUAGES.en
+
+  test('a comma after every word is flagged: the cascade seen on a brochure', () => {
+    expect(check('ನಮ್ಮ ಪದಾರ್ಥಗಳು ಎಲ್ಲಿಂದ ಬರುತ್ತವೆ ಎಂಬುದು ನಮಗೆ ಯಾವಾಗಲೂ ತಿಳಿದಿರುತ್ತದೆ.',
+      'Our, ingredients, come, from, where, we, always, know', en)).toContain('form')
+  })
+
+  test('a list with a comma after every item is not, when the source is one too', () => {
+    expect(check('ರಾಗಿ, ನವಣೆ, ಸಾಮೆ, ಜೋಳ, ಸಜ್ಜೆ', 'Ragi, foxtail, little millet, jowar, bajra', en)).not.toContain('form')
+  })
+
+  test('a phrase looped is flagged', () => {
+    expect(check('Read the guide before you start.',
+      'शुरू करने से पहले गाइड पढ़ें गाइड पढ़ें गाइड पढ़ें गाइड पढ़ें गाइड पढ़ें', hi)).toContain('form')
+  })
+
+  test('an English answer in capitals throughout is flagged', () => {
+    expect(check('ನಮ್ಮ ಉತ್ಪನ್ನಗಳು ನಂಬಿಕಸ್ಥ ರೈತರಿಂದ ಬರುತ್ತವೆ.', 'OUR PRODUCTS COME FROM TRUSTED FARMERS.', en)).toContain('form')
+  })
+
+  test('acronyms in capitals are not', () => {
+    expect(check('ಎಫ್‌ಡಿಎ ಎಂಡಿಆರ್ ವರದಿ', 'FDA MDR report', en)).not.toContain('form')
+  })
+})

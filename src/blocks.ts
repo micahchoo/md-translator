@@ -19,6 +19,7 @@ export const FLAG_TEXT: Record<Flag, string> = {
   short: 'May be missing text',
   long: 'May have added text',
   truncated: 'Cut off',
+  form: 'Odd form',
 }
 
 export interface BlockHandlers {

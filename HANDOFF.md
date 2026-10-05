@@ -45,8 +45,10 @@ psm 3 Sauvola on the page with regions whited out, keeping paragraphs with mean 
 not repeat a region; XY-cut at the widest gap. bench/ocr-layout.py: designed 57.0 -> 65.8, books
 74.2 -> 74.0. Words kept to their region (half inside); one-line regions stacked < 0.6 line apart joined. Not adopted: masking pictures, relative margins, word filter, egret, CLAHE/edges.
 Brochure left column chrF 92.7 (60.5 at the start); all six prices right; ~93% of words right, the
-rest Tesseract's Kannada misreads (ಋ as ಖ/ಚ, ಘ as ಥ). Open: owner saw an English translation with a
-comma after every word from block 7 on; not reproduced with default settings (asked for theirs).
+rest Tesseract's Kannada misreads (ಋ as ಖ/ಚ, ಘ as ಥ). A cascade (comma after every word from block 7)
+was seen once, not reproduced; the form check (checks.ts#formDrift, flag 'Odd form') now flags it, so it
+never becomes context. A context-dependence check in the judge was built and dropped unmeasured by
+the owner: revisit only if cascades recur.
 After merge: remove the worktree, its corpus link, the exclude line; stop vite preview on :4173.
 
 ## State at the end of 2026-10-04 — read this first; dated sections below are the history

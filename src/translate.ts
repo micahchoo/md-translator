@@ -46,7 +46,7 @@ export interface Progress {
 
 // How bad a flag is when choosing among failed attempts: lost meaning first.
 const WEIGHT: Record<Flag, number> = {
-  empty: 10, untranslated: 10, script: 10, unrelated: 10, meaning: 10, language: 10, partial: 5, short: 5, truncated: 5, numbers: 5, long: 3, markup: 2,
+  empty: 10, untranslated: 10, script: 10, unrelated: 10, meaning: 10, language: 10, partial: 5, short: 5, truncated: 5, numbers: 5, form: 5, long: 3, markup: 2,
 }
 const cost = (flags: Flag[]) => flags.reduce((s, f) => s + WEIGHT[f], 0)
 
