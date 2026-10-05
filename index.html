@@ -31,8 +31,8 @@
         <div id="docs" class="docs" role="tablist" aria-label="Documents"></div>
         <div class="row">
           <button id="new-doc" class="ghost" type="button">New</button>
-          <button id="add-files" class="ghost" type="button">Attach .md</button>
-          <input id="file" type="file" accept=".md,.markdown,.txt,text/markdown,text/plain" multiple hidden />
+          <button id="add-files" class="ghost" type="button" title="Markdown files, or images of text">Attach</button>
+          <input id="file" type="file" accept=".md,.markdown,.txt,text/markdown,text/plain,image/png,image/jpeg,image/webp" multiple hidden />
         </div>
       </div>
 
@@ -58,7 +58,16 @@
       <progress id="meter" max="1" value="0" hidden></progress>
 
       <section id="view-source" class="view" data-view="source">
-        <textarea id="source" spellcheck="false" aria-label="Source Markdown" placeholder="Paste Markdown here, or drop .md files anywhere on the page."></textarea>
+        <div id="reading" class="reading" hidden>
+          <label>Read as <select id="image-lang" aria-label="Language of the text in the image"></select></label>
+          <span id="hard-count" class="hint"></span>
+          <button id="next-hard" class="small ghost" type="button" hidden>Next hard word</button>
+          <button id="show-image" class="small ghost" type="button" aria-pressed="false">Show image</button>
+        </div>
+        <div class="source-pane">
+          <textarea id="source" spellcheck="false" aria-label="Source Markdown" placeholder="Paste Markdown here, or drop .md files or images of text anywhere on the page."></textarea>
+          <img id="image" alt="The attached image" hidden />
+        </div>
       </section>
       <section id="view-blocks" class="view" data-view="blocks">
         <div id="blocks" class="blocks" tabindex="0" aria-label="Blocks, source beside the translation"></div>

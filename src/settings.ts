@@ -21,6 +21,8 @@ export interface Settings {
   noteOnDownload: boolean
   /** The model judges its own answers for a lost "not" and a related language (src/judge.ts). */
   judge: boolean
+  /** The language an image is read in when translating into English (src/ocr.ts). */
+  imageLanguage: string
   /** Which one-time corrections the saved settings have had; see `loadSettings`. */
   revision: number
 }
@@ -37,6 +39,7 @@ export const DEFAULTS: Settings = {
   skipKeys: 'notion-id, base, tags, aliases, cssclasses',
   noteOnDownload: true,
   judge: false,
+  imageLanguage: 'hi',
   revision: 1,
 }
 
@@ -67,6 +70,7 @@ export function loadSettings(storage: Pick<Storage, 'getItem'>): Settings {
     if (v === undefined || typeof v !== typeof DEFAULTS[key]) continue
     if (typeof v === 'number' && !(Number.isFinite(v) && v >= 0)) continue
     if (key === 'language' && !(v as string in LANGUAGES)) continue
+    if (key === 'imageLanguage' && !LANGUAGES[v as string]?.ocr) continue
     if (key === 'examples') {
       for (const [code, pairs] of Object.entries(v as Record<string, unknown>))
         if (code in LANGUAGES && Array.isArray(pairs)) out.examples[code] = pairs as Pair[]

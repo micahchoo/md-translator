@@ -5,6 +5,7 @@ import { BlockList } from './blocks'
 import { directionLabel, dirOf, LANGUAGES } from './languages'
 import { createScorer, probe, type Score } from './judge'
 import { createClient, listModels } from './llm'
+import { imageLanguage, imageLanguages, nextHard, readImage, stillHard } from './ocr'
 import { DEFAULTS, formatExamples, loadSettings, parseExamples, saveSettings, toOptions, type Settings } from './settings'
 import { removeVoices, speak, storedVoices } from './speech'
 import { loadDocs, loadMemory, remember, saveDocs, saveMemory, type SavedDoc } from './store'
@@ -15,6 +16,10 @@ type View = 'source' | 'blocks' | 'markdown'
 interface Doc extends SavedDoc {
   view: View
   error?: string
+  /** What the image's reading is doing, while it reads. */
+  reading?: string
+  /** The image is shown beside its text. */
+  showImage?: boolean
 }
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T
@@ -41,6 +46,13 @@ const el = {
   settingsError: $('settings-error'),
   examplesLabel: $('examples-label'),
   voicesStored: $('voices-stored'),
+  reading: $('reading'),
+  imageLang: $<HTMLSelectElement>('image-lang'),
+  hardCount: $('hard-count'),
+  nextHard: $<HTMLButtonElement>('next-hard'),
+  showImage: $<HTMLButtonElement>('show-image'),
+  image: $<HTMLImageElement>('image'),
+  sourcePane: document.querySelector<HTMLElement>('.source-pane')!,
   removeVoices: $<HTMLButtonElement>('remove-voices'),
 }
 const viewTabs = [...document.querySelectorAll<HTMLButtonElement>('.views [data-view]')]
@@ -72,7 +84,7 @@ let saveTimer = 0
 function persist() {
   clearTimeout(saveTimer)
   saveTimer = window.setTimeout(() => {
-    const ok = saveDocs(storage, docs.map(({ view, error, ...d }) => d))
+    const ok = saveDocs(storage, docs.map(({ view, error, reading, showImage, ...d }) => d))
     if (!ok) console.warn('Documents could not be saved in this browser.')
   }, 800)
 }
@@ -107,7 +119,8 @@ function render() {
   const running = d.status === 'running'
 
   if (document.activeElement !== el.source && el.source.value !== d.source) el.source.value = d.source
-  el.source.readOnly = running
+  el.source.readOnly = running || !!d.reading
+  el.source.lang = d.ocr?.lang ?? ''
   if (el.output.value !== md) el.output.value = md
   el.output.lang = units.length ? (d.lang ?? '') : ''
   el.output.dir = dirOf(units.length ? d.lang : undefined)
@@ -122,7 +135,7 @@ function render() {
 
   const isBusy = busy()
   el.translate.hidden = isBusy
-  el.translate.disabled = !d.source.trim()
+  el.translate.disabled = !d.source.trim() || !!d.reading
   el.translate.textContent = d.status === 'stopped' && units.some((u) => u.status === 'done') ? 'Resume' : units.length ? 'Translate again' : 'Translate'
   el.translateAll.hidden = isBusy || docs.filter((x) => x.source.trim()).length < 2
   el.stop.hidden = !isBusy
@@ -138,7 +151,8 @@ function render() {
   el.meter.max = Math.max(1, units.length)
   el.meter.value = done
   el.status.classList.toggle('error', d.status === 'error')
-  el.status.textContent = statusLine(d, done, flagged)
+  el.status.textContent = d.reading ?? statusLine(d, done, flagged)
+  renderReading(d)
 
   const lang = d.lang ?? settings.language
   const voice = LANGUAGES[lang].voice
@@ -170,6 +184,7 @@ function docTab(d: Doc): HTMLElement {
     x.onclick = (e) => {
       e.stopPropagation()
       if (d.status === 'running') return
+      forgetImage(d.id)
       docs.splice(docs.indexOf(d), 1)
       if (current === d.id) current = docs[0].id
       persist()
@@ -355,14 +370,136 @@ async function play(i: number) {
 
 // ---- documents ------------------------------------------------------------
 
+const isImage = (f: File) => /^image\/(png|jpeg|webp)$/.test(f.type)
+
 async function addFiles(files: FileList | File[]) {
-  const list = [...files].filter((f) => /\.(md|markdown|txt)$/i.test(f.name) || f.type.startsWith('text/'))
+  const list = [...files].filter((f) => isImage(f) || /\.(md|markdown|txt)$/i.test(f.name) || f.type.startsWith('text/'))
   if (!list.length) return
   // An untouched empty document is replaced, not kept beside the new ones.
-  if (docs.length === 1 && !docs[0].source.trim() && docs[0].status === 'idle') docs.length = 0
-  for (const f of list) docs.push({ id: nextId++, name: f.name, source: await f.text(), status: 'idle', view: 'source' })
-  current = docs[docs.length - list.length].id
+  if (docs.length === 1 && !docs[0].source.trim() && docs[0].status === 'idle' && !docs[0].ocr) docs.length = 0
+  const lang = imageLanguage(settings.language, settings.imageLanguage)
+  const added: Doc[] = []
+  for (const f of list) {
+    const d: Doc = { id: nextId++, name: f.name, source: isImage(f) ? '' : await f.text(), status: 'idle', view: 'source' }
+    if (isImage(f)) {
+      images.set(d.id, f)
+      d.ocr = { lang, hard: [] }
+    }
+    docs.push(d)
+    added.push(d)
+  }
+  current = added[0].id
   persist()
+  render()
+  for (const d of added) if (images.has(d.id)) readInto(d, lang)
+}
+
+// ---- reading images ---------------------------------------------------------
+
+// Images live only as long as the page: the text read from them is the
+// document, and localStorage could not hold them anyway.
+const images = new Map<number, Blob>()
+const imageUrls = new Map<number, string>()
+/** The latest reading asked of each document; an older one that finishes late is dropped. */
+const readings = new Map<number, number>()
+
+function forgetImage(id: number) {
+  images.delete(id)
+  readings.delete(id)
+  const url = imageUrls.get(id)
+  if (url) URL.revokeObjectURL(url)
+  imageUrls.delete(id)
+}
+
+/** Tesseract's progress, in the owner's words. */
+function readingStatus(status: string, lang: string): string {
+  return status.startsWith('recognizing') ? 'Reading the image…' : `Getting ${LANGUAGES[lang].name} letters, once…`
+}
+
+async function readInto(d: Doc, lang: string) {
+  const image = images.get(d.id)
+  if (!image) return
+  const me = (readings.get(d.id) ?? 0) + 1
+  readings.set(d.id, me)
+  const latest = () => readings.get(d.id) === me && docs.includes(d)
+  d.reading = 'Reading the image…'
+  render()
+  try {
+    const r = await readImage(image, lang, (status) => {
+      if (!latest()) return
+      d.reading = readingStatus(status, lang)
+      schedule()
+    })
+    if (!latest()) return
+    if (d.units) d.previous = d.units
+    d.units = undefined
+    d.source = r.text
+    d.ocr = { lang, hard: r.hard }
+    d.status = 'idle'
+    d.error = undefined
+  } catch (e) {
+    if (!latest()) return
+    d.status = 'error'
+    d.error = `The image could not be read: ${e instanceof Error ? e.message : String(e)}`
+  } finally {
+    if (readings.get(d.id) === me) d.reading = undefined
+  }
+  persist()
+  render()
+}
+
+function renderReading(d: Doc) {
+  el.reading.hidden = !d.ocr
+  const image = images.get(d.id)
+  el.sourcePane.classList.toggle('with-image', !!(d.ocr && image && d.showImage))
+  el.image.hidden = !(d.ocr && image && d.showImage)
+  if (!d.ocr) return
+  if (el.imageLang.options.length !== imageLanguages().length)
+    el.imageLang.replaceChildren(
+      ...imageLanguages().map((l) => new Option(l.ocr!.borrowed ? `${l.name} (with ${l.ocr!.borrowed} letters)` : l.name, l.code)),
+    )
+  el.imageLang.value = d.ocr.lang
+  el.imageLang.disabled = !image || !!d.reading
+  el.imageLang.title = image ? 'Read the image again in another language' : 'The image is not kept after the page is reloaded'
+  const hard = stillHard(d.source, d.ocr.hard).length
+  el.hardCount.textContent = d.reading ? '' : hard ? `${hard} ${hard === 1 ? 'word was' : 'words were'} hard to read` : 'Nothing left that was hard to read'
+  el.nextHard.hidden = !hard || !!d.reading
+  el.showImage.hidden = !image
+  el.showImage.setAttribute('aria-pressed', String(!!d.showImage))
+  el.showImage.textContent = d.showImage ? 'Hide image' : 'Show image'
+  if (image && d.showImage && !imageUrls.has(d.id)) imageUrls.set(d.id, URL.createObjectURL(image))
+  const url = imageUrls.get(d.id)
+  if (url && el.image.src !== url) el.image.src = url
+}
+
+el.imageLang.onchange = () => {
+  const d = doc()
+  const lang = el.imageLang.value
+  if (d.source.trim() && !confirm(`Read the image again as ${LANGUAGES[lang].name}? The text below, with any changes you made, is replaced.`)) {
+    el.imageLang.value = d.ocr!.lang
+    return
+  }
+  // Into English, the choice is remembered for the next image.
+  if (settings.language === 'en') {
+    settings.imageLanguage = lang
+    saveSettings(storage, settings)
+  }
+  readInto(d, lang)
+}
+el.nextHard.onclick = () => {
+  const d = doc()
+  const at = nextHard(el.source.value, stillHard(el.source.value, d.ocr?.hard ?? []), el.source.selectionEnd)
+  if (!at) return
+  el.source.focus()
+  el.source.setSelectionRange(at.start, at.end)
+  // A textarea does not scroll to a selection it was given; put the line mid-view.
+  const lines = el.source.value.split('\n').length
+  const line = el.source.value.slice(0, at.start).split('\n').length
+  el.source.scrollTop = Math.max(0, (line / lines) * el.source.scrollHeight - el.source.clientHeight / 2)
+}
+el.showImage.onclick = () => {
+  const d = doc()
+  d.showImage = !d.showImage
   render()
 }
 
@@ -378,7 +515,14 @@ el.source.addEventListener('input', () => {
   persist()
   render()
 })
-el.source.addEventListener('paste', () => {
+el.source.addEventListener('paste', (e) => {
+  // A pasted image becomes a document of its own, read like an attached one.
+  const pasted = [...(e.clipboardData?.files ?? [])].filter(isImage)
+  if (pasted.length) {
+    e.preventDefault()
+    addFiles(pasted.map((f) => new File([f], `Pasted image.${f.type.split('/')[1]}`, { type: f.type })))
+    return
+  }
   // A pasted document is named by its first heading, so tabs stay legible.
   queueMicrotask(() => {
     const d = doc()
@@ -440,7 +584,7 @@ el.copy.onclick = async () => {
 }
 el.download.onclick = () => {
   const d = doc()
-  const base = d.name.replace(/\.(md|markdown|txt)$/i, '') || 'translation'
+  const base = d.name.replace(/\.(md|markdown|txt|png|jpe?g|webp)$/i, '') || 'translation'
   const a = document.createElement('a')
   const flagged = (d.units ?? []).filter((u) => u.flags.length).length
   const lang = LANGUAGES[d.lang ?? settings.language]

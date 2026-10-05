@@ -12,6 +12,9 @@ export interface SavedDoc {
   units?: UnitResult[]
   /** The blocks of the run before the source was edited, kept for the next run to reuse. */
   previous?: UnitResult[]
+  /** Set when the source was read from an image: the language it was read in,
+   *  and the words read with low confidence. The image itself is not kept. */
+  ocr?: { lang: string; hard: string[] }
 }
 
 const KEY = 'md-translator.docs'

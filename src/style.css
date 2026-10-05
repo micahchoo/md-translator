@@ -78,6 +78,13 @@ body.dropping .work { outline: 2px dashed var(--accent); outline-offset: -4px; b
 .only-flagged input { width: auto; }
 
 .view { flex: 1; display: flex; min-height: 0; }
+#view-source { flex-direction: column; gap: 8px; }
+/* An image's reading: its language, the words to check, the image beside the text. */
+.reading { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 0.85rem; }
+.reading label { display: inline-flex; align-items: center; gap: 6px; }
+.source-pane { flex: 1; display: grid; grid-template-columns: 1fr; gap: 8px; min-height: 0; }
+.source-pane.with-image { grid-template-columns: 1fr 1fr; }
+#image { width: 100%; max-height: 80dvh; object-fit: contain; object-position: top; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
 textarea, input, select {
   font: inherit; color: var(--text); background: var(--bg);
   border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; width: 100%;
@@ -110,6 +117,7 @@ textarea, input, select {
 .cell.editing textarea { font-family: var(--sans); resize: vertical; }
 button.small { min-height: 28px; padding: 2px 10px; font-size: 0.8rem; }
 @media (max-width: 720px) {
+  .source-pane.with-image { grid-template-columns: 1fr; }
   .block { grid-template-columns: 1fr; }
   .blocks { max-height: none; }
 }
