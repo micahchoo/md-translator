@@ -1,0 +1,13 @@
+pp-doclayout-s.onnx
+
+PP-DocLayout-S by PaddlePaddle, under the Apache License 2.0
+(https://www.apache.org/licenses/LICENSE-2.0).
+Source: https://huggingface.co/PaddlePaddle/PP-DocLayout-S at revision 8ac289e66575bb9bba6e15c53719d8b15cc9b3b2.
+
+Changed only in format: converted from PaddlePaddle's inference.json and
+inference.pdiparams to ONNX, with paddle2onnx 2.1.0 on paddlepaddle 3.0.0, opset 13:
+
+  paddle2onnx --model_dir PP-DocLayout-S --model_filename inference.json \
+    --params_filename inference.pdiparams --save_file pp-doclayout-s.onnx --opset_version 13
+
+sha256 bdf5e5a9908ccae8575738e3cac71c819070f473afc3237bb6fede108ad5f153
