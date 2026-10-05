@@ -52,6 +52,21 @@ describe('phonemes: the IPA a Piper voice is given', () => {
     expect(await phonemes('ur', 'یہ کیسے کام کرتا ہے؟ سیٹ اپ گائیڈ پڑھیں۔')).toMatch(/^[^?]+ hɛ\? [^?]+\.$/)
   })
 
+  test('reads a clause that is only a number', async () => {
+    // "2003, 2004, 2005 in the year": each year is its own clause.
+    expect(await phonemes('kn', '೨೦೦೩, ೨೦೦೪, ೨೦೦೫ ಇಸವಿಯಲ್ಲಿ')).toMatch(/^ˈeɹɐɖu sˈaːviɹˌɐdɐ mˈuːɹu, .*nˈaːlku, /)
+  })
+
+  test('reads a number with separators or a decimal point whole', async () => {
+    for (const n of ['1,000', '1,00,000', '3.14']) expect(await phonemes('en', n)).not.toMatch(/[,.] /)
+    expect(await phonemes('en', 'Now, 3.14 is pi.')).toBe(`${await phonemes('en', 'Now,')} ${await phonemes('en', '3.14 is pi.')}`)
+  })
+
+  test('a Markdown mark removed never joins the words on either side', async () => {
+    expect(await phonemes('en', '3*4')).toBe(await phonemes('en', '3 4'))
+    expect(await phonemes('en', 'snake_case')).toBe(await phonemes('en', 'snake case'))
+  })
+
   test('reads no Markdown, and marks no switch of voice', async () => {
     expect(await phonemes('hi', '**यह** [काम](#1)')).toBe(await phonemes('hi', 'यह काम'))
     expect(await phonemes('hi', 'FDA की रिपोर्ट')).not.toMatch(/\([a-z-]+\)/)

@@ -46,7 +46,7 @@ function speakable(masked: string): string {
     .replace(/!?\[\[#\d+\]\]/g, ' ')
     .replace(/!?\[([^\]]*)\]\(#\d+\)/g, '$1')
     .replace(/<[^>]+>/g, ' ')
-    .replace(/[*_~=]+/g, '')
+    .replace(/[*_~=]+/g, ' ') // a space, so 3*4 never reads as 34
     .replace(/\s+/g, ' ')
     .trim()
 }
@@ -56,7 +56,9 @@ const PAUSE: Record<string, string> = {
   ',': ',', '،': ',', ';': ';', '؛': ';', ':': ':',
   '.': '.', '।': '.', '॥': '.', '۔': '.', '?': '?', '؟': '?', '!': '!',
 }
-const CLAUSE = /([,،;؛:.।॥۔?؟!])\s*/
+// A mark ends a clause only before a space or the end: 1,000, 3.14 and
+// example.com stay whole.
+const CLAUSE = /([,،;؛:.।॥۔?؟!])(?:\s+|$)/
 
 /**
  * The IPA espeak-ng's rules give a unit's words, clause by clause, with the
@@ -68,7 +70,7 @@ export async function phonemes(rules: string, masked: string): Promise<string> {
   const out: string[] = []
   for (let i = 0; i < parts.length; i += 2) {
     const words = parts[i].trim()
-    if (!/\p{L}/u.test(words)) continue
+    if (!/[\p{L}\p{N}]/u.test(words)) continue // a clause of marks alone; a number is read
     const ipa = new TextDecoder()
       .decode(await espeak(['--phonout', 'out', '-q', '--ipa', '-v', rules, words], 'out'))
       .replace(/\([a-z-]+\)/g, '') // "(en)…(hi)": where espeak switched voice for Latin letters
