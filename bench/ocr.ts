@@ -21,6 +21,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { createWorker } from 'tesseract.js'
 import { in22Rows, spread } from './in22'
 import { WIKISOURCE } from './ocr-pages'
+import { TESSDATA_COMMIT } from '../src/ocr'
 
 /** Every language tried, with the Tesseract model that reads it, its IN22
  *  column and a font with its letters. Bodo, Dogri, Konkani, Maithili and
@@ -49,7 +50,7 @@ export const OCR_CANDIDATES: Record<string, { model: string; column: string; fon
   ur: { model: 'urd', column: 'urd_Arab', font: 'Noto Nastaliq Urdu' },
 }
 
-const TESSDATA = 'https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/87416418657359cb625c412a48b6e1d6d41c29bd'
+const TESSDATA = `https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/${TESSDATA_COMMIT}`
 const MODELS = 'corpus/tessdata-fast'
 const IMAGES = 'corpus/ocr-synthetic'
 const OUT = 'corpus/runs/ocr'

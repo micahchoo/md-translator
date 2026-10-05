@@ -65,7 +65,22 @@ export interface Language {
   dir?: 'rtl'
   /** How it is read aloud (src/speech.ts). Absent where nothing reads it well. */
   voice?: Voice
+  /** How an attached image in this language is read (src/ocr.ts). Absent
+   *  where bench/ocr.ts measured a score wholly below its floor: Malayalam,
+   *  Nepali, Odia, Sanskrit, Tamil and Telugu on real pages, Urdu and Kashmiri
+   *  everywhere. Hindi's, Assamese's, Bengali's and Gujarati's page scores
+   *  straddle the floor, and the owner chose to offer them. */
+  ocr?: Ocr
   examples: Pair[]
+}
+
+/** A Tesseract model in tessdata_fast, and the language whose model it is when
+ *  that is not this one: Bodo, Dogri, Maithili and Sindhi are read with
+ *  Hindi's, Konkani with Marathi's. Sindhi's own letters ॻ ॼ ॾ ॿ come back
+ *  as their nearest Hindi ones. */
+export interface Ocr {
+  model: string
+  borrowed?: string
 }
 
 const EN = [
@@ -83,7 +98,7 @@ export const ANY_SOURCE = 'Original'
 
 export const LANGUAGES: Record<string, Language> = {
   // Into English first: the other direction from every entry below it.
-  en: { code: 'en', name: 'English', native: 'English', from: ANY_SOURCE, script: /[A-Za-z]/g, length: 1, voice: { espeak: 'en', piper: 'en_US-ljspeech-medium' }, examples: [] },
+  en: { code: 'en', name: 'English', native: 'English', from: ANY_SOURCE, script: /[A-Za-z]/g, length: 1, voice: { espeak: 'en', piper: 'en_US-ljspeech-medium' }, ocr: { model: 'eng' }, examples: [] },
   as: {
     code: 'as',
     name: 'Assamese',
@@ -91,6 +106,7 @@ export const LANGUAGES: Record<string, Language> = {
     from: 'English',
     script: /[ঀ-৿]/g,
     length: 1.00,
+    ocr: { model: 'asm' },
     examples: zip([
       'ই কেনেকৈ কাম কৰে',
       'ই অফলাইনত কাম কৰেনে?',
@@ -108,6 +124,7 @@ export const LANGUAGES: Record<string, Language> = {
     length: 0.95,
     foreign: /[ৰৱ]/,
     voice: { espeak: 'bn', piper: 'bn_BD-google-medium' },
+    ocr: { model: 'ben' },
     examples: zip([
       'এটি কীভাবে কাজ করে',
       'এটি কি অফলাইনে কাজ করে?',
@@ -126,6 +143,7 @@ export const LANGUAGES: Record<string, Language> = {
     foreign: /[ॻॼॾॿ]/,
     // IN22-Gen (AI4Bharat, CC BY 4.0), rows 268, 277, 76, 45, 221: human translations.
     voice: { espeak: 'hi', piper: 'hi_IN-rohan-medium', accent: 'Hindi' },
+    ocr: { model: 'hin', borrowed: 'Hindi' },
     examples: [
       ['There is a medico-legal aspect.', 'बेवहाय मोनसे मुलियारि-आयेनारि बिथिं दं।'],
       ['What is the harm?', 'बेयाव मा खहा दं?'],
@@ -143,6 +161,7 @@ export const LANGUAGES: Record<string, Language> = {
     length: 0.99,
     foreign: /[ॻॼॾॿ]/,
     voice: { espeak: 'hi', piper: 'hi_IN-rohan-medium', accent: 'Hindi' },
+    ocr: { model: 'hin', borrowed: 'Hindi' },
     examples: zip([
       'एह् किस चाल्ली कम्म करदा ऐ',
       'केह् एह् ऑफलाइन कम्म करदा ऐ?',
@@ -159,6 +178,7 @@ export const LANGUAGES: Record<string, Language> = {
     script: /[઀-૿]/g,
     length: 0.93,
     voice: { espeak: 'gu' },
+    ocr: { model: 'guj' },
     examples: zip([
       'તે કેવી રીતે કામ કરે છે',
       'શું તે ઑફલાઇન કામ કરે છે?',
@@ -176,6 +196,7 @@ export const LANGUAGES: Record<string, Language> = {
     from: 'English',
     script: /[ऀ-ॿ]/g,
     voice: { espeak: 'hi', piper: 'hi_IN-rohan-medium' },
+    ocr: { model: 'hin' },
     examples: zip([
       'यह कैसे काम करता है',
       'क्या यह ऑफ़लाइन काम करता है?',
@@ -192,6 +213,7 @@ export const LANGUAGES: Record<string, Language> = {
     from: 'English',
     script: /[ಀ-೿]/g,
     voice: { espeak: 'kn' },
+    ocr: { model: 'kan' },
     examples: zip([
       'ಇದು ಹೇಗೆ ಕೆಲಸ ಮಾಡುತ್ತದೆ',
       'ಇದು ಆಫ್‌ಲೈನ್‌ನಲ್ಲಿ ಕೆಲಸ ಮಾಡುತ್ತದೆಯೇ?',
@@ -226,6 +248,7 @@ export const LANGUAGES: Record<string, Language> = {
     length: 0.95,
     foreign: /[ॻॼॾॿ]/,
     voice: { espeak: 'hi', piper: 'hi_IN-rohan-medium', accent: 'Hindi' },
+    ocr: { model: 'mar', borrowed: 'Marathi' },
     examples: zip([
       'हें कशें काम करता',
       'हें ऑफलायन काम करता काय?',
@@ -243,6 +266,7 @@ export const LANGUAGES: Record<string, Language> = {
     length: 0.92,
     foreign: /[ॻॼॾॿ]/,
     voice: { espeak: 'hi', piper: 'hi_IN-rohan-medium', accent: 'Hindi' },
+    ocr: { model: 'hin', borrowed: 'Hindi' },
     examples: zip([
       'ई कोना काज करैत अछि',
       'की ई ऑफलाइन काज करैत अछि?',
@@ -276,6 +300,7 @@ export const LANGUAGES: Record<string, Language> = {
     length: 1.01,
     foreign: /[ॻॼॾॿ]/,
     voice: { espeak: 'mr', piper: 'mr_IN-google-medium' },
+    ocr: { model: 'mar' },
     examples: zip([
       'हे कसे कार्य करते',
       'हे ऑफलाइन कार्य करते का?',
@@ -325,6 +350,7 @@ export const LANGUAGES: Record<string, Language> = {
     script: /[਀-੿]/g,
     length: 0.92,
     voice: { espeak: 'pa' },
+    ocr: { model: 'pan' },
     examples: zip([
       'ਇਹ ਕਿਵੇਂ ਕੰਮ ਕਰਦਾ ਹੈ',
       'ਕੀ ਇਹ ਔਫਲਾਈਨ ਕੰਮ ਕਰਦਾ ਹੈ?',
@@ -359,6 +385,7 @@ export const LANGUAGES: Record<string, Language> = {
     length: 1.0,
     // IN22-Gen (AI4Bharat, CC BY 4.0), rows 268, 277, 76, 45, 221: human translations.
     voice: { espeak: 'hi', piper: 'hi_IN-rohan-medium', accent: 'Hindi' },
+    ocr: { model: 'hin', borrowed: 'Hindi' },
     examples: [
       ['There is a medico-legal aspect.', 'हिकि तबई-कानूनी पहलू आहे।'],
       ['What is the harm?', 'कहिड़ो नुकसानि आहे?'],

@@ -1,0 +1,155 @@
+// An attached image read into Markdown, in the page. Tesseract.js reads it with
+// the language's tessdata_fast model, and what it read becomes the document's
+// source: the owner checks it there, and from Translate on nothing is new.
+//
+// bench/ocr.ts chose all of this; see "Reading images" in bench/README.md. The
+// models load from one commit of tessdata_fast, so a file can never change under
+// us, and the bench reads exactly these files. Sauvola thresholding, because one
+// global threshold read 98 characters of a grey page's 1,584. The language's
+// model alone: adding English's lowered almost every language.
+//
+// Tesseract.js loads on the first image, never with the page: its engine is
+// 3.9 MB and each model 1 to 5 MB. Tesseract.js keeps the models in IndexedDB.
+import { LANGUAGES } from './languages'
+
+export const TESSDATA_COMMIT = '87416418657359cb625c412a48b6e1d6d41c29bd'
+const LANG_PATH = `https://cdn.jsdelivr.net/gh/tesseract-ocr/tessdata_fast@${TESSDATA_COMMIT}`
+// One engine file, bundled with the page: SIMD and LSTM only, which every
+// browser that runs this page supports.
+const CORE = new URL('../node_modules/tesseract.js-core/tesseract-core-simd-lstm.wasm.js', import.meta.url)
+const WORKER = new URL('../node_modules/tesseract.js/dist/worker.min.js', import.meta.url)
+
+/** A word Tesseract was less sure of than this is listed for the owner to
+ *  check. Not measured: a guess at where Tesseract's confidences turn to
+ *  misreadings, to be tuned against what owners correct. */
+export const HARD_BELOW = 60
+
+/** What one reading produced: Markdown paragraphs, and the words to check. */
+export interface Reading {
+  text: string
+  hard: string[]
+}
+
+/** The part of Tesseract's output read here, so tests need no Tesseract. */
+export interface ReadBlock {
+  paragraphs: { lines: { text: string; words: { text: string; confidence: number }[] }[] }[]
+}
+
+/** The languages an image may be read in: those with a model that passed. */
+export const imageLanguages = () => Object.values(LANGUAGES).filter((l) => l.ocr)
+
+/**
+ * The language of an image's text. Into an Indian language the source is
+ * English; into English it is the owner's choice, since Tesseract must know
+ * the script before it reads.
+ */
+export function imageLanguage(target: string, chosen: string): string {
+  if (target !== 'en') return 'en'
+  return LANGUAGES[chosen]?.ocr ? chosen : 'hi'
+}
+
+/** Characters that would turn read text into Markdown it never was. */
+export function escapeMarkdown(line: string): string {
+  return line
+    .replace(/([\\`*_[\]<])/g, '\\$1')
+    .replace(/^(\s*)([#>+-])(?=\s|$)/, '$1\\$2')
+    .replace(/^(\s*\d+)([.)])(?=\s)/, '$1\\$2')
+}
+
+/**
+ * Lines joined into paragraphs, a blank line between paragraphs. A Latin word
+ * broken by a hyphen at a line's end is joined again; any other hyphen at a
+ * line's end is kept, without a space, since it joined two words in print.
+ */
+export function pageText(blocks: ReadBlock[]): string {
+  const paras: string[] = []
+  for (const b of blocks)
+    for (const p of b.paragraphs) {
+      let text = ''
+      for (const l of p.lines) {
+        const line = l.text.replace(/\s+/g, ' ').trim()
+        if (!line) continue
+        if (!text) text = line
+        else if (/[a-z]-$/.test(text) && /^[a-z]/.test(line)) text = text.slice(0, -1) + line
+        else if (text.endsWith('-')) text += line
+        else text += ' ' + line
+      }
+      if (text) paras.push(escapeMarkdown(text))
+    }
+  return paras.join('\n\n')
+}
+
+/** Words read with low confidence, once each, in reading order. */
+export function hardWords(blocks: ReadBlock[], below = HARD_BELOW): string[] {
+  const out = new Set<string>()
+  for (const b of blocks)
+    for (const p of b.paragraphs)
+      for (const l of p.lines)
+        for (const w of l.words) {
+          const word = w.text.trim()
+          if (w.confidence < below && /\p{L}/u.test(word)) out.add(word)
+        }
+  return [...out]
+}
+
+/** The hard words still in the text: one the owner corrected is gone. */
+export const stillHard = (text: string, hard: string[]) => hard.filter((w) => text.includes(w))
+
+/**
+ * Where the next hard word is after `from`, wrapping to the start; null when
+ * none is left. Earliest in the text first, whichever word it is.
+ */
+export function nextHard(text: string, hard: string[], from: number): { start: number; end: number } | null {
+  let best: { start: number; end: number } | null = null
+  let first: { start: number; end: number } | null = null
+  for (const w of hard) {
+    const after = text.indexOf(w, from)
+    if (after >= 0 && (!best || after < best.start)) best = { start: after, end: after + w.length }
+    const start = text.indexOf(w)
+    if (start >= 0 && (!first || start < first.start)) first = { start, end: start + w.length }
+  }
+  return best ?? first
+}
+
+// ---- reading, in the browser ----------------------------------------------
+
+type Worker = import('tesseract.js').Worker
+const workers = new Map<string, Promise<Worker>>()
+/** What the worker of each model is doing, for the status line. */
+const listeners = new Map<string, (status: string) => void>()
+
+function worker(model: string): Promise<Worker> {
+  let w = workers.get(model)
+  if (!w) {
+    w = (async () => {
+      const { createWorker } = await import('tesseract.js')
+      const created = await createWorker(model, 1, {
+        langPath: LANG_PATH,
+        gzip: false,
+        corePath: CORE.href,
+        workerPath: WORKER.href,
+        logger: (m) => listeners.get(model)?.(m.status),
+      })
+      await created.setParameters({ thresholding_method: '2' } as Record<string, string>)
+      return created
+    })()
+    // A failed load is not kept: the next image tries again.
+    w.catch(() => workers.delete(model))
+    workers.set(model, w)
+  }
+  return w
+}
+
+/** An image read in the language `code`. `onStatus` hears Tesseract's progress. */
+export async function readImage(image: Blob, code: string, onStatus?: (status: string) => void): Promise<Reading> {
+  const ocr = LANGUAGES[code]?.ocr
+  if (!ocr) throw new Error(`${LANGUAGES[code]?.name ?? code} cannot be read from images.`)
+  if (onStatus) listeners.set(ocr.model, onStatus)
+  try {
+    const { data } = await (await worker(ocr.model)).recognize(image, {}, { blocks: true, text: false })
+    const blocks = (data.blocks ?? []) as ReadBlock[]
+    return { text: pageText(blocks), hard: hardWords(blocks) }
+  } finally {
+    listeners.delete(ocr.model)
+  }
+}
