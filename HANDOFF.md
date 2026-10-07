@@ -126,18 +126,18 @@ In order, all on the cache, no new requests:
 Prior art checked (all 152 HF "pib" results): only CVIT-PIB (to ~2019) and the 2022–23 dump. CVIT
 matched documents by MT + tf-idf (threshold 0.51) and sentences by Bleualign; ours are linked by PIB.
 
-## PIB state at 2026-10-06 21:57 (usage limit; work continues in systemd services)
-- DONE: months jul2019, may2021, aug2023, nov2025 published; regional crawl done; regional/ne published
-  (33,364 pairs, 39 months, 5% Google copies, audit 0). pib-parallel at 09a4ae8 (pushed).
-- RUNNING (systemd --user): pib-publish-regional (kha, then gom; log data/publish-regional.log),
-  pib-laser-prefill (LASER vectors for 2023-08, 2021-05; data/laser-prefill.log), pib-republish (waits for
-  regional, then republishes 2025-11, 2023-08, 2021-05 with Manipuri via LASER3; data/republish.log).
-- CHECK NEXT: `systemctl --user status pib-publish-regional pib-republish`; grep FAILED in
-  ../pib-parallel/data/publish-regional.log and data/republish.log; an audit block means a new
-  contact form: add a test in test/fetch.test.ts, fix fetch.ts, rerun ./publish.sh <target>.
-- Then: tick the regional tasklist below; Manipuri counts per month in the card.
+## PIB state, 2026-10-06 23:25 — all done
+- Hugging Face micahchoo/pib-parallel: configs sentences/documents (splits jul2019, may2021, aug2023,
+  nov2025) and regional/regional_documents (splits ne, kha, gom). Every upload passed audit.py.
+  Manipuri through LASER3 in may2021/aug2023/nov2025: 2,171 / 5,252 / 4,702 pairs (was ~330 a month).
+- pib-parallel at a491f30, pushed. No services running.
+- Open: Manipuri into `regional` (Imphal publishes ~250 a month since 2019; LASER3 now handles it);
+  test LASER3 against LaBSE for Nepali and Assamese on gold titles; linguistic-utilities' data README
+  still names the old single-file layout.
+- Lesson: pre-encode only if it finishes before the job that needs it starts; two LASER runs on the same
+  sentences halved each other (2026-10-06, ~40 min lost).
 
-## PIB `regional` config — tasklist (agreed 2026-10-06)
+## PIB `regional` config — tasklist (agreed 2026-10-06; DONE except Manipuri regional)
 Why: Nepali, Khasi, Konkani publish little per month; take every month they have, as a second config
 (`regional`, one split per language), excluding the published months so no pair appears twice.
 Probed: Mizo and Tenyidei publish nothing (drop); Konkani only around IFFI (Novembers); Manipuri plenty
