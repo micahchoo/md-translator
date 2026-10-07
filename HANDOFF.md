@@ -126,7 +126,18 @@ In order, all on the cache, no new requests:
 Prior art checked (all 152 HF "pib" results): only CVIT-PIB (to ~2019) and the 2022–23 dump. CVIT
 matched documents by MT + tf-idf (threshold 0.51) and sentences by Bleualign; ours are linked by PIB.
 
-## PIB `regional` config — tasklist for after May 2021 publishes (agreed 2026-10-06)
+## PIB state at 2026-10-06 21:57 (usage limit; work continues in systemd services)
+- DONE: months jul2019, may2021, aug2023, nov2025 published; regional crawl done; regional/ne published
+  (33,364 pairs, 39 months, 5% Google copies, audit 0). pib-parallel at 09a4ae8 (pushed).
+- RUNNING (systemd --user): pib-publish-regional (kha, then gom; log data/publish-regional.log),
+  pib-laser-prefill (LASER vectors for 2023-08, 2021-05; data/laser-prefill.log), pib-republish (waits for
+  regional, then republishes 2025-11, 2023-08, 2021-05 with Manipuri via LASER3; data/republish.log).
+- CHECK NEXT: `systemctl --user status pib-publish-regional pib-republish`; grep FAILED in
+  ../pib-parallel/data/publish-regional.log and data/republish.log; an audit block means a new
+  contact form: add a test in test/fetch.test.ts, fix fetch.ts, rerun ./publish.sh <target>.
+- Then: tick the regional tasklist below; Manipuri counts per month in the card.
+
+## PIB `regional` config — tasklist (agreed 2026-10-06)
 Why: Nepali, Khasi, Konkani publish little per month; take every month they have, as a second config
 (`regional`, one split per language), excluding the published months so no pair appears twice.
 Probed: Mizo and Tenyidei publish nothing (drop); Konkani only around IFFI (Novembers); Manipuri plenty
