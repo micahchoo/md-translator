@@ -14,7 +14,7 @@
 //
 //   bun bench/pib-bench.ts <sentences.jsonl> [n = 200] [codes...]
 //
-// Writes corpus/runs/pib-bench/<code>.jsonl; a language already there is
+// Writes $PIB_DIR/<code>.jsonl (default corpus/runs/pib-bench); a language already there is
 // skipped, so a crash costs one language. GT_BUDGET caps the new characters
 // sent to Google (default 450,000, about $9). Score with bench/score-pib.py.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -34,7 +34,7 @@ const NO_GT = new Set(['mni'])
 const [file, nArg, ...codeArgs] = process.argv.slice(2)
 if (!file) throw new Error('usage: bun bench/pib-bench.ts <sentences.jsonl> [n] [codes...]')
 const n = Number(nArg ?? 200)
-const dir = 'corpus/runs/pib-bench'
+const dir = process.env.PIB_DIR ?? 'corpus/runs/pib-bench'
 const budget = Number(process.env.GT_BUDGET ?? 450_000)
 
 const pairs: Pair[] = readFileSync(file, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l))
