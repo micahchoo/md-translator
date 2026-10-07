@@ -126,6 +126,30 @@ In order, all on the cache, no new requests:
 Prior art checked (all 152 HF "pib" results): only CVIT-PIB (to ~2019) and the 2022–23 dump. CVIT
 matched documents by MT + tf-idf (threshold 0.51) and sentences by Bleualign; ours are linked by PIB.
 
+## PIB `regional` config — tasklist for after May 2021 publishes (agreed 2026-10-06)
+Why: Nepali, Khasi, Konkani publish little per month; take every month they have, as a second config
+(`regional`, one split per language), excluding the published months so no pair appears twice.
+Probed: Mizo and Tenyidei publish nothing (drop); Konkani only around IFFI (Novembers); Manipuri plenty
+but LaBSE cannot read it.
+Spike (2026-10-06, gold = PIB-linked titles, 509 mni / 431 bn pairs; scratch spike.py, Python 3.10,
+laser_encoders + requests, torch add_safe_globals([argparse.Namespace])):
+  P@1 bn LaBSE .951 / LASER3 .898; mni LaBSE .554 / LASER3 .774. Median gold sim mni: LaBSE .543 (below
+  the 0.70 cut: why mni had 330 pairs), LASER3 .820. LASER3 margins are small (bn .073 vs LaBSE .192):
+  never reuse LaBSE's 0.70 for it. LASER3 covers mni_Beng, npi_Deva, asm_Beng, lus_Latn; NOT kha, gom.
+1. crawl.sh reads passes.tsv (one office list). Never edit crawl.sh while a crawl runs.
+2. regional.sh: months x offices, regional passes only (columns en), one fetcher:
+   gangtok-ne and shillong-kha 2023-01..2026-09; mumbai-gom 2023-11 and 2024-11; skip jul2019, may2021,
+   aug2023, nov2025. ~8k pages, ~1.5 h. Manipuri only after step 3.
+3. align.py: encoder per language (LASER3 for mni; test npi/asm against LaBSE on gold titles first),
+   cache key per model, and a per-model cut set on gold titles or margin scoring. Test first.
+4. Packaging pools a language's months: data/regional/<lang>/<pass>-<month>/pairs.jsonl, then
+   package.py and audit.py unchanged.
+5. card.py + upload.py: config `regional`, splits ne/kha/gom(/mni); paths regional-sentences/<lang>.parquet.
+   Card prose: what regional is, that it excludes the month splits.
+6. copies.ts on regional (Google: Nepali yes; Khasi and Konkani check support; mni excluded). ~$2.
+   Google spend so far by our caches: $20.43 before the months; months add up to ~$6 each.
+7. Tests for each, README, push.
+
 ## PIB months, 2026-10-06 — read this first
 - Crawling (systemd user units): pib-crawl-a (2019-07 then 2021-05), pib-crawl-b (2023-08), PIB_DELAY=500,
   logs ../pib-parallel/data/crawl-<month>.log. pib-publish runs ./publish.sh per month as its crawl logs
