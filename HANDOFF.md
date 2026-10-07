@@ -126,7 +126,16 @@ In order, all on the cache, no new requests:
 Prior art checked (all 152 HF "pib" results): only CVIT-PIB (to ~2019) and the 2022–23 dump. CVIT
 matched documents by MT + tf-idf (threshold 0.51) and sentences by Bleualign; ours are linked by PIB.
 
-## PIB state, 2026-10-06 23:25 — all done
+## PIB Manipuri regional, overnight from 2026-10-06 23:40
+- Running (systemd --user): pib-regional-mni-a (2019-01..2022-12), -b (2023-01..2026-09), -c (2025-01..2026-09,
+  stopped by pib-stop-mni-c-when-b-done once b is done), pib-publish-mni (waits for a and b, then
+  ./publish.sh regional/mni: LASER on the CPU for every month, several hours). Logs ../pib-parallel/data/
+  regional-mni-{a,b,c}.log, publish-mni.log, publish-regional-mni.log.
+- Check: grep -E "FAILED|exit [1-9]" those logs; an audit block means a new contact form (test, fix
+  fetch.ts, rerun ./publish.sh regional/mni).
+- Decided: LaBSE stays for Nepali and Assamese (it beat LASER3 on gold titles: 97.9/94.5, 93.0/91.5).
+
+## PIB state, 2026-10-06 23:25 — all done (Manipuri regional since started, above)
 - Hugging Face micahchoo/pib-parallel: configs sentences/documents (splits jul2019, may2021, aug2023,
   nov2025) and regional/regional_documents (splits ne, kha, gom). Every upload passed audit.py.
   Manipuri through LASER3 in may2021/aug2023/nov2025: 2,171 / 5,252 / 4,702 pairs (was ~330 a month).
