@@ -105,6 +105,7 @@ English press releases and the translations PIB publishes beside them, aligned i
 | Language | sarvam-30b chrF | Google | Google copies in PIB | sarvam without copies |
 | --- | --- | --- | --- | --- |
 | Kannada | 65.5 | 78.6 | 41 (20%) | 63.3 |
+| Hindi | 64.9 | 80.3 | 60 (30%) | 62.5 |
 | Assamese | 62.1 | 71.9 | 45 (22%) | 60.1 |
 | Odia | 62.0 | 72.9 | 26 (13%) | 60.5 |
 | Tamil | 60.3 | 70.3 | 9 (4%) | 60.2 |
@@ -116,11 +117,13 @@ English press releases and the translations PIB publishes beside them, aligned i
 | Bengali | 52.3 | 62.0 | 7 (4%) | 51.7 |
 | Telugu | 50.0 | 63.9 | 7 (4%) | 49.8 |
 
-A "copy" is a PIB sentence within chrF 90 of what Google writes for the same English. Two independent translations almost never come that close: sarvam and Google did on 2 of 200 Assamese sentences, Google and IN22's human text on 0 of 89. So part of PIB's translation is Google's, and a score against it favours Google: its lead is largest where copies are most common (Gujarati, 32% copies, 20.5 points). Without the copies sarvam scores a little lower, not higher. Both systems score 13 to 25 points higher here than on IN22, so press releases are easier text, and the order of the languages is close to IN22's. Konkani is left out (LaBSE knows it only through Marathi), and Hindi and Urdu were not run.
+A "copy" is a PIB sentence within chrF 90 of what Google writes for the same English. Two independent translations almost never come that close: sarvam and Google did on 2 of 200 Assamese sentences, Google and IN22's human text on 0 of 89. So part of PIB's translation is Google's, and a score against it favours Google: its lead is largest where copies are most common (Gujarati, 32% copies, 20.5 points). Without the copies sarvam scores a little lower, not higher. Both systems score 13 to 25 points higher here than on IN22, so press releases are easier text, and the order of the languages is close to IN22's. Konkani is left out (LaBSE knows it only through Marathi), and Urdu was not run. Hindi has the most copies, 30%.
 
 **After the release, in Nepali.** The Gangtok office's releases from 4 March to 24 September 2026 cannot be in sarvam-30b's training data. On 200 of them sarvam scored 56.0, 3.1 below November 2025, and Google 65.5, 8.0 below; copies were 8%. Google cannot have memorised PIB either, so the text was harder, and sarvam lost less than Google did. Memory did not raise the November score by a visible amount. This is one language and 200 sentences.
 
 **Tried and rejected: Khasi.** No other corpus here has Khasi, and only 3 of 100 PIB Khasi sentences are Google's. On 10 sentences from after the release, sarvam-30b with no examples returned the English unchanged in all 10. The checks flagged 6, since Khasi and English share a script. With five earlier PIB sentences as examples, GlotLID called 4 of its 10 answers Khasi (8 of PIB's 10) and the Khasi words were wrong: "presented by" became *ka kynthei*, "woman". Into English, 5 of 10 answers stayed in Khasi and the rest changed the facts. chrF, 54 to 60 either way, rewards the names both sides share and says nothing here.
+
+**Being measured: Manipuri on PIB.** Manipuri was right in script but under the IN22 floor (28.1 from English), on 10 sentences. PIB's Imphal office gives thousands of pairs, aligned with LASER3 because LaBSE cannot read Manipuri. The floor was fixed before any score: chrF 50.0 from English, the score of Telugu, the weakest language already offered on PIB. The IN22 rule, 10 below Hindi (64.9 here), would give 54.9, and that fails four offered languages. Google writes Manipuri in Meetei Mayek and PIB in Bengali script, so copies cannot be counted.
 
 ## Short blocks at the start of a document
 
