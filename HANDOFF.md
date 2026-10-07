@@ -126,7 +126,16 @@ In order, all on the cache, no new requests:
 Prior art checked (all 152 HF "pib" results): only CVIT-PIB (to ~2019) and the 2022–23 dump. CVIT
 matched documents by MT + tf-idf (threshold 0.51) and sentences by Bleualign; ours are linked by PIB.
 
-## PIB published PRIVATE, 2026-10-04 evening — read this first
+## PIB months, 2026-10-06 — read this first
+- Crawling (systemd user units): pib-crawl-a (2019-07 then 2021-05), pib-crawl-b (2023-08), PIB_DELAY=500,
+  logs ../pib-parallel/data/crawl-<month>.log. pib-publish runs ./publish.sh per month as its crawl logs
+  "== done" (logs data/publish-<month>.log): rebuild, align (GPU), copies, package, audit, card, upload.
+- HF account is now micahchoo (micaha redirects). Dataset: one split per month (nov2025 live).
+- After the crawls finish: make crawl.sh read passes.tsv (do NOT edit crawl.sh while it runs; bash reads it
+  as it goes). Then check each month's copy rates in the card's table.
+- Google spend before this: ~$24 of $50; each month's copy check adds up to ~$6 (GT_BUDGET 300k chars).
+
+## PIB published PRIVATE, 2026-10-04 evening (now public)
 - Code: github.com/micahchoo/pib-parallel (PRIVATE), local at ../pib-parallel. fetch.ts, align.py, copies.ts,
   gt.ts, crawl.sh, package.py, card/README.md; 35 bun + 24 pytest tests. md-translator's copies are deleted
   (27ee848); bench/pib-bench.ts and score-pib.py stay here and read pib-parallel's sentences.jsonl.
