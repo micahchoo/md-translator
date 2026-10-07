@@ -322,3 +322,39 @@ Rejected: line markers and block counts (code rebuilds the document); LLM severi
 - C2 edit memory: built and live (store.ts Memory; reused blocks skip the model). C5 changed blocks only:
   built and live (edits set blocks aside in `previous`; carryOver by text). C3 kept terms: tried,
   rejected (Tamil got worse; sarvam keeps names unaided) — see bench/README.
+
+## indickit in the translator — rig and plan (2026-10-07, session translator-3c)
+Question: can indickit (../indickit, npm 0.4.2) give the translator a new feature? Rig: `bench/indickit.ts`
+(no model; outputs in corpus/runs/indickit/; held-out reads logged in its reads.log). indickit@0.4.2 is a
+devDependency only. Nothing committed.
+
+1. **"Name changed" flag (phonetic): rejected on DEV.** IN22 even rows, 20 languages: catches 85% of planted
+   name swaps, but false alarms on human pairs with names are 76.5% (title-case words), 57.9% with the
+   shippable 21-word stop list, 30.4% with a 1 MB word list (cannot ship). Bar: 5–13% (other flags). On
+   sarvam answers 51–79% flagged. In bench/README "Tried and rejected". `names test` (odd rows) and
+   `names pib` (pib-parallel May 2021) are UNREAD; keep them for a retry. Retry only when all hold:
+   phonetic rules 2026-10-07 are released (Singh, Howrah); the key folds English endings (Sepoys,
+   Kauravas, Mahrattas); and a way exists to tell a person/place name from a title-case term in KB.
+   Then: `names dev` until ≤10% alarms at ≥80% caught, then `names test` once, `names pib` once.
+   Watch: linguistic-utilities jobs/phonetic/spikes/best_in_class/frontier.py (unified letter-pair scorer;
+   open-text key recall 88.3%). It fixes matching, not name extraction. When it reaches indickit's
+   TypeScript, add it to the rig as a matcher variant. The phonetic agent has these findings.
+2. **normalize: measured, not adopted; the owner decides.** `bun bench/indickit.ts normalize`:
+   - sarvam answers: 0–2% of blocks change. Edit-memory keys merged: at most 15 of 16,030 (Kannada PIB).
+     So normalising the memory key or the changed-block test has no measured value. Recommend: no.
+   - OCR output: ZWNJ in 50–100% of Tamil, Kannada, Telugu, Sanskrit blocks; old Malayalam chillu
+     sequences in 100%. Invisible, but they reach the model, Copy and Download. Next test (needs :8086;
+     translator-6d holds it until ~13:30): translate corpus/runs/ocr/synthetic-sauvola outputs raw and
+     normalised, chrF against IN22. Adopt for OCR text only if it gains, or if the owner wants clean bytes.
+   - Hazard: normalize writes Assamese ৰ as র in any language but `as`. The "letters never written" check
+     catches Assamese-in-Bengali by ৰ. So normalize must run AFTER checks, never before.
+3. **is_well_formed in place of pdf.ts#damage: blocked.** Job 17 in linguistic-utilities is "extend
+   normalize, not ported". When the TS port ships, add a `wellformed` stage: pdf.ts#damage and
+   is_well_formed against HarfBuzz labels on PDF words. Those labels are job 17's held-out data: ask the
+   owner before reading them.
+4. **Findings for indickit (not fixed here; out of lane):** keys('Delhi') = tlh, दिल्ली = tl (Latin "lh");
+   October = oktpr, अक्टूबर = aktpr (initial o / a); English plural and -ian/-ic endings break keys; npm
+   has 0.4.2 while indickit's README says install v0.4.3.
+Coordination on 2026-10-07: translator-6d owns bench/pib-bench.ts, bench/candidates.ts, corpus/runs/pib-bench*
+(mni.jsonl is a candidate, not offered; the rig skips it) and :8086 until ~13:30. translator-f3 publishes
+../pib-parallel/data/regional/mni; corpus/pib/pilot-v2 is final but NOT held out (linguistic-utilities read it).

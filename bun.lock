@@ -17,6 +17,7 @@
       "devDependencies": {
         "@types/bun": "latest",
         "@types/mdast": "^4.0.4",
+        "indickit": "0.4.2",
         "playwright": "1.61.1",
         "tesseract.js": "7",
         "typescript": "^5.9.0",
@@ -148,6 +149,8 @@
     "guid-typescript": ["guid-typescript@1.0.9", "", {}, "sha512-Y8T4vYhEfwJOTbouREvG+3XDsjr8E3kIr7uf+JZ0BYloFsttiHU0WfvANVsR7TxNUJa/WpCnw/Ino/p+DeBhBQ=="],
 
     "idb-keyval": ["idb-keyval@6.3.0", "", {}, "sha512-um+2dgAWmYsu615EXpWVwSmapJhON0G43t3Ka/EVaohzPQXSMqKEqeDK/oIW3Ow+BXaF2PvSc+oBTFp793A5Ow=="],
+
+    "indickit": ["indickit@0.4.2", "", {}, "sha512-qvwDrj6+pKnZf2SQqxUNAFv6hivGQzqRJSb2bIcNmC5r0vypVSu8WaM5LqG7EnA7Khk03VSlV/ON3lpPNhjrDA=="],
 
     "is-url": ["is-url@1.2.4", "", {}, "sha512-ITvGim8FhRiYe4IQ5uHSkj7pVaPDrCTkNd3yq3cV7iZAcJdHTUMPMEHcqSOy9xZ9qFenQCvi+2wjH9a1nXqHww=="],
 
