@@ -104,28 +104,31 @@ The same IN22 sentences, scored against the professional translation: sarvam-30b
 
 English press releases and the translations PIB publishes beside them, aligned into sentences by [pib-parallel](https://github.com/micahchoo/pib-parallel): a test set far larger than IN22 for the languages PIB covers. 200 of the safest pairs per language (158 for Nepali), at most five from one release, from November 2025, before sarvam-30b was published, so it may have seen them and its scores are an upper bound. Google Translate ran on the same English (`pib-bench.ts`, scored with `score-pib.py`).
 
-| Language | sarvam-30b chrF | Google | Google copies in PIB | sarvam without copies |
-| --- | --- | --- | --- | --- |
-| Kannada | 65.5 | 78.6 | 41 (20%) | 63.3 |
-| Hindi | 64.9 | 80.3 | 60 (30%) | 62.5 |
-| Assamese | 62.1 | 71.9 | 45 (22%) | 60.1 |
-| Odia | 62.0 | 72.9 | 26 (13%) | 60.5 |
-| Tamil | 60.3 | 70.3 | 9 (4%) | 60.2 |
-| Punjabi | 59.1 | 74.7 | 25 (12%) | 58.2 |
-| Nepali | 59.1 | 73.5 | 16 (10%) | 58.2 |
-| Gujarati | 58.2 | 78.7 | 64 (32%) | 54.2 |
-| Malayalam | 53.4 | 76.5 | 32 (16%) | 52.1 |
-| Marathi | 52.9 | 61.7 | 6 (3%) | 52.3 |
-| Bengali | 52.3 | 62.0 | 7 (4%) | 51.7 |
-| Telugu | 50.0 | 63.9 | 7 (4%) | 49.8 |
+| Language | sarvam-30b chrF | Google | Google copies in PIB | sarvam without copies | sarvam · Google, August 2023 |
+| --- | --- | --- | --- | --- | --- |
+| Kannada | 65.5 | 78.6 | 41 (20%) | 63.3 | 62.1 · 73.4 |
+| Hindi | 64.9 | 80.3 | 60 (30%) | 62.5 | 66.4 · 77.6 |
+| Assamese | 62.1 | 71.9 | 45 (22%) | 60.1 | 62.3 · 76.6 |
+| Odia | 62.0 | 72.9 | 26 (13%) | 60.5 | 59.4 · 68.7 |
+| Tamil | 60.3 | 70.3 | 9 (4%) | 60.2 | 59.3 · 73.2 |
+| Punjabi | 59.1 | 74.7 | 25 (12%) | 58.2 | 51.5 · 63.0 |
+| Nepali | 59.1 | 73.5 | 16 (10%) | 58.2 | 59.3 · 68.0 |
+| Gujarati | 58.2 | 78.7 | 64 (32%) | 54.2 | 63.8 · 80.7 |
+| Malayalam | 53.4 | 76.5 | 32 (16%) | 52.1 | 58.0 · 77.8 |
+| Marathi | 52.9 | 61.7 | 6 (3%) | 52.3 | 57.4 · 67.9 |
+| Bengali | 52.3 | 62.0 | 7 (4%) | 51.7 | 50.0 · 60.2 |
+| Telugu | 50.0 | 63.9 | 7 (4%) | 49.8 | 48.9 · 59.0 |
+| Urdu | not run | | | | 60.1 · 75.7 |
 
-A "copy" is a PIB sentence within chrF 90 of what Google writes for the same English. Two independent translations almost never come that close: sarvam and Google did on 2 of 200 Assamese sentences, Google and IN22's human text on 0 of 89. So part of PIB's translation is Google's, and a score against it favours Google: its lead is largest where copies are most common (Gujarati, 32% copies, 20.5 points). Without the copies sarvam scores a little lower, not higher. Both systems score 13 to 25 points higher here than on IN22, so press releases are easier text, and the order of the languages is close to IN22's. Konkani is left out (LaBSE knows it only through Marathi), and Urdu was not run. Hindi has the most copies, 30%.
+A "copy" is a PIB sentence within chrF 90 of what Google writes for the same English. Two independent translations almost never come that close: sarvam and Google did on 2 of 200 Assamese sentences, Google and IN22's human text on 0 of 89. So part of PIB's translation is Google's, and a score against it favours Google: its lead is largest where copies are most common (Gujarati, 32% copies, 20.5 points). Without the copies sarvam scores a little lower, not higher. Both systems score 13 to 25 points higher here than on IN22, so press releases are easier text, and the order of the languages is close to IN22's. Konkani is left out (LaBSE knows it only through Marathi), and Urdu was run only on August 2023. Hindi has the most copies, 30%.
+
+**A second month.** August 2023 (Nepali 155 pairs) moved most languages by under 5 points either way, and Google moved with them: Punjabi fell 7.6 and Google 11.7, Gujarati rose 5.6 and Google 2.0. Telugu and Bengali are the lowest in both months, 48.9 to 52.3. No offered language fell behind Google by much more than in November; the largest lead is again Malayalam's (19.8).
 
 **After the release, in Nepali.** The Gangtok office's releases from 4 March to 24 September 2026 cannot be in sarvam-30b's training data. On 200 of them sarvam scored 56.0, 3.1 below November 2025, and Google 65.5, 8.0 below; copies were 8%. Google cannot have memorised PIB either, so the text was harder, and sarvam lost less than Google did. Memory did not raise the November score by a visible amount. This is one language and 200 sentences.
 
 **Tried and rejected: Khasi.** No other corpus here has Khasi, and only 3 of 100 PIB Khasi sentences are Google's. On 10 sentences from after the release, sarvam-30b with no examples returned the English unchanged in all 10. The checks flagged 6, since Khasi and English share a script. With five earlier PIB sentences as examples, GlotLID called 4 of its 10 answers Khasi (8 of PIB's 10) and the Khasi words were wrong: "presented by" became *ka kynthei*, "woman". Into English, 5 of 10 answers stayed in Khasi and the rest changed the facts. chrF, 54 to 60 either way, rewards the names both sides share and says nothing here.
 
-**Being measured: Manipuri on PIB.** Manipuri was right in script but under the IN22 floor (28.1 from English), on 10 sentences. PIB's Imphal office gives thousands of pairs, aligned with LASER3 because LaBSE cannot read Manipuri. The floor was fixed before any score: chrF 50.0 from English, the score of Telugu, the weakest language already offered on PIB. The IN22 rule, 10 below Hindi (64.9 here), would give 54.9, and that fails four offered languages. Google writes Manipuri in Meetei Mayek and PIB in Bengali script, so copies cannot be counted.
+**Tried and rejected: Manipuri on PIB.** Manipuri was right in script but under the IN22 floor (28.1 from English), on 10 sentences. PIB's Imphal office writes it in Bengali script, not IN22's Meetei Mayek, so this test is of Bengali-script Manipuri, with five PIB rows from August 2023 as examples (`candidates.ts#PIB_CANDIDATES`). The pairs were aligned with LASER3, since LaBSE cannot read Manipuri; at 0.85 LASER3 keeps 52% of them, as LaBSE at 0.85 keeps 53% of Bengali's. The floor was fixed before any score: chrF 50.0 from English, the score of Telugu, the weakest language already offered on PIB (the IN22 rule, 10 below Hindi, would give 54.9 and fail four offered languages). On 200 pairs from November 2025 sarvam scored 28.9, about what it scored on IN22, where the offered languages score 13 to 25 points higher on PIB. It was not the alignment: the 11 best-aligned pairs scored 30.9. GlotLID called 176 of 200 answers Manipuri and 20 Bengali; the answers mix in Devanagari letters (@নरेन्द्रমোদী), repeat themselves and change facts, and only 23 were flagged. Google writes Manipuri in Meetei Mayek, so copies cannot be counted.
 
 ## Short blocks at the start of a document
 

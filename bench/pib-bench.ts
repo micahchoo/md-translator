@@ -18,15 +18,20 @@
 // skipped, so a crash costs one language. GT_BUDGET caps the new characters
 // sent to Google (default 450,000, about $9). Score with bench/score-pib.py.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { LANGUAGES } from '../src/languages'
+import { LANGUAGES, type Language } from '../src/languages'
 import { createClient } from '../src/llm'
 import { DEFAULTS, toOptions } from '../src/settings'
 import { translateDocument, type UnitResult } from '../src/translate'
+import { PIB_CANDIDATES } from './candidates'
 import { gt, translateAll } from './gt'
 
 type Pair = { lang: string; en: string; text: string; sim: number; numbers: boolean | null; confidence: string; prid: string; date: string; office: string }
 
 const MIN_SIM = 0.85
+// Aligned with LASER3, not LaBSE (pib-parallel's align.py#LASER), so align.py marks
+// them low confidence. Their own encoder reads them; LASER3 at 0.85 keeps 52% of
+// November 2025's Manipuri pairs, as LaBSE at 0.85 keeps 53% of Bengali's.
+const BY_LASER = new Set(['mni'])
 const PER_RELEASE = 5
 // Google writes Manipuri in Meetei Mayek; PIB writes it in Bengali script.
 const NO_GT = new Set(['mni'])
@@ -39,7 +44,7 @@ const budget = Number(process.env.GT_BUDGET ?? 450_000)
 
 const pairs: Pair[] = readFileSync(file, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l))
 const safe = pairs.filter(
-  (p) => p.sim >= MIN_SIM && p.numbers !== false && p.confidence === 'normal' && p.en.length >= 40 && p.en.length <= 300,
+  (p) => p.sim >= MIN_SIM && p.numbers !== false && (p.confidence === 'normal' || BY_LASER.has(p.lang)) && p.en.length >= 40 && p.en.length <= 300,
 )
 
 /** Up to n pairs, taken a round at a time across releases so no release dominates. */
@@ -57,7 +62,14 @@ function pick(lang: string): Pair[] {
   return out
 }
 
+// toOptions falls back to Hindi for a code it does not know, so every target is named here.
+const target = (code: string): Language => {
+  const t = LANGUAGES[code] ?? PIB_CANDIDATES[code]
+  if (!t) throw new Error(`${code}: neither offered nor a PIB candidate`)
+  return t
+}
 const codes = codeArgs.length ? codeArgs : [...new Set(safe.map((p) => p.lang))].filter((c) => c in LANGUAGES && c !== 'en')
+codes.forEach(target)
 const chosen = Object.fromEntries(codes.map((c) => [c, pick(c)]))
 await translateAll(
   codes.filter((c) => !NO_GT.has(c) && !existsSync(`${dir}/${c}.jsonl`)).flatMap((to) => chosen[to].map((p) => ({ from: 'en', to, text: p.en }))),
@@ -81,7 +93,8 @@ async function translate(md: string, opts: ReturnType<typeof toOptions>): Promis
 
 /** Each sentence a block of one document, twenty at a time; a chunk whose blocks do not come back one for one goes sentence by sentence. */
 async function sarvam(code: string, sources: string[]): Promise<UnitResult[]> {
-  const opts = toOptions({ ...DEFAULTS, language: code })
+  const language = target(code)
+  const opts = { ...toOptions({ ...DEFAULTS, language: 'en' }), language, examples: language.examples }
   const out: UnitResult[] = []
   for (let i = 0; i < sources.length; i += 20) {
     const chunk = sources.slice(i, i + 20)
@@ -112,5 +125,5 @@ for (const code of codes) {
       )
       .join('\n') + '\n',
   )
-  console.log(`${code} ${LANGUAGES[code].name}: ${rows.length} pairs, ${((Date.now() - started) / 1000).toFixed(0)} s`)
+  console.log(`${code} ${target(code).name}: ${rows.length} pairs, ${((Date.now() - started) / 1000).toFixed(0)} s`)
 }
