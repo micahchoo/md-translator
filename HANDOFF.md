@@ -126,7 +126,17 @@ In order, all on the cache, no new requests:
 Prior art checked (all 152 HF "pib" results): only CVIT-PIB (to ~2019) and the 2022–23 dump. CVIT
 matched documents by MT + tf-idf (threshold 0.51) and sentences by Bleualign; ours are linked by PIB.
 
-## PIB Manipuri regional, overnight from 2026-10-06 23:40
+## PIB Manipuri regional — DONE 2026-10-07 17:33
+- regional/mni on Hugging Face: 350,496 sentence pairs, 25,250 document pairs, 84 months (2019-01..2026-09),
+  audit 0. Six publish attempts; each stop was fixed at its cause in pib-parallel (all pushed, last 8b11c8b):
+  month-list POST unretried, then PIB_REUSE_LIST (rebuild asks PIB nothing); 25 GB OOM on an 8,705-row
+  toll table, then banded alignment; Bengali digits inside addresses; +91 with dots, three separators,
+  bracketed area code. LASER: CPU takes English (LASER2), GPU fp16 takes Manipuri (LASER_ONLY=tx).
+- Page cache moved to the SSD (~/.cache/pib-parallel/html, 12 GB; data/html is a link). The RAID copy
+  data/html-raid (12 GB) is redundant now; delete when convenient. A rebuild: 3 min, was 90.
+- No services running.
+
+## PIB Manipuri regional, overnight from 2026-10-06 23:40 (finished, above)
 - Running (systemd --user): pib-regional-mni-a (2019-01..2022-12), -b (2023-01..2026-09), -c (2025-01..2026-09,
   stopped by pib-stop-mni-c-when-b-done once b is done), pib-publish-mni (waits for a and b, then
   ./publish.sh regional/mni: LASER on the CPU for every month, several hours). Logs ../pib-parallel/data/
@@ -339,15 +349,12 @@ devDependency only. Nothing committed.
    Watch: linguistic-utilities jobs/phonetic/spikes/best_in_class/frontier.py (unified letter-pair scorer;
    open-text key recall 88.3%). It fixes matching, not name extraction. When it reaches indickit's
    TypeScript, add it to the rig as a matcher variant. The phonetic agent has these findings.
-2. **normalize: measured, not adopted; the owner decides.** `bun bench/indickit.ts normalize`:
-   - sarvam answers: 0–2% of blocks change. Edit-memory keys merged: at most 15 of 16,030 (Kannada PIB).
-     So normalising the memory key or the changed-block test has no measured value. Recommend: no.
-   - OCR output: ZWNJ in 50–100% of Tamil, Kannada, Telugu, Sanskrit blocks; old Malayalam chillu
-     sequences in 100%. Invisible, but they reach the model, Copy and Download. Next test (needs :8086;
-     translator-6d holds it until ~13:30): translate corpus/runs/ocr/synthetic-sauvola outputs raw and
-     normalised, chrF against IN22. Adopt for OCR text only if it gains, or if the owner wants clean bytes.
-   - Hazard: normalize writes Assamese ৰ as র in any language but `as`. The "letters never written" check
-     catches Assamese-in-Bengali by ৰ. So normalize must run AFTER checks, never before.
+2. **normalize: rejected (2026-10-07 13:19, `normalize-mt`).** Every changed block tokenizes differently, but
+   chrF into English does not move: OCR +1.2 per sentence (90% range −0.1..+2.6, n 46), PIB +0.0 (−0.7..+0.7,
+   n 374). Edit-memory keys merged: at most 15 of 16,030. In bench/README "Tried and rejected". If ever adopted
+   for clean bytes: run it AFTER the checks (it writes ৰ as র outside Assamese, blinding "letters never written").
+   Side finding, not fixed: into English (no examples) sarvam sometimes adds "\nMarkdown: <answer again>";
+   stopFor/cleanOutput miss that label (4 of 840 answers). Fix candidate: add "\nMarkdown:" to both.
 3. **is_well_formed in place of pdf.ts#damage: blocked.** Job 17 in linguistic-utilities is "extend
    normalize, not ported". When the TS port ships, add a `wellformed` stage: pdf.ts#damage and
    is_well_formed against HarfBuzz labels on PDF words. Those labels are job 17's held-out data: ask the
@@ -358,3 +365,19 @@ devDependency only. Nothing committed.
 Coordination on 2026-10-07: translator-6d owns bench/pib-bench.ts, bench/candidates.ts, corpus/runs/pib-bench*
 (mni.jsonl is a candidate, not offered; the rig skips it) and :8086 until ~13:30. translator-f3 publishes
 ../pib-parallel/data/regional/mni; corpus/pib/pilot-v2 is final but NOT held out (linguistic-utilities read it).
+
+## PIB as a test of new and offered languages (2026-10-07, session translator-6d)
+Results are in bench/README.md, "Against PIB's own translations" (commits ca4d982, 635099f, f35be52).
+- Khasi: rejected (echoes the English with no examples; wrong Khasi with five PIB rows). Spike scripts were
+  scratch only; PIB is the only Khasi source (no IN22).
+- Manipuri: rejected on PIB too (Bengali script, PIB rows as examples): chrF 28.9 against a floor of 50.0
+  (Telugu, the weakest offered on PIB; fixed before the score). corpus/runs/pib-bench/mni.jsonl.
+- Offered languages on August 2023 (corpus/runs/pib-bench-2023-08): within ~5 points of November 2025,
+  Google moving with them; Urdu 60.1, its first PIB score. Nepali after the release: 56.0 (Google fell more).
+- bench/pib-bench.ts: PIB_DIR; LASER3-aligned pairs (BY_LASER, cut 0.85 share-matched to Bengali);
+  targets from LANGUAGES or candidates.ts#PIB_CANDIDATES, because toOptions silently falls back to Hindi.
+- Open: a Latin-script language needs an echo check by GlotLID, not by script. The README's "lead is largest
+  in Gujarati (20.5)" is wrong for November (Malayalam 23.1); the owner has not decided whether to fix it.
+  translator-3c found answers with no examples that end in "\nMarkdown: <answer again>" (4 of 840), which
+  src/prompt.ts#stopFor misses.
+- pib-parallel's regional/mni publish failed at audit (+91, 9[at]gov[dot]in); translator-f3 owns the fix.
