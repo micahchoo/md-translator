@@ -13,6 +13,7 @@
 //
 // Tesseract.js loads on the first image, never with the page: its engine is
 // 3.9 MB and each model 1 to 5 MB. Tesseract.js keeps the models in IndexedDB.
+import { IDLE_MS, idleRelease } from './idle'
 import { LANGUAGES } from './languages'
 import { cropAround, detect, inside, joinLines, readingOrder, type Region } from './layout'
 
@@ -168,6 +169,49 @@ export function paragraphRegions(blocks: ReadBlock[], minMean = 0): Region[] {
 
 // ---- reading, in the browser ----------------------------------------------
 
+/** Ends every Tesseract worker, giving back its memory (about 500 MB with the
+ *  layout model, for one page); the next image loads them again. */
+export function releaseReaders(): void {
+  for (const w of workers.values()) w.then((x) => x.terminate(), () => {})
+  workers.clear()
+  queues.clear()
+}
+const idle = idleRelease(IDLE_MS, releaseReaders)
+
+// Tesseract.js keeps each language's data in IndexedDB, in idb-keyval's default database.
+const LANGUAGE_DB = 'keyval-store'
+
+/** The bytes of language data Tesseract keeps in this browser. */
+export async function storedLanguages(): Promise<number> {
+  if (!(await indexedDB.databases()).some((d) => d.name === LANGUAGE_DB)) return 0
+  const db = await new Promise<IDBDatabase>((ok, fail) => {
+    const r = indexedDB.open(LANGUAGE_DB)
+    r.onsuccess = () => ok(r.result)
+    r.onerror = () => fail(r.error)
+  })
+  try {
+    if (!db.objectStoreNames.contains('keyval')) return 0
+    const values = await new Promise<unknown[]>((ok, fail) => {
+      const r = db.transaction('keyval').objectStore('keyval').getAll()
+      r.onsuccess = () => ok(r.result)
+      r.onerror = () => fail(r.error)
+    })
+    return values.reduce<number>((sum, v) => sum + ((v as { byteLength?: number })?.byteLength ?? 0), 0)
+  } finally {
+    db.close()
+  }
+}
+
+/** Removes Tesseract's language data; the next image downloads its language again. */
+export async function removeLanguages(): Promise<void> {
+  releaseReaders()
+  await new Promise<void>((ok, fail) => {
+    const r = indexedDB.deleteDatabase(LANGUAGE_DB)
+    r.onsuccess = () => ok()
+    r.onerror = () => fail(r.error)
+  })
+}
+
 type Worker = import('tesseract.js').Worker
 const workers = new Map<string, Promise<Worker>>()
 /** What the worker of each model is doing, for the status line. */
@@ -201,7 +245,7 @@ function worker(model: string): Promise<Worker> {
  *  worker's page mode, and two at once would change it under each other. */
 const queues = new Map<string, Promise<unknown>>()
 function queued<T>(model: string, job: () => Promise<T>): Promise<T> {
-  const next = (queues.get(model) ?? Promise.resolve()).then(job, job)
+  const next = (queues.get(model) ?? Promise.resolve()).then(() => idle.run(job), () => idle.run(job))
   queues.set(model, next.catch(() => {}))
   return next
 }
@@ -276,12 +320,15 @@ export async function readImage(image: Blob, code: string, english: boolean, onS
       const page = { left: 0, top: 0, width: bitmap.width, height: bitmap.height }
       const restBitmap = await createImageBitmap(rest)
       const restBlocks = await enlarged(w, restBitmap, page, ((await w.recognize(await rest.convertToBlob({ type: 'image/png' }), {}, { blocks: true, text: false })).data.blocks ?? []) as ReadBlock[])
+      restBitmap.close()
       // Where the model saw no text, a paragraph must be sure on the whole and must not repeat a region.
       const left = paragraphRegions(restBlocks, REST_MEAN).filter((p) => regions.every((r) => inside(p.box, r.box) < 0.3))
       return readingOrder([...joinLines(regions), ...left]).map((r) => r.text).filter(Boolean).join('\n\n')
     } finally {
       await w.setParameters({ tessedit_pageseg_mode: PSM.AUTO, thresholding_method: '2' } as Record<string, string>).catch(() => {})
       listeners.delete(model)
+      // A page's pixels, held outside the JavaScript heap until closed.
+      bitmap.close()
     }
   })
 }

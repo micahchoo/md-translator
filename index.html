@@ -22,6 +22,7 @@
           <span>Translate</span>
           <select id="lang"></select>
         </label>
+        <button id="remove-downloads" class="ghost" type="button" hidden title="Voices and reading data kept in this browser. Each downloads again when next needed."><span class="wide">Remove downloaded models</span><span class="narrow">Free space</span> <span id="downloads-size"></span></button>
         <button id="open-settings" class="ghost" type="button">Settings</button>
       </div>
     </header>
@@ -86,8 +87,11 @@
         <fieldset>
           <legend>Model</legend>
           <label>Endpoint <input name="endpoint" type="url" required placeholder="http://localhost:8086" /></label>
-          <p class="hint">Any OpenAI-compatible server with <code>/v1/completions</code>: llama.cpp, Ollama, vLLM.</p>
+          <p class="hint">Any OpenAI-compatible server with <code>/v1/completions</code>: llama.cpp, Ollama, vLLM. Chat-only APIs, such as Sarvam's, do not work yet: the model is given a page of translations to continue, because asked in chat it answered the text instead of translating it.</p>
           <label>Model name <input name="model" type="text" required /></label>
+          <label>API key <input name="apiKey" type="password" autocomplete="off" spellcheck="false" placeholder="Only for a hosted model" /></label>
+          <label class="check"><input name="rememberKey" type="checkbox" /> Remember the key on this device</label>
+          <p class="hint">The key is sent only to the endpoint above, and is cleared when you change its address. Without Remember, it lasts until this tab closes. Remembered, it is kept where your other pages at micahchoo.github.io could read it. Anyone using this browser can see it either way, so use a key with a spending limit.</p>
           <div class="row">
             <button id="test-connection" class="ghost" type="button">Test connection</button>
             <span id="connection" class="hint" role="status"></span>
@@ -109,7 +113,6 @@
           <label>Front matter keys to leave untranslated <input name="skipKeys" type="text" /></label>
           <label class="check"><input name="noteOnDownload" type="checkbox" /> End downloads with a note that a model made the translation</label>
           <label class="check"><input name="judge" type="checkbox" /> Let the model check its own answers for a lost "not" or a related language. This makes translation about three times slower. llama.cpp servers only.</label>
-          <div class="row"><span id="voices-stored" class="hint"></span> <button id="remove-voices" class="small ghost" type="button" hidden>Remove downloaded voices</button></div>
         </fieldset>
 
         <p id="settings-error" class="error" role="alert"></p>

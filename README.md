@@ -21,6 +21,8 @@ A model server on your computer that answers OpenAI-style completion requests an
 
 To use a server on another device, serve it over `https`, for example with `tailscale serve`. Browsers stop a secure page from calling plain `http` on any machine except your own.
 
+A hosted model works too, if it answers the same completion requests and accepts requests from a web page. Enter its endpoint, model name and **API key** in **Settings**. The key is sent only to that endpoint, and is cleared when you change the address. It lasts until the tab closes, unless you tick **Remember the key on this device**; then your other pages at micahchoo.github.io could read it. Anyone using the browser can see it either way, so use a key with a spending limit. Sarvam's own API answers only chat requests, which the translator does not send yet.
+
 ## How to use it
 
 1. Choose the direction, for example **English → Tamil** or **Any language → English**.
@@ -56,6 +58,10 @@ In **Blocks**, press **Play** on a translated block. The first Play in a languag
 | Mechanical (espeak-ng) | Gujarati, Odia, Punjabi, Tamil |
 
 The middle row's blocks say "Hindi pronunciation": a reader of the language will hear an accent, and Dogri and Bodo lose their tones. Assamese and Kashmiri have no Play button, because espeak-ng reads Assamese wrongly and has no rules for Kashmiri. Nobody who reads these languages has checked the voices yet.
+
+## Downloads and memory
+
+Voices and the letters for reading images stay in your browser after the first download. **Remove downloaded models** in the top bar (**Free space** on a phone) shows how much they take, and removes them; each downloads again when next needed. A minute after the last image or voice, the page also lets go of the models in memory, which matters on a phone: in testing, one page read and one voice held about 940 MB until then, and about 260 MB after.
 
 ## Latin letters
 
@@ -97,6 +103,7 @@ Before you rely on a translation, have someone who reads the language check it.
 
 | Setting | What it does |
 | --- | --- |
+| API key | For a hosted model; see [What you need](#what-you-need). Never saved with the other settings. |
 | Passage length | The longest piece sent in one request. Longer paragraphs are split at sentences. |
 | Context blocks | How many earlier translated pieces the model sees, so it uses the same words for the same terms. |
 | Retries | Attempts after a flagged answer. |

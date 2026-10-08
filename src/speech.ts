@@ -10,6 +10,7 @@
 // espeak-ng reads every character it is given: `**` and `#1` would be spoken.
 // It is handed only the words a reader sees.
 import type { Voice } from './languages'
+import { models, type Feed } from './onnx'
 
 // Every text needs a new espeak-ng instance, because the module is espeak-ng's
 // command line and runs once. Left to itself, each instance fetches and
@@ -204,45 +205,38 @@ export async function storedVoices(): Promise<{ voices: number; bytes: number }>
 export async function removeVoices(): Promise<void> {
   opened = undefined
   await caches.delete(CACHE)
-  for (const [name, s] of sessions) {
-    sessions.delete(name)
-    s.then(({ session }) => session.release(), () => {})
-  }
+  configs.clear()
+  models.release()
 }
 
-type Session = { config: PiperConfig; session: import('onnxruntime-web').InferenceSession }
-const sessions = new Map<string, Promise<Session>>()
-let runtime: Promise<typeof import('onnxruntime-web/wasm')> | undefined
+/** Each voice's config, small, kept for the page's life; the model lives in the ONNX worker (src/onnx.ts). */
+const configs = new Map<string, Promise<PiperConfig>>()
 
-function piperVoice(name: string, onProgress?: Progress): Promise<Session> {
-  let s = sessions.get(name)
-  if (!s) {
-    s = (async () => {
-      const ort = await (runtime ??= import('onnxruntime-web/wasm'))
-      const { config, model } = await fetchVoice(name, onProgress)
-      return { config, session: await ort.InferenceSession.create(model, { executionProviders: ['wasm'] }) }
-    })()
+function voiceConfig(name: string): Promise<PiperConfig> {
+  let c = configs.get(name)
+  if (!c) {
+    c = voiceFile(`${urlOf(name)}.onnx.json`).then((r) => r.json())
     // A failed load is not kept: the next Play tries again.
-    s.catch(() => sessions.delete(name))
-    sessions.set(name, s)
+    c.catch(() => configs.delete(name))
+    configs.set(name, c)
   }
-  return s
+  return c
 }
 
 async function piper(name: string, ipa: string, onProgress?: Progress): Promise<Uint8Array<ArrayBuffer>> {
-  const { config, session } = await piperVoice(name, onProgress)
-  const ort = await runtime!
+  const config = await voiceConfig(name)
   const ids = idsOf(ipa, config.phoneme_id_map)
   const { noise_scale, length_scale, noise_w } = config.inference
-  const feeds: Record<string, import('onnxruntime-web').Tensor> = {
-    input: new ort.Tensor('int64', BigInt64Array.from(ids, BigInt), [1, ids.length]),
-    input_lengths: new ort.Tensor('int64', BigInt64Array.from([BigInt(ids.length)]), [1]),
-    scales: new ort.Tensor('float32', Float32Array.from([noise_scale, length_scale, noise_w]), [3]),
+  const feeds: Record<string, Feed> = {
+    input: { type: 'int64', data: BigInt64Array.from(ids, BigInt), dims: [1, ids.length] },
+    input_lengths: { type: 'int64', data: BigInt64Array.from([BigInt(ids.length)]), dims: [1] },
+    scales: { type: 'float32', data: Float32Array.from([noise_scale, length_scale, noise_w]), dims: [3] },
   }
   // A voice of several speakers (Bengali's and Marathi's) speaks as its first.
-  if (config.num_speakers > 1) feeds.sid = new ort.Tensor('int64', BigInt64Array.from([0n]), [1])
-  const out = await session.run(feeds)
-  return wavOf(out[session.outputNames[0]].data as Float32Array, config.audio.sample_rate)
+  if (config.num_speakers > 1) feeds.sid = { type: 'int64', data: BigInt64Array.from([0n]), dims: [1] }
+  // The model is read from Cache Storage (downloaded the first time) only when the worker lacks it.
+  const out = await models.run(`piper:${name}`, async () => (await fetchVoice(name, onProgress)).model, feeds)
+  return wavOf(out, config.audio.sample_rate)
 }
 
 /** A WAV file of a unit's masked text; null when it holds no words. */

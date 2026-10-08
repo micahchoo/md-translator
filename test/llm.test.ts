@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { addressSpace, completionsUrl, createClient, sseTexts } from '../src/llm'
+import { addressSpace, completionsUrl, createClient, listModels, sseTexts } from '../src/llm'
 
 describe('completionsUrl', () => {
   test('accepts a base URL with or without /v1 and a trailing slash', () => {
@@ -63,5 +63,25 @@ describe('createClient', () => {
     await expect(complete({ prompt: 'p', temperature: 0, seed: 0, maxTokens: 8, stop: [] }, () => {})).rejects.toThrow(
       '503: model not loaded',
     )
+  })
+})
+
+describe('an API key', () => {
+  const sse = () => new Response('data: {"choices":[{"text":"ok"}]}\n\ndata: [DONE]\n\n')
+  const headers = (init?: RequestInit) => new Headers(init?.headers)
+
+  test('goes to a hosted model as a bearer token, on completions and on the model list', async () => {
+    const seen: Headers[] = []
+    const fetchImpl = (async (_: string, init?: RequestInit) => (seen.push(headers(init)), _.endsWith('/models') ? Response.json({ data: [] }) : sse())) as typeof fetch
+    await createClient({ endpoint: 'https://openrouter.ai/api/v1', model: 'm', apiKey: 'sk-1' }, fetchImpl)({ prompt: 'p', temperature: 0, seed: 1, maxTokens: 4, stop: [] }, () => {})
+    await listModels('https://openrouter.ai/api/v1', fetchImpl, 'sk-1')
+    expect(seen.map((h) => h.get('authorization'))).toEqual(['Bearer sk-1', 'Bearer sk-1'])
+  })
+
+  test('without one, no Authorization header is sent', async () => {
+    const seen: Headers[] = []
+    const fetchImpl = (async (_: string, init?: RequestInit) => (seen.push(headers(init)), sse())) as typeof fetch
+    await createClient({ endpoint: 'http://localhost:8086', model: 'm' }, fetchImpl)({ prompt: 'p', temperature: 0, seed: 1, maxTokens: 4, stop: [] }, () => {})
+    expect(seen[0].has('authorization')).toBe(false)
   })
 })

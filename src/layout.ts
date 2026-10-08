@@ -4,8 +4,9 @@
 // measured it: on 22 designed pages (news fronts) 57.0 chrF with Tesseract's
 // own layout and 65.4 region by region; on 147 pages of books 74.2 and 74.1.
 //
-// It runs on ONNX Runtime, which reading aloud already loads, and loads on
-// the first image.
+// It runs on ONNX Runtime in its worker (src/onnx.ts), which reading aloud
+// shares, and loads on the first image.
+import { models } from './onnx'
 
 export const LABELS = 'paragraph_title image text number abstract content figure_title formula table table_title reference doc_title footnote header algorithm footer seal chart_title chart formula_number header_image footer_image aside_text'.split(' ')
 /** Regions that are not text to read. */
@@ -135,24 +136,8 @@ const SIZE = 480
 const MEAN = [0.485, 0.456, 0.406]
 const STD = [0.229, 0.224, 0.225]
 
-let session: Promise<{ ort: typeof import('onnxruntime-web/wasm'); session: import('onnxruntime-web').InferenceSession }> | undefined
-
-function detector() {
-  if (!session) {
-    session = (async () => {
-      const ort = await import('onnxruntime-web/wasm')
-      const url = new URL(MODEL, document.baseURI).href
-      return { ort, session: await ort.InferenceSession.create(url, { executionProviders: ['wasm'] }) }
-    })()
-    // A failed load is not kept: the next image tries again.
-    session.catch(() => (session = undefined))
-  }
-  return session
-}
-
 /** The text regions of a page. */
 export async function detect(image: ImageBitmap): Promise<Region[]> {
-  const { ort, session } = await detector()
   const canvas = new OffscreenCanvas(SIZE, SIZE)
   const ctx = canvas.getContext('2d')!
   ctx.drawImage(image, 0, 0, SIZE, SIZE)
@@ -160,9 +145,9 @@ export async function detect(image: ImageBitmap): Promise<Region[]> {
   const input = new Float32Array(3 * SIZE * SIZE)
   for (let i = 0; i < SIZE * SIZE; i++)
     for (let c = 0; c < 3; c++) input[c * SIZE * SIZE + i] = (data[i * 4 + c] / 255 - MEAN[c]) / STD[c]
-  const out = await session.run({
-    image: new ort.Tensor('float32', input, [1, 3, SIZE, SIZE]),
-    scale_factor: new ort.Tensor('float32', Float32Array.from([SIZE / image.height, SIZE / image.width]), [1, 2]),
+  const out = await models.run('layout', async () => new URL(MODEL, document.baseURI).href, {
+    image: { type: 'float32', data: input, dims: [1, 3, SIZE, SIZE] },
+    scale_factor: { type: 'float32', data: Float32Array.from([SIZE / image.height, SIZE / image.width]), dims: [1, 2] },
   })
-  return regionsOf(out[session.outputNames[0]].data as Float32Array, image.width, image.height)
+  return regionsOf(out, image.width, image.height)
 }

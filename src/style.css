@@ -57,6 +57,12 @@ code { font-family: var(--mono); font-size: 0.9em; }
 .bar-actions, .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .row.end { justify-content: flex-end; }
 .spacer { flex: 1; }
+#remove-downloads .narrow { display: none; }
+#downloads-size { color: var(--muted); }
+@media (max-width: 720px) {
+  #remove-downloads .wide { display: none; }
+  #remove-downloads .narrow { display: inline; }
+}
 .lang { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 0.9rem; }
 
 .work {

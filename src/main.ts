@@ -10,7 +10,9 @@ import { imageLanguage, imageLanguages, readImage } from './ocr'
 import { readPdf } from './pdf'
 import { DEFAULTS, formatExamples, loadSettings, parseExamples, saveSettings, toOptions, type Settings } from './settings'
 import type { Romanizer } from 'indickit/romanize'
-import { removeVoices, speak, storedVoices } from './speech'
+import { downloadedBytes, removeDownloads } from './downloads'
+import { loadKey, originOf, saveKey, type KeyStores } from './key'
+import { speak } from './speech'
 import { loadDocs, loadMemory, remember, saveDocs, saveMemory, type SavedDoc } from './store'
 import { editUnit, machineNote, progressOf, retryUnit, translateDocument } from './translate'
 
@@ -52,7 +54,6 @@ const el = {
   connection: $('connection'),
   settingsError: $('settings-error'),
   examplesLabel: $('examples-label'),
-  voicesStored: $('voices-stored'),
   reading: $('reading'),
   imageLang: $<HTMLSelectElement>('image-lang'),
   imageEnglish: $<HTMLInputElement>('image-english'),
@@ -61,7 +62,8 @@ const el = {
   showImage: $<HTMLButtonElement>('show-image'),
   image: $<HTMLImageElement>('image'),
   sourcePane: document.querySelector<HTMLElement>('.source-pane')!,
-  removeVoices: $<HTMLButtonElement>('remove-voices'),
+  removeDownloads: $<HTMLButtonElement>('remove-downloads'),
+  downloadsSize: $('downloads-size'),
 }
 const viewTabs = [...document.querySelectorAll<HTMLButtonElement>('.views [data-view]')]
 const viewPanes = [...document.querySelectorAll<HTMLElement>('section.view')]
@@ -73,8 +75,18 @@ const storage: Pick<Storage, 'getItem' | 'setItem'> = (() => {
     return { getItem: () => null, setItem: () => {} }
   }
 })()
+const noStore = { getItem: () => null, setItem: () => {}, removeItem: () => {} }
+const keyStores: KeyStores = (() => {
+  try {
+    return { tab: window.sessionStorage, device: window.localStorage }
+  } catch {
+    return { tab: noStore, device: noStore }
+  }
+})()
 
 let settings: Settings = loadSettings(storage)
+/** The hosted model's key for the endpoint in use (src/key.ts); '' for a local server. */
+let apiKey = loadKey(keyStores, settings.endpoint).key
 let memory = loadMemory(storage)
 const docs: Doc[] = loadDocs(storage).map((d) => ({ ...d, view: d.units?.length ? 'blocks' : 'source' }))
 let nextId = Math.max(0, ...docs.map((d) => d.id)) + 1
@@ -178,18 +190,24 @@ function render() {
   el.follow.hidden = !(running && d.view === 'blocks' && !blocks.follow)
 }
 
-const latinReady = new Map<string, Romanizer>()
+/** The one language whose romanizer is loaded (src/latin.ts keeps one at a time). */
+let latinReady: { lang: string; r: Romanizer } | null = null
 const latinFailed = new Set<string>()
 const latinLoading = new Set<string>()
+/** Counts loads asked for, so a late answer for a language left behind is dropped. */
+let latinAsks = 0
 
 /** The language's romanizer once loaded; until then it starts the load and renders again when it ends. */
 function latinFor(lang: string): Romanizer | undefined {
-  const ready = latinReady.get(lang)
+  const ready = latinReady?.lang === lang ? latinReady.r : undefined
   if (ready || latinFailed.has(lang) || latinLoading.has(lang)) return ready
   latinLoading.add(lang)
+  const ask = ++latinAsks
   romanizer(lang)
     .then(
-      (r) => latinReady.set(lang, r),
+      (r) => {
+        if (ask === latinAsks) latinReady = { lang, r }
+      },
       () => latinFailed.add(lang),
     )
     .finally(() => {
@@ -269,7 +287,7 @@ async function scorer(): Promise<Score | undefined> {
 
 async function translate(targets: Doc[]) {
   controller = new AbortController()
-  const complete = createClient({ endpoint: settings.endpoint, model: settings.model })
+  const complete = createClient({ endpoint: settings.endpoint, model: settings.model, apiKey })
   const opts = { ...toOptions(settings), remembered: memory[settings.language], score: await scorer() }
   for (const d of targets) {
     if (controller.signal.aborted) break
@@ -323,7 +341,7 @@ async function retry(i: number) {
   const d = doc()
   if (!d.units || busy()) return
   controller = new AbortController()
-  const complete = createClient({ endpoint: settings.endpoint, model: settings.model })
+  const complete = createClient({ endpoint: settings.endpoint, model: settings.model, apiKey })
   const opts = { ...toOptions(settings), language: LANGUAGES[d.lang ?? settings.language], score: await scorer() }
   opts.examples = settings.examples[opts.language.code] ?? opts.language.examples
   render()
@@ -396,6 +414,7 @@ async function play(i: number) {
     }
     await me.audio.play()
     me.loading = false
+    showDownloads()
   } catch (e) {
     console.warn('Reading aloud failed:', e)
     if (playing === me) stopPlaying()
@@ -508,6 +527,7 @@ async function readInto(d: Doc, lang: string, english: boolean) {
   }
   persist()
   render()
+  showDownloads()
 }
 
 function renderReading(d: Doc) {
@@ -714,10 +734,22 @@ el.lang.onchange = () => {
 
 const field = (name: string) => el.form.elements.namedItem(name) as HTMLInputElement | HTMLTextAreaElement
 
+/** The address the key in the form belongs to. Changing the endpoint to
+ *  another address clears the key, so it is never sent where it was not entered. */
+let keyOrigin = ''
+field('endpoint').addEventListener('input', () => {
+  if (originOf(field('endpoint').value) !== keyOrigin) field('apiKey').value = ''
+})
+field('apiKey').addEventListener('input', () => (keyOrigin = originOf(field('endpoint').value)))
+
 function fillForm(s: Settings) {
   const lang = LANGUAGES[s.language]
   field('endpoint').value = s.endpoint
   field('model').value = s.model
+  const saved = loadKey(keyStores, s.endpoint)
+  field('apiKey').value = saved.key
+  ;(field('rememberKey') as HTMLInputElement).checked = saved.remembered
+  keyOrigin = originOf(s.endpoint)
   field('passageLength').value = String(s.passageLength)
   field('contextBlocks').value = String(s.contextBlocks)
   field('retries').value = String(s.retries)
@@ -731,31 +763,32 @@ function fillForm(s: Settings) {
   el.connection.textContent = ''
 }
 
-async function showVoices() {
-  // Cache Storage exists only on https and localhost; elsewhere nothing is kept.
-  const { voices, bytes } = await storedVoices().catch(() => ({ voices: 0, bytes: 0 }))
-  el.voicesStored.textContent = voices
-    ? `Voices for reading aloud: ${voices} kept in this browser, ${Math.round(bytes / 1e6)} MB.`
-    : 'No voices for reading aloud are kept in this browser.'
-  el.removeVoices.hidden = !voices
+/** The top bar's button shows what the page keeps in this browser, when it keeps anything. */
+async function showDownloads() {
+  const bytes = await downloadedBytes()
+  el.downloadsSize.textContent = `(${Math.max(1, Math.round(bytes / 1e6))} MB)`
+  el.removeDownloads.hidden = !bytes
 }
 
 $('open-settings').onclick = () => {
   fillForm(settings)
-  showVoices()
   el.dialog.showModal()
 }
-el.removeVoices.onclick = async () => {
+el.removeDownloads.onclick = async () => {
+  if (!confirm(`Remove the voices and reading data kept in this browser ${el.downloadsSize.textContent}? Each downloads again when next needed.`)) return
   stopPlaying()
   render()
-  await removeVoices()
-  showVoices()
+  el.removeDownloads.disabled = true
+  await removeDownloads()
+  el.removeDownloads.disabled = false
+  showDownloads()
 }
+showDownloads()
 $('reset-settings').onclick = () => fillForm({ ...structuredClone(DEFAULTS), language: settings.language })
 $('test-connection').onclick = async () => {
   el.connection.textContent = 'Connecting…'
   try {
-    const models = await listModels(field('endpoint').value)
+    const models = await listModels(field('endpoint').value, undefined, field('apiKey').value.trim())
     el.connection.textContent = models.length ? `Connected. Models: ${models.join(', ')}` : 'Connected.'
   } catch (e) {
     el.connection.textContent = e instanceof TypeError ? 'Could not reach that endpoint.' : `Error: ${(e as Error).message}`
@@ -779,6 +812,8 @@ el.form.addEventListener('submit', (e) => {
       noteOnDownload: (field('noteOnDownload') as HTMLInputElement).checked,
       judge: (field('judge') as HTMLInputElement).checked,
     }
+    apiKey = field('apiKey').value.trim()
+    saveKey(keyStores, settings.endpoint, apiKey, (field('rememberKey') as HTMLInputElement).checked)
     if (!saveSettings(storage, settings)) el.settingsError.textContent = 'Saved for this visit only: this browser blocks storage.'
   } catch (err) {
     e.preventDefault()

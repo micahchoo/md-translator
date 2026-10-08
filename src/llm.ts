@@ -17,7 +17,11 @@ export interface Endpoint {
   /** Base URL, e.g. `http://localhost:8086`; a trailing `/v1` is accepted. */
   endpoint: string
   model: string
+  /** A hosted model's key, sent as a bearer token; absent for a local server. */
+  apiKey?: string
 }
+
+const auth = (apiKey?: string): Record<string, string> => (apiKey ? { Authorization: `Bearer ${apiKey}` } : {})
 
 export function completionsUrl(base: string): string {
   return base.trim().replace(/\/+$/, '').replace(/\/v1$/, '') + '/v1/completions'
@@ -63,7 +67,7 @@ export function createClient(ep: Endpoint, fetchImpl: typeof fetch = fetch.bind(
     const space = addressSpace(ep.endpoint)
     const res = await fetchImpl(completionsUrl(ep.endpoint), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...auth(ep.apiKey) },
       body: JSON.stringify({
         model: ep.model,
         prompt: req.prompt,
@@ -97,9 +101,10 @@ export function createClient(ep: Endpoint, fetchImpl: typeof fetch = fetch.bind(
 }
 
 /** Lists the endpoint's models: the cheapest proof that it is reachable. */
-export async function listModels(base: string, fetchImpl: typeof fetch = fetch.bind(globalThis)): Promise<string[]> {
+export async function listModels(base: string, fetchImpl: typeof fetch = fetch.bind(globalThis), apiKey?: string): Promise<string[]> {
   const space = addressSpace(base)
   const res = await fetchImpl(completionsUrl(base).replace(/completions$/, 'models'), {
+    headers: auth(apiKey),
     ...(space ? { targetAddressSpace: space } : {}),
   } as RequestInit)
   if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`)
