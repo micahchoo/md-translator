@@ -349,6 +349,13 @@ devDependency only. Nothing committed.
    Watch: linguistic-utilities jobs/phonetic/spikes/best_in_class/frontier.py (unified letter-pair scorer;
    open-text key recall 88.3%). It fixes matching, not name extraction. When it reaches indickit's
    TypeScript, add it to the rig as a matcher variant. The phonetic agent has these findings.
+   Update 2026-10-08 (linguistic-utilities-28): pib-parallel 2021-05 stays OURS, held out (phonetic
+   reads 2019-07; job 5 has 2023-08). Singh fixed in rules 2026-10-07 (shipped in indickit 0.6.0, now
+   the translator's dependency). Delhi (Latin lh) and English endings REJECTED as key rules, so the
+   "key folds endings" condition above will never hold: the path is the new scorer instead.
+   October, Howrah: left to the scorer (candidates one sound away). A frozen scorer,
+   score(latin_name, native_word, lang) -> 0..100 with integer tables, comes after phonetic's held-out
+   read; add it to the rig as a matcher variant then. Name extraction is still the main blocker.
 2. **normalize: rejected (2026-10-07 13:19, `normalize-mt`).** Every changed block tokenizes differently, but
    chrF into English does not move: OCR +1.2 per sentence (90% range −0.1..+2.6, n 46), PIB +0.0 (−0.7..+0.7,
    n 374). Edit-memory keys merged: at most 15 of 16,030. In bench/README "Tried and rejected". If ever adopted
@@ -381,3 +388,19 @@ Results are in bench/README.md, "Against PIB's own translations" (commits ca4d98
   translator-3c found answers with no examples that end in "\nMarkdown: <answer again>" (4 of 840), which
   src/prompt.ts#stopFor misses.
 - pib-parallel's regional/mni publish failed at audit (+91, 9[at]gov[dot]in); translator-f3 owns the fix.
+
+## Hosted models and chat mode — decided 2026-10-08
+API key field shipped (src/key.ts: sessionStorage by default, opt-in localStorage, bound to the endpoint's
+origin; CSP in the built page). Chat mode NOT built (owner: "okay" to dropping it). Why: Sarvam's API has no
+/v1/completions and does not host sarvam-30b (sarvam-105b, glm5.3, gemma4, deepseekv4-flash), so every
+per-language result would need a new bench pass. Chat shapes with thinking off were already measured
+(.brainstorm/sessions/0001, turn 3: chat + 4 shots 8/56 flagged, framed chat 6, parallel 3); on a chat
+endpoint thinking cannot be switched off (enable_thinking, <|nothink|> = token 28, prefill all fail;
+re-checked 2026-10-08), and thinking on cost 60–83 s a sentence locally. Only raw /v1/completions with an
+empty <think></think> after <|assistant|> skips it. Hosted path that keeps the evidence: sarvam-30b on
+llama.cpp with --api-key over https. Revisit for sarvam-105b only after a 2-request check that its
+thinking can be switched off (docs: reasoning_effort only for glm5.3 and deepseekv4-flash).
+Memory work (same day): Tesseract workers and an ONNX worker (layout + voices) end after 60 s idle
+(src/idle.ts, src/onnx.ts): one page read + one voice 940 MB -> 260 MB renderer PSS. Top-bar
+"Remove downloaded models" (src/downloads.ts). Harness: fake streaming server + Playwright CDP (PSS
+from /proc) — scripts were in the session scratchpad, not kept.
