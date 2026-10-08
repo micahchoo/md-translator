@@ -76,6 +76,8 @@ body.dropping .work { outline: 2px dashed var(--accent); outline-offset: -4px; b
 #meter::-moz-progress-bar { background: var(--accent); }
 .only-flagged { display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem; color: var(--warn); }
 .only-flagged input { width: auto; }
+.latin-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem; color: var(--muted); }
+.latin-toggle input { width: auto; }
 
 .view { flex: 1; display: flex; min-height: 0; }
 #view-source { flex-direction: column; gap: 8px; }
@@ -113,6 +115,7 @@ textarea, input, select {
 .cell { min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
 .cell.source { color: var(--muted); font-size: 0.92rem; }
 .cell.target { font-size: 1rem; }
+.cell.target .latin { display: block; margin-top: 4px; color: var(--muted); font-size: 0.9rem; line-height: 1.5; }
 .cell.pending { color: var(--muted); font-style: italic; font-size: 0.88rem; }
 .cell.editing { display: grid; gap: 6px; }
 .cell.editing textarea { font-family: var(--sans); resize: vertical; }

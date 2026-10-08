@@ -57,6 +57,10 @@ In **Blocks**, press **Play** on a translated block. The first Play in a languag
 
 The middle row's blocks say "Hindi pronunciation": a reader of the language will hear an accent, and Dogri and Bodo lose their tones. Assamese and Kashmiri have no Play button, because espeak-ng reads Assamese wrongly and has no rules for Kashmiri. Nobody who reads these languages has checked the voices yet.
 
+## Latin letters
+
+For a reader who speaks the language but does not read its script, tick **Latin letters** in **Blocks**: each translation gets a line under it, such as "bharat ke pradhaanmantri" under भारत के प्रधानमंत्री. It works for all twenty languages. The first tick in a language downloads its tables from jsDelivr, 0.2–1.8 MB; your text goes nowhere. The spelling is one common way of writing each word, not a standard: on Wikipedia sentences in 11 of the languages, romanized by native speakers, the line's spelling is theirs for about half the words (61% in Hindi, 29% in Sindhi); the other nine were not measured. The line is only for reading. Copy and Download give the translation alone.
+
 ## What stays unchanged
 
 Code, link addresses, numbers, emphasis marks, and the front matter keys named in Settings (`notion-id, base, tags, aliases, cssclasses` by default).
@@ -125,6 +129,8 @@ This translator is one web page and your own model server. Your documents stay o
 The model is sarvam-30b by Sarvam AI. The language tests use IN22-Gen by AI4Bharat (CC BY 4.0), whose human translations also give Bodo, Sindhi and Kashmiri their examples, and GlotLID.
 
 Reading images uses [Tesseract](https://github.com/tesseract-ocr/tesseract) and its [tessdata_fast](https://github.com/tesseract-ocr/tessdata_fast) models, run by [Tesseract.js](https://github.com/naptha/tesseract.js), all under the Apache 2.0 licence. They load only when you first attach an image. PDFs are read by [pdf.js](https://github.com/mozilla/pdf.js) (Apache 2.0), which loads with the first PDF. The layout model is [PP-DocLayout-S](https://huggingface.co/PaddlePaddle/PP-DocLayout-S) by PaddlePaddle (Apache 2.0), converted to ONNX and served with this page; `public/models/NOTICE.txt` says how.
+
+Latin letters come from [indickit](https://github.com/micahchoo/indickit)'s `romanize` (MIT), which loads with the first tick.
 
 Reading aloud uses [espeak-ng](https://github.com/espeak-ng/espeak-ng), compiled to WebAssembly by [espeak-ng.js](https://github.com/ianmarmour/espeak-ng.js), under the GPL 3.0 or later, and [Piper](https://github.com/rhasspy/piper) voices from [piper-voices](https://huggingface.co/rhasspy/piper-voices) and, for Kannada, [piper-kn](https://huggingface.co/micahchoo/piper-kn), trained for this page, run by [ONNX Runtime](https://onnxruntime.ai/) (MIT). They load only when you first press Play. Each voice is under the licence of the recordings it learned from:
 

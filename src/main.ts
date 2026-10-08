@@ -5,9 +5,11 @@ import { BlockList } from './blocks'
 import { directionLabel, dirOf, LANGUAGES } from './languages'
 import { createScorer, probe, type Score } from './judge'
 import { createClient, listModels } from './llm'
+import { hasLatin, latinText, romanizer } from './latin'
 import { imageLanguage, imageLanguages, readImage } from './ocr'
 import { readPdf } from './pdf'
 import { DEFAULTS, formatExamples, loadSettings, parseExamples, saveSettings, toOptions, type Settings } from './settings'
+import type { Romanizer } from 'indickit/romanize'
 import { removeVoices, speak, storedVoices } from './speech'
 import { loadDocs, loadMemory, remember, saveDocs, saveMemory, type SavedDoc } from './store'
 import { editUnit, machineNote, progressOf, retryUnit, translateDocument } from './translate'
@@ -43,6 +45,8 @@ const el = {
   onlyFlagged: $<HTMLInputElement>('only-flagged'),
   onlyFlaggedText: $('only-flagged-text'),
   follow: $<HTMLButtonElement>('follow'),
+  latin: $<HTMLInputElement>('latin'),
+  latinText: $('latin-text'),
   dialog: $<HTMLDialogElement>('settings'),
   form: $<HTMLFormElement>('settings-form'),
   connection: $('connection'),
@@ -159,13 +163,40 @@ function render() {
   renderReading(d)
 
   const lang = d.lang ?? settings.language
+  const canLatin = d.view === 'blocks' && units.length > 0 && hasLatin(lang)
+  const latin = settings.latin && canLatin ? latinFor(lang) : undefined
+  el.latin.parentElement!.hidden = !canLatin
+  el.latin.checked = settings.latin
+  el.latinText.textContent =
+    settings.latin && canLatin && !latin ? (latinFailed.has(lang) ? 'Latin letters could not load' : 'Latin letters: loading…') : 'Latin letters'
   const voice = LANGUAGES[lang].voice
   const mine = playing?.doc === d.id ? playing : null
   const listening = voice
     ? { playing: mine?.index ?? null, loading: !!mine?.loading, progress: mine?.progress, accent: voice.accent }
     : undefined
-  if (d.view === 'blocks' && units.length) blocks.show(units, lang, isBusy, el.onlyFlagged.checked, listening)
+  if (d.view === 'blocks' && units.length) blocks.show(units, lang, isBusy, el.onlyFlagged.checked, listening, latin && ((t) => latinText(latin, t)))
   el.follow.hidden = !(running && d.view === 'blocks' && !blocks.follow)
+}
+
+const latinReady = new Map<string, Romanizer>()
+const latinFailed = new Set<string>()
+const latinLoading = new Set<string>()
+
+/** The language's romanizer once loaded; until then it starts the load and renders again when it ends. */
+function latinFor(lang: string): Romanizer | undefined {
+  const ready = latinReady.get(lang)
+  if (ready || latinFailed.has(lang) || latinLoading.has(lang)) return ready
+  latinLoading.add(lang)
+  romanizer(lang)
+    .then(
+      (r) => latinReady.set(lang, r),
+      () => latinFailed.add(lang),
+    )
+    .finally(() => {
+      latinLoading.delete(lang)
+      render()
+    })
+  return undefined
 }
 
 function docTab(d: Doc): HTMLElement {
@@ -631,6 +662,13 @@ for (const t of viewTabs)
     render()
   }
 el.onlyFlagged.onchange = () => render()
+el.latin.onchange = () => {
+  settings.latin = el.latin.checked
+  saveSettings(storage, settings)
+  // Ticked again after a failed load: try once more.
+  if (settings.latin) latinFailed.clear()
+  render()
+}
 el.follow.onclick = () => {
   blocks.follow = true
   render()

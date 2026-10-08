@@ -57,6 +57,7 @@ export class BlockList {
   private units: UnitResult[] | null = null
   private editing: number | null = null
   private listening?: Listening
+  private latin?: (text: string) => string
   /** Keep the running block in view; off as soon as the owner scrolls. */
   follow = true
 
@@ -71,9 +72,10 @@ export class BlockList {
     })
   }
 
-  /** `listening` is absent where the language has no voice. */
-  show(units: UnitResult[], lang: string, busy: boolean, onlyFlagged: boolean, listening?: Listening) {
+  /** `listening` is absent where the language has no voice; `latin`, unless the owner asked for Latin letters. */
+  show(units: UnitResult[], lang: string, busy: boolean, onlyFlagged: boolean, listening?: Listening, latin?: (text: string) => string) {
     this.listening = listening
+    this.latin = latin
     if (units !== this.units || this.rows.length !== units.length) {
       this.units = units
       this.editing = null
@@ -86,7 +88,7 @@ export class BlockList {
       const hidden = onlyFlagged && !u.flags.length && u.status !== 'running'
       row.el.hidden = hidden
       if (u.status === 'running') running = row.el
-      const key = [u.status, u.output, u.flags.join(), u.edited, busy, lang, this.editing === i, this.playLabel(i)].join('\u0000')
+      const key = [u.status, u.output, u.flags.join(), u.edited, busy, lang, this.editing === i, this.playLabel(i), !!latin].join('\u0000')
       if (key === row.key) return
       row.key = key
       this.fill(row.el, u, i, lang, busy)
@@ -137,9 +139,16 @@ export class BlockList {
     if (this.editing === i) {
       target = this.editor(u, i, lang)
     } else if (u.output) {
-      target = h('div', 'cell target indic-text', unmask(u.output, u.unit.restore))
+      const text = unmask(u.output, u.unit.restore)
+      target = h('div', 'cell target indic-text', text)
       target.lang = lang
       target.dir = dirOf(lang)
+      if (this.latin && u.status === 'done') {
+        const line = h('span', 'latin', this.latin(text))
+        line.lang = `${lang}-Latn`
+        line.dir = 'ltr'
+        target.append(line)
+      }
     } else {
       target = h('div', 'cell target pending', u.status === 'running' ? 'Translating…' : 'Waiting')
     }

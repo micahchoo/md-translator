@@ -25,6 +25,8 @@ export interface Settings {
   imageLanguage: string
   /** Images are read for English as well as their own language. */
   imageEnglish: boolean
+  /** Translations in Blocks show a line in Latin letters (src/latin.ts). */
+  latin: boolean
   /** Which one-time corrections the saved settings have had; see `loadSettings`. */
   revision: number
 }
@@ -43,6 +45,7 @@ export const DEFAULTS: Settings = {
   judge: false,
   imageLanguage: 'hi',
   imageEnglish: false,
+  latin: false,
   revision: 1,
 }
 

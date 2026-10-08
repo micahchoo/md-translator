@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "espeak-ng": "1.0.2",
+    "indickit": "0.6.0",
     "mdast-util-from-markdown": "^2.0.3",
     "mdast-util-frontmatter": "^2.0.1",
     "mdast-util-gfm": "^3.1.0",
@@ -20,7 +21,6 @@
   "devDependencies": {
     "@types/bun": "latest",
     "@types/mdast": "^4.0.4",
-    "indickit": "0.4.2",
     "playwright": "1.61.1",
     "tesseract.js": "7",
     "typescript": "^5.9.0",
