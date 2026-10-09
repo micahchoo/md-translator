@@ -117,8 +117,10 @@ export function parseExamples(text: string, { from, name }: Language): Pair[] {
   })
 }
 
+/** The run's options for the settings. `loadSettings` admits only offered language codes; any other is an error, never Hindi by default. */
 export function toOptions(s: Settings): TranslateOptions {
-  const language = LANGUAGES[s.language] ?? LANGUAGES.hi
+  const language = LANGUAGES[s.language]
+  if (!language) throw new Error(`No language has the code "${s.language}".`)
   return {
     language,
     preamble: s.preamble,

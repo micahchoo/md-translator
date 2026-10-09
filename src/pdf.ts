@@ -8,7 +8,7 @@
 //
 // pdf.js loads on the first PDF, never with the page.
 import { LANGUAGES } from './languages'
-import { escapeMarkdown, joinLine, readImage } from './ocr'
+import { escapeMarkdown, joinLine, readImage, type ReadPhase } from './ocr'
 
 export interface LayerItem {
   str: string
@@ -124,6 +124,9 @@ export interface PdfReading {
   damaged: number
 }
 
+/** A page's reading, in the status line's words. */
+const PHASE: Record<ReadPhase, string> = { layout: 'finding the layout', letters: 'getting letters', reading: 'reading the image' }
+
 /** A PDF's text in the language `code`, page by page; `onStatus` hears where it is. */
 export async function readPdf(file: Blob, code: string, english: boolean, onStatus?: (status: string) => void): Promise<PdfReading> {
   const pdfjs = await import('pdfjs-dist')
@@ -153,7 +156,7 @@ export async function readPdf(file: Blob, code: string, english: boolean, onStat
         canvas.height = Math.ceil(viewport.height)
         await page.render({ canvas, viewport }).promise
         const image = await new Promise<Blob>((ok, fail) => canvas.toBlob((b) => (b ? ok(b) : fail(new Error('The page could not be drawn.'))), 'image/png'))
-        out.push(await readImage(image, code, english, (s) => onStatus?.(`Page ${n} of ${pdf.numPages}: ${s.startsWith('recognizing') ? 'reading the image' : 'getting letters'}…`)))
+        out.push(await readImage(image, code, english, (phase) => onStatus?.(`Page ${n} of ${pdf.numPages}: ${PHASE[phase]}…`)))
         read++
       } else if (layer) {
         out.push(layer)

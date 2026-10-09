@@ -3,7 +3,7 @@
 // what the app runs.
 import { createScorer } from '../src/judge'
 
-const scorer = createScorer(process.env.ENDPOINT ?? 'http://localhost:8086')
+const scorer = createScorer({ endpoint: process.env.ENDPOINT ?? 'http://localhost:8086' })
 
 export async function score(prefix: string, text: string): Promise<{ sum: number }> {
   return { sum: await scorer(prefix, text) }

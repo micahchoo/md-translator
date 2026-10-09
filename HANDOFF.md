@@ -445,3 +445,32 @@ Memory work (same day): Tesseract workers and an ONNX worker (layout + voices) e
 (src/idle.ts, src/onnx.ts): one page read + one voice 940 MB -> 260 MB renderer PSS. Top-bar
 "Remove downloaded models" (src/downloads.ts). Harness: fake streaming server + Playwright CDP (PSS
 from /proc) — scripts were in the session scratchpad, not kept.
+
+## Codebase-design pass — 2026-10-08, uncommitted
+Deep modules behind small interfaces (the codebase-design skill: module, interface, seam, adapter).
+241 tests pass; `tsc --noEmit` clean; the built page ran headless against :8086 (typed hint → Hindi
+tables → translation → Latin line, no console errors). Nothing is committed or pushed.
+- **One server seam** (`src/llm.ts#serverFetch`, `Server = { endpoint, apiKey }`): base-URL stripping,
+  bearer key and Chrome's `targetAddressSpace` were written three times (client, model list, judge),
+  and the judge's copy sent no key, so on a hosted llama.cpp with `--api-key` the probe failed quietly
+  and the judge never ran. `createScorer`/`probe`/`listModels` now take a `Server`; bench/likelihood.ts
+  adapted. Rule: `.claude/rules/translator-server.md`. Test: test/judge.test.ts (scorer and probe carry the key).
+- **One on-demand loader** (`src/lazy.ts#onDemand`): main.ts carried three hand-rolled copies of
+  "load once, remember a failure, render again when settled" (romanizer, deromanizer, detector), and
+  typed.ts/latin.ts each a one-language-at-a-time cache under them. `get` for a render loop, `load`
+  for a run, `state` for the label, `retry` on a re-tick; only the key asked for last is kept. Fixed on
+  the way: the typed hint never appeared for the paste that first fetched the detector (the verdict was
+  cached as null before the model arrived); the detector now fetches only for a mostly-Latin source
+  (`detect.ts#mostlyLatin`), as bench/README already said.
+- **Reader phases** (`ocr.ts#ReadPhase`): readImage reported Tesseract's logger strings and main.ts and
+  pdf.ts each interpreted them ("finding the layout" showed as "Getting letters"). Callers word the phase.
+- **Error mode made visible**: `settings.ts#toOptions` threw nothing and fell back to Hindi for an
+  unknown code (it bit bench/pib-bench.ts); it now throws. `translate.ts#judged` is the one place the
+  judge is called; main.ts#runOptions the one place a run's options are built (retry no longer
+  re-derived the examples toOptions already picks).
+Left as candidates, not done: main.ts (907 lines) still holds the image-reading state (images,
+readings, lastRead maps + readInto/renderReading) that could be its own module; store/key/settings each
+hide storage failure their own way (three small modules, fine); nine bench scripts build
+`createClient({ endpoint: DEFAULTS.endpoint, model: DEFAULTS.model })` by hand (a bench/server.ts
+could own ENDPOINT); pure helpers exported only for tests (sseTexts, formDrift, regionsOf, …) are
+internal seams on the interface, kept because the browser halves have no local stand-in.

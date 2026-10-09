@@ -75,6 +75,10 @@ describe('toOptions', () => {
     expect(o.examples).toEqual(LANGUAGES.kn.examples)
   })
 
+  test('a code no language has is an error, not Hindi', () => {
+    expect(() => toOptions({ ...DEFAULTS, language: 'xx' })).toThrow('"xx"')
+  })
+
   test('skip keys are given as a comma list', () => {
     expect(toOptions({ ...DEFAULTS, skipKeys: 'notion-id, base ,, tags' }).skipKeys).toEqual(['notion-id', 'base', 'tags'])
   })

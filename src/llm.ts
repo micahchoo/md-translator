@@ -13,18 +13,31 @@ export interface Completion {
 /** Streams one completion. `onText` gets the whole text so far after each delta. */
 export type Complete = (req: Completion, onText: (soFar: string) => void, signal?: AbortSignal) => Promise<string>
 
-export interface Endpoint {
+/** A model server: its address and, for a hosted one, the key every request to it carries. */
+export interface Server {
   /** Base URL, e.g. `http://localhost:8086`; a trailing `/v1` is accepted. */
   endpoint: string
-  model: string
   /** A hosted model's key, sent as a bearer token; absent for a local server. */
   apiKey?: string
 }
 
-const auth = (apiKey?: string): Record<string, string> => (apiKey ? { Authorization: `Bearer ${apiKey}` } : {})
+export interface Endpoint extends Server {
+  model: string
+}
 
-export function completionsUrl(base: string): string {
-  return base.trim().replace(/\/+$/, '').replace(/\/v1$/, '') + '/v1/completions'
+/** The URL of `path` on the server. */
+export const serverUrl = (base: string, path: string) => base.trim().replace(/\/+$/, '').replace(/\/v1$/, '') + path
+
+/**
+ * A fetch of `path` on the server, the one way every request reaches it: the
+ * key goes as a bearer token, and a private address is declared local (see
+ * `addressSpace`). The judge (src/judge.ts) makes its requests here too, so a
+ * server that wants a key for `/tokenize` gets it.
+ */
+export function serverFetch(s: Server, path: string, init: RequestInit & { headers?: Record<string, string> } = {}, fetchImpl: typeof fetch = fetch.bind(globalThis)): Promise<Response> {
+  const space = addressSpace(s.endpoint)
+  const headers = { ...init.headers, ...(s.apiKey ? { Authorization: `Bearer ${s.apiKey}` } : {}) }
+  return fetchImpl(serverUrl(s.endpoint, path), { ...init, headers, ...(space ? { targetAddressSpace: space } : {}) } as RequestInit)
 }
 
 /**
@@ -64,22 +77,25 @@ export function sseTexts(buffer: string): { texts: string[]; rest: string; done:
 
 export function createClient(ep: Endpoint, fetchImpl: typeof fetch = fetch.bind(globalThis)): Complete {
   return async (req, onText, signal) => {
-    const space = addressSpace(ep.endpoint)
-    const res = await fetchImpl(completionsUrl(ep.endpoint), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...auth(ep.apiKey) },
-      body: JSON.stringify({
-        model: ep.model,
-        prompt: req.prompt,
-        temperature: req.temperature,
-        seed: req.seed,
-        max_tokens: req.maxTokens,
-        stop: req.stop,
-        stream: true,
-      }),
-      signal,
-      ...(space ? { targetAddressSpace: space } : {}),
-    } as RequestInit)
+    const res = await serverFetch(
+      ep,
+      '/v1/completions',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: ep.model,
+          prompt: req.prompt,
+          temperature: req.temperature,
+          seed: req.seed,
+          max_tokens: req.maxTokens,
+          stop: req.stop,
+          stream: true,
+        }),
+        signal,
+      },
+      fetchImpl,
+    )
     if (!res.ok || !res.body) throw new Error(`${res.status}: ${(await res.text()).trim() || res.statusText}`)
     const reader = res.body.getReader()
     const decoder = new TextDecoder()
@@ -101,12 +117,8 @@ export function createClient(ep: Endpoint, fetchImpl: typeof fetch = fetch.bind(
 }
 
 /** Lists the endpoint's models: the cheapest proof that it is reachable. */
-export async function listModels(base: string, fetchImpl: typeof fetch = fetch.bind(globalThis), apiKey?: string): Promise<string[]> {
-  const space = addressSpace(base)
-  const res = await fetchImpl(completionsUrl(base).replace(/completions$/, 'models'), {
-    headers: auth(apiKey),
-    ...(space ? { targetAddressSpace: space } : {}),
-  } as RequestInit)
+export async function listModels(s: Server, fetchImpl: typeof fetch = fetch.bind(globalThis)): Promise<string[]> {
+  const res = await serverFetch(s, '/v1/models', {}, fetchImpl)
   if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`)
   const body = await res.json()
   return (body?.data ?? []).map((m: { id: string }) => m.id)

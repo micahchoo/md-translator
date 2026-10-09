@@ -1,11 +1,25 @@
 import { describe, expect, test } from 'bun:test'
-import { addressSpace, completionsUrl, createClient, listModels, sseTexts } from '../src/llm'
+import { addressSpace, createClient, listModels, serverFetch, serverUrl, sseTexts } from '../src/llm'
 
-describe('completionsUrl', () => {
+describe('serverUrl', () => {
   test('accepts a base URL with or without /v1 and a trailing slash', () => {
-    expect(completionsUrl('http://localhost:8086')).toBe('http://localhost:8086/v1/completions')
-    expect(completionsUrl('http://localhost:8086/')).toBe('http://localhost:8086/v1/completions')
-    expect(completionsUrl('http://localhost:8086/v1/')).toBe('http://localhost:8086/v1/completions')
+    expect(serverUrl('http://localhost:8086', '/v1/completions')).toBe('http://localhost:8086/v1/completions')
+    expect(serverUrl('http://localhost:8086/', '/v1/completions')).toBe('http://localhost:8086/v1/completions')
+    expect(serverUrl('http://localhost:8086/v1/', '/tokenize')).toBe('http://localhost:8086/tokenize')
+  })
+})
+
+describe('serverFetch', () => {
+  test('declares a private address local and keeps the request\'s own headers beside the key', async () => {
+    const seen: { url: string; init: RequestInit & { targetAddressSpace?: string } }[] = []
+    const fetchImpl = (async (url: string, init: RequestInit) => (seen.push({ url, init }), new Response('ok'))) as unknown as typeof fetch
+    await serverFetch({ endpoint: 'http://192.168.0.5:8086/v1', apiKey: 'k' }, '/completion', { method: 'POST', headers: { 'Content-Type': 'application/json' } }, fetchImpl)
+    await serverFetch({ endpoint: 'http://localhost:8086' }, '/v1/models', {}, fetchImpl)
+    expect(seen[0].url).toBe('http://192.168.0.5:8086/completion')
+    expect(seen[0].init.targetAddressSpace).toBe('local')
+    expect(seen[0].init.headers).toEqual({ 'Content-Type': 'application/json', Authorization: 'Bearer k' })
+    expect(seen[1].init.targetAddressSpace).toBeUndefined()
+    expect(seen[1].init.headers).toEqual({})
   })
 })
 
@@ -74,7 +88,7 @@ describe('an API key', () => {
     const seen: Headers[] = []
     const fetchImpl = (async (_: string, init?: RequestInit) => (seen.push(headers(init)), _.endsWith('/models') ? Response.json({ data: [] }) : sse())) as typeof fetch
     await createClient({ endpoint: 'https://openrouter.ai/api/v1', model: 'm', apiKey: 'sk-1' }, fetchImpl)({ prompt: 'p', temperature: 0, seed: 1, maxTokens: 4, stop: [] }, () => {})
-    await listModels('https://openrouter.ai/api/v1', fetchImpl, 'sk-1')
+    await listModels({ endpoint: 'https://openrouter.ai/api/v1', apiKey: 'sk-1' }, fetchImpl)
     expect(seen.map((h) => h.get('authorization'))).toEqual(['Bearer sk-1', 'Bearer sk-1'])
   })
 

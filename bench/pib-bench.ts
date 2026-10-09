@@ -62,7 +62,7 @@ function pick(lang: string): Pair[] {
   return out
 }
 
-// toOptions falls back to Hindi for a code it does not know, so every target is named here.
+// toOptions knows only the offered languages, so every target, offered or candidate, is named here.
 const target = (code: string): Language => {
   const t = LANGUAGES[code] ?? PIB_CANDIDATES[code]
   if (!t) throw new Error(`${code}: neither offered nor a PIB candidate`)

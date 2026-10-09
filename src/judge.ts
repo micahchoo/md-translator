@@ -14,7 +14,7 @@
 // other server `probe` says no, and the app does not judge.
 import type { Flag } from './checks'
 import { LANGUAGES, type Language, type Pair } from './languages'
-import { addressSpace } from './llm'
+import { serverFetch, type Server } from './llm'
 import { buildPrompt } from './prompt'
 
 /** log P(text | prefix), summed over the text's tokens. */
@@ -61,18 +61,15 @@ export async function otherLanguage(score: Score, prompts: Record<string, string
 
 const TOP = 100
 
+/** A POST of `body` as JSON to `path` on the server. */
+const post = (server: Server, fetchImpl: typeof fetch) => (path: string, body: unknown, signal?: AbortSignal) =>
+  serverFetch(server, path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal }, fetchImpl)
+
 /** A scorer for a llama.cpp server, which reads probabilities one token at a time. */
-export function createScorer(endpoint: string, fetchImpl: typeof fetch = fetch.bind(globalThis)): Score {
-  const base = endpoint.trim().replace(/\/+$/, '').replace(/\/v1$/, '')
-  const space = addressSpace(endpoint)
-  const post = async <T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> => {
-    const r = await fetchImpl(`${base}${path}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      signal,
-      ...(space ? { targetAddressSpace: space } : {}),
-    } as RequestInit)
+export function createScorer(server: Server, fetchImpl: typeof fetch = fetch.bind(globalThis)): Score {
+  const send = post(server, fetchImpl)
+  const ask = async <T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> => {
+    const r = await send(path, body, signal)
     if (!r.ok) throw new Error(`${path} ${r.status}`)
     return r.json() as Promise<T>
   }
@@ -83,7 +80,7 @@ export function createScorer(endpoint: string, fetchImpl: typeof fetch = fetch.b
   const step = async (prompt: number[], signal?: AbortSignal): Promise<Candidates | undefined> => {
     for (const n_predict of [4, 1, 2, 3]) {
       try {
-        const res = await post<{ completion_probabilities?: { top_logprobs: Candidates }[] }>(
+        const res = await ask<{ completion_probabilities?: { top_logprobs: Candidates }[] }>(
           '/completion',
           { prompt, n_predict, n_probs: TOP, temperature: 0, cache_prompt: true, ignore_eos: true },
           signal,
@@ -97,7 +94,7 @@ export function createScorer(endpoint: string, fetchImpl: typeof fetch = fetch.b
     return undefined
   }
   return async (prefix, text, signal) => {
-    const tokenize = async (content: string) => (await post<{ tokens: number[] }>('/tokenize', { content }, signal)).tokens
+    const tokenize = async (content: string) => (await ask<{ tokens: number[] }>('/tokenize', { content }, signal)).tokens
     const [pre, full] = await Promise.all([tokenize(prefix), tokenize(prefix + text)])
     let k = 0
     while (k < pre.length && pre[k] === full[k]) k++
@@ -113,16 +110,9 @@ export function createScorer(endpoint: string, fetchImpl: typeof fetch = fetch.b
 }
 
 /** Whether this server can score text: llama.cpp's /tokenize answers. */
-export async function probe(endpoint: string, fetchImpl: typeof fetch = fetch.bind(globalThis)): Promise<boolean> {
+export async function probe(server: Server, fetchImpl: typeof fetch = fetch.bind(globalThis)): Promise<boolean> {
   try {
-    const base = endpoint.trim().replace(/\/+$/, '').replace(/\/v1$/, '')
-    const space = addressSpace(endpoint)
-    const r = await fetchImpl(`${base}/tokenize`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: 'a' }),
-      ...(space ? { targetAddressSpace: space } : {}),
-    } as RequestInit)
+    const r = await post(server, fetchImpl)('/tokenize', { content: 'a' })
     return r.ok && Array.isArray((await r.json())?.tokens)
   } catch {
     return false

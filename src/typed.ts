@@ -2,7 +2,8 @@
 // script before the model sees it: sarvam-30b gives typed text back unchanged
 // about half the time, and reads it well once written (bench/README, "Text
 // typed in Latin letters"). indickit's deromanizer and one language's tables
-// (0.3–3.1 MB) load only when the owner asks for them.
+// (0.3–3.1 MB) load only when the owner asks for them, through src/lazy.ts,
+// which keeps one language's at a time: parsed, they take tens of MB of heap.
 import type { Deromanizer } from 'indickit/deromanize'
 import { LANGUAGES } from './languages'
 
@@ -14,23 +15,9 @@ import { LANGUAGES } from './languages'
 export const TYPED = ['as', 'bn', 'hi', 'kn', 'ml', 'ne', 'pa', 'sa', 'te', 'ur']
 export const hasTyped = (lang: string) => TYPED.includes(lang) && lang in LANGUAGES
 
-/** One language at a time: a language's tables take tens of MB of heap parsed. */
-let loaded: { lang: string; d: Promise<Deromanizer> } | null = null
-
-/** The deromanizer for running text in one language. Asking for another language
- *  lets the last one go; a failed load is tried again next time. */
-export function deromanizer(lang: string): Promise<Deromanizer> {
-  if (loaded?.lang !== lang) {
-    // The npm package carries no tables: read them from jsDelivr, at its version.
-    const d = import('indickit/deromanize').then((m) => m.load(lang, 'words', { base: m.CDN }))
-    const mine = { lang, d }
-    d.catch(() => {
-      if (loaded === mine) loaded = null
-    })
-    loaded = mine
-  }
-  return loaded.d
-}
+/** The deromanizer for running text in one language. The npm package carries
+ *  no tables: they are read from jsDelivr, at its version. */
+export const deromanizer = (lang: string): Promise<Deromanizer> => import('indickit/deromanize').then((m) => m.load(lang, 'words', { base: m.CDN }))
 
 /** What stays as typed: inline code, addresses, and masked link targets (`#1`). */
 const KEEP = /`[^`]*`|\bhttps?:\/\/\S+|\bwww\.\S+|\S+@\S+\.\S+|#\d+/g

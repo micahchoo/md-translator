@@ -74,13 +74,19 @@ export function scores(model: Model, text: string): Record<string, number> {
   return out
 }
 
-/** The verdict on a text, or null when it is too short or not in Latin letters
- *  (a fifth or more of its letters outside ASCII). */
-export function detect(model: Model, text: string): Verdict | null {
+/** True when the text's prose has letters enough to judge, at least four in
+ *  five of them Latin. Text in a script, or too little text, says nothing. */
+export function mostlyLatin(text: string): boolean {
   const p = prose(text)
   const letters = p.match(/\p{L}/gu)?.length ?? 0
   const latin = p.match(/[A-Za-z]/g)?.length ?? 0
-  if (letters < MIN_LETTERS || latin / letters < 0.8) return null
+  return letters >= MIN_LETTERS && latin / letters >= 0.8
+}
+
+/** The verdict on a text, or null when it is not mostly Latin letters. */
+export function detect(model: Model, text: string): Verdict | null {
+  if (!mostlyLatin(text)) return null
+  const p = prose(text)
   const s = scores(model, p)
   const best = Object.keys(s)
     .filter((l) => l !== 'en')

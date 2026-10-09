@@ -130,7 +130,12 @@ async function translateUnit(
 /** How many blocks of a document get the related-language check: a wrong language is the whole document's. */
 const LANGUAGE_CHECKS = 3
 
-const judgeOf = (opts: TranslateOptions, score: Score) => ({ score, language: sourceLanguage(opts), preamble: opts.preamble, examples: examplesOf(opts) })
+/** An answer's flags once the judge has seen it: it looks only at answers the rules passed, and only where the server can score. */
+function judged(opts: TranslateOptions, u: UnitResult, r: { output: string; flags: Flag[] }, checkLanguage: boolean, signal?: AbortSignal): Promise<Flag[]> {
+  if (!opts.score || r.flags.length) return Promise.resolve(r.flags)
+  const { score } = opts
+  return judgeAnswer({ score, language: sourceLanguage(opts), preamble: opts.preamble, examples: examplesOf(opts), source: u.unit.text, output: r.output, checkLanguage, signal })
+}
 
 /** Every finished unit before `index`, as source and answer, clean or flagged. */
 const earlierBefore = (units: UnitResult[], index: number): Pair[] =>
@@ -202,14 +207,11 @@ export async function translateDocument(
       const r = await translateUnit(u, history, earlierBefore(units, i), opts, complete, () => onProgress(progressOf(md, units)), signal, {
         sampleFirst: false,
       })
+      // The language check runs at the first few clean blocks with words enough to judge.
+      const checkLanguage = !!opts.score && !r.flags.length && languageChecks < LANGUAGE_CHECKS && r.output.split(/\s+/).length >= 5
+      if (checkLanguage) languageChecks++
       u.output = r.output
-      u.flags = r.flags
-      // The judge looks only at blocks the rules passed; the language check at the first few with words to judge.
-      if (opts.score && !u.flags.length) {
-        const checkLanguage = languageChecks < LANGUAGE_CHECKS && u.output.split(/\s+/).length >= 5
-        if (checkLanguage) languageChecks++
-        u.flags = await judgeAnswer({ ...judgeOf(opts, opts.score), source: u.unit.text, output: u.output, checkLanguage, signal })
-      }
+      u.flags = await judged(opts, u, r, checkLanguage, signal)
       u.status = 'done'
       onProgress(progressOf(md, units))
     }
@@ -241,8 +243,7 @@ export async function retryUnit(
     const r = await translateUnit(u, historyBefore(units, index), earlierBefore(units, index), opts, complete, () => onProgress(progressOf(md, units)), signal, {
       sampleFirst: true,
     })
-    if (opts.score && !r.flags.length)
-      r.flags = await judgeAnswer({ ...judgeOf(opts, opts.score), source: u.unit.text, output: r.output, checkLanguage: before.flags.includes('language'), signal })
+    r.flags = await judged(opts, u, r, before.flags.includes('language'), signal)
     if (cost(r.flags) > cost(before.flags)) Object.assign(u, before)
     else Object.assign(u, { output: r.output, flags: r.flags, edited: false })
   } catch (e) {

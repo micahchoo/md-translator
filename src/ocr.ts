@@ -35,6 +35,10 @@ export interface ReadBlock {
   }[]
 }
 
+/** Where a reading is: finding the page's layout, getting the engine and the
+ *  language's letters (once per language, kept in the browser), or reading pixels. */
+export type ReadPhase = 'layout' | 'letters' | 'reading'
+
 /** The Tesseract models for an image in `code`, with English's when it also has English. */
 export function models(code: string, english: boolean): string {
   const model = LANGUAGES[code].ocr!.model
@@ -214,8 +218,10 @@ export async function removeLanguages(): Promise<void> {
 
 type Worker = import('tesseract.js').Worker
 const workers = new Map<string, Promise<Worker>>()
-/** What the worker of each model is doing, for the status line. */
-const listeners = new Map<string, (status: string) => void>()
+/** Who hears what the worker of each model is doing. */
+const listeners = new Map<string, (phase: ReadPhase) => void>()
+/** Tesseract's logger says what it loads, then "recognizing text". */
+const phaseOf = (status: string): ReadPhase => (status.startsWith('recognizing') ? 'reading' : 'letters')
 
 function worker(model: string): Promise<Worker> {
   let w = workers.get(model)
@@ -227,7 +233,7 @@ function worker(model: string): Promise<Worker> {
         gzip: false,
         corePath: CORE.href,
         workerPath: WORKER.href,
-        logger: (m) => listeners.get(model)?.(m.status),
+        logger: (m) => listeners.get(model)?.(phaseOf(m.status)),
       })
       // Tesseract's API reads a page as one block unless told otherwise, straight
       // across its columns; its command line asks for automatic layout, and so do we.
@@ -280,17 +286,17 @@ async function enlarged(w: Worker, page: ImageBitmap, part: { left: number; top:
  * An image read in the language `code`, with English as well when `english`.
  * The layout model finds the page's text regions and each is read on its own,
  * then whatever they left; where it finds none, or cannot load, Tesseract's
- * own layout reads the whole page. `onStatus` hears the progress.
+ * own layout reads the whole page. `onPhase` hears each phase as it starts.
  */
-export async function readImage(image: Blob, code: string, english: boolean, onStatus?: (status: string) => void): Promise<string> {
+export async function readImage(image: Blob, code: string, english: boolean, onPhase?: (phase: ReadPhase) => void): Promise<string> {
   if (!LANGUAGES[code]?.ocr) throw new Error(`${LANGUAGES[code]?.name ?? code} cannot be read from images.`)
   const model = models(code, english)
   const bitmap = await createImageBitmap(image)
-  onStatus?.('finding the layout')
+  onPhase?.('layout')
   // Layout only improves a reading; if it cannot load, the page is read without it.
   const regions: (Region & { h?: number })[] = await detect(bitmap).catch((e): Region[] => (console.warn('No layout:', e), []))
   return queued(model, async () => {
-    if (onStatus) listeners.set(model, onStatus)
+    if (onPhase) listeners.set(model, onPhase)
     const w = await worker(model)
     const { PSM } = await import('tesseract.js')
     try {

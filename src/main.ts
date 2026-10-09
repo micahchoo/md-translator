@@ -6,17 +6,17 @@ import { directionLabel, dirOf, LANGUAGES } from './languages'
 import { createScorer, probe, type Score } from './judge'
 import { createClient, listModels } from './llm'
 import { hasLatin, latinText, romanizer } from './latin'
-import { imageLanguage, imageLanguages, readImage } from './ocr'
+import { imageLanguage, imageLanguages, readImage, type ReadPhase } from './ocr'
 import { readPdf } from './pdf'
 import { DEFAULTS, formatExamples, loadSettings, parseExamples, saveSettings, toOptions, type Settings } from './settings'
-import type { Romanizer } from 'indickit/romanize'
 import { downloadedBytes, removeDownloads } from './downloads'
+import { onDemand } from './lazy'
 import { loadKey, originOf, saveKey, type KeyStores } from './key'
 import { speak } from './speech'
 import { loadDocs, loadMemory, remember, saveDocs, saveMemory, type SavedDoc } from './store'
 import { editUnit, machineNote, progressOf, retryUnit, sourceLanguage, translateDocument, type TranslateOptions } from './translate'
 import { deromanizer, hasTyped, typedText } from './typed'
-import { detector, looksTyped, type Model } from './detect'
+import { detector, looksTyped, mostlyLatin } from './detect'
 
 type View = 'source' | 'blocks' | 'markdown'
 
@@ -184,11 +184,11 @@ function render() {
 
   const lang = d.lang ?? settings.language
   const canLatin = d.view === 'blocks' && units.length > 0 && hasLatin(lang)
-  const latin = settings.latin && canLatin ? latinFor(lang) : undefined
+  const latin = settings.latin && canLatin ? latinTables.get(lang) : undefined
   el.latin.parentElement!.hidden = !canLatin
   el.latin.checked = settings.latin
   el.latinText.textContent =
-    settings.latin && canLatin && !latin ? (latinFailed.has(lang) ? 'Latin letters could not load' : 'Latin letters: loading…') : 'Latin letters'
+    settings.latin && canLatin && !latin ? (latinTables.state(lang) === 'failed' ? 'Latin letters could not load' : 'Latin letters: loading…') : 'Latin letters'
   renderTyped()
   const voice = LANGUAGES[lang].voice
   const mine = playing?.doc === d.id ? playing : null
@@ -205,27 +205,8 @@ function render() {
 const typedChoices = Object.values(LANGUAGES).filter((l) => hasTyped(l.code))
 el.typedLang.replaceChildren(...typedChoices.map((l) => new Option(l.name, l.code)))
 
-const typedFailed = new Set<string>()
-const typedLoading = new Set<string>()
-/** The one language whose tables are here (src/typed.ts keeps one at a time). */
-let typedReady: string | null = null
-
-/** The typed language's tables, loading when first asked; a failed load shows and
- *  is tried again on the next tick. Once here, nothing more is asked: a settled
- *  promise's callback would render again, and that render ask again, without end. */
-function typedFor(lang: string): void {
-  if (typedReady === lang || typedFailed.has(lang) || typedLoading.has(lang)) return
-  typedLoading.add(lang)
-  deromanizer(lang)
-    .then(
-      () => (typedReady = lang),
-      () => typedFailed.add(lang),
-    )
-    .finally(() => {
-      typedLoading.delete(lang)
-      render()
-    })
-}
+/** The typed language's tables, one language at a time; a failed load shows and is tried again on the next tick. */
+const typedTables = onDemand(deromanizer, render)
 
 /** The typed language this run's source is in, if it is typed and differs from the target. */
 const typedCode = (target: string) => (settings.typed && settings.typed !== target && hasTyped(settings.typed) ? settings.typed : '')
@@ -233,8 +214,8 @@ const typedCode = (target: string) => (settings.typed && settings.typed !== targ
 /** The `typed` option for a document already run, with nothing left to convert: its label only. */
 const typedOf = (code: string | undefined): TranslateOptions['typed'] => (code && hasTyped(code) ? { language: LANGUAGES[code], convert: (t) => t } : undefined)
 
-/** The detector's model, fetched (50 KB) with the first source that is mostly Latin letters. */
-let detectModel: Model | null | undefined
+/** The detector's model, fetched (150 KB) with the first source it could judge. */
+const detectModel = onDemand(() => detector(), render)
 /** The last source looked at, and the language it looked typed in. */
 let detected: { text: string; lang: string | null } = { text: '', lang: null }
 
@@ -243,17 +224,10 @@ let detected: { text: string; lang: string | null } = { text: '', lang: null }
  *  English, for text in a script, and when it would be the target itself. */
 function suggested(): string | null {
   const d = doc()
-  if (settings.typed || d.status === 'running' || d.ocr) return null
-  if (d.source !== detected.text) {
-    if (detectModel === undefined) {
-      detectModel = null
-      detector().then(
-        (m) => ((detectModel = m), render()),
-        () => {},
-      )
-    }
-    detected = { text: d.source, lang: detectModel ? looksTyped(detectModel, d.source) : null }
-  }
+  if (settings.typed || d.status === 'running' || d.ocr || !mostlyLatin(d.source)) return null
+  const model = detectModel.get('')
+  if (!model) return null
+  if (d.source !== detected.text) detected = { text: d.source, lang: looksTyped(model, d.source) }
   return detected.lang && detected.lang !== settings.language ? detected.lang : null
 }
 
@@ -263,7 +237,7 @@ function renderTyped() {
   el.typedLang.hidden = !code
   if (code) {
     el.typedLang.value = code
-    typedFor(code)
+    typedTables.get(code)
   }
   const hint = suggested()
   el.typedHint.hidden = !hint
@@ -274,9 +248,9 @@ function renderTyped() {
   }
   el.typedText.textContent = !code
     ? 'Typed in Latin letters'
-    : typedFailed.has(code)
+    : typedTables.state(code) === 'failed'
       ? 'Typed in Latin letters: the tables could not load'
-      : typedLoading.has(code)
+      : typedTables.state(code) === 'loading'
         ? 'Typed in Latin letters: loading…'
         : code === settings.language
           ? 'Typed in Latin letters: same as the target, so left as typed'
@@ -288,48 +262,24 @@ el.typed.onchange = () => {
   settings.typed = el.typed.checked ? suggested() || el.typedLang.value || typedChoices[0].code : ''
   saveSettings(storage, settings)
   // Ticked again after a failed load: try once more.
-  if (settings.typed) typedFailed.clear()
+  if (settings.typed) typedTables.retry()
   render()
 }
 el.typedHintUse.onclick = () => {
   settings.typed = el.typedHintUse.dataset.lang ?? ''
   saveSettings(storage, settings)
-  typedFailed.clear()
+  typedTables.retry()
   render()
 }
 el.typedLang.onchange = () => {
   settings.typed = el.typedLang.value
   saveSettings(storage, settings)
-  typedFailed.clear()
+  typedTables.retry()
   render()
 }
 
-/** The one language whose romanizer is loaded (src/latin.ts keeps one at a time). */
-let latinReady: { lang: string; r: Romanizer } | null = null
-const latinFailed = new Set<string>()
-const latinLoading = new Set<string>()
-/** Counts loads asked for, so a late answer for a language left behind is dropped. */
-let latinAsks = 0
-
-/** The language's romanizer once loaded; until then it starts the load and renders again when it ends. */
-function latinFor(lang: string): Romanizer | undefined {
-  const ready = latinReady?.lang === lang ? latinReady.r : undefined
-  if (ready || latinFailed.has(lang) || latinLoading.has(lang)) return ready
-  latinLoading.add(lang)
-  const ask = ++latinAsks
-  romanizer(lang)
-    .then(
-      (r) => {
-        if (ask === latinAsks) latinReady = { lang, r }
-      },
-      () => latinFailed.add(lang),
-    )
-    .finally(() => {
-      latinLoading.delete(lang)
-      render()
-    })
-  return undefined
-}
+/** The language's romanizer, one language at a time; the page renders again when a load ends. */
+const latinTables = onDemand(romanizer, render)
 
 function docTab(d: Doc): HTMLElement {
   const tab = document.createElement('button')
@@ -391,26 +341,35 @@ function explain(e: unknown): string {
   return `The model server answered with an error: ${e instanceof Error ? e.message : String(e)}`
 }
 
-// Whether the endpoint can score text for the judge, asked once per endpoint.
+/** The model server as the settings and the key name it now. */
+const server = () => ({ endpoint: settings.endpoint, apiKey })
+
+// Whether the server can score text for the judge, asked once per server and key.
 const scorable = new Map<string, Promise<boolean>>()
 async function scorer(): Promise<Score | undefined> {
   if (!settings.judge) return undefined
-  if (!scorable.has(settings.endpoint)) scorable.set(settings.endpoint, probe(settings.endpoint))
-  return (await scorable.get(settings.endpoint)) ? createScorer(settings.endpoint) : undefined
+  const s = server()
+  const id = `${s.endpoint}\0${s.apiKey}`
+  if (!scorable.has(id)) scorable.set(id, probe(s))
+  return (await scorable.get(id)) ? createScorer(s) : undefined
 }
+
+const client = () => createClient({ ...server(), model: settings.model })
+
+/** The options for a run into `language`, with the judge where the server can score. */
+const runOptions = async (language: string): Promise<TranslateOptions> => ({ ...toOptions({ ...settings, language }), score: await scorer() })
 
 async function translate(targets: Doc[]) {
   controller = new AbortController()
-  const complete = createClient({ endpoint: settings.endpoint, model: settings.model, apiKey })
-  const opts: TranslateOptions = { ...toOptions(settings), remembered: memory[settings.language], score: await scorer() }
+  const complete = client()
+  const opts: TranslateOptions = { ...(await runOptions(settings.language)), remembered: memory[settings.language] }
   const typed = typedCode(opts.language.code)
   if (typed) {
     // The source is typed in Latin letters: its tables must be here before the first block.
     try {
-      const d = await deromanizer(typed)
+      const d = await typedTables.load(typed)
       opts.typed = { language: LANGUAGES[typed], convert: (t) => typedText(d, t) }
     } catch {
-      typedFailed.add(typed)
       for (const d of targets) ((d.status = 'error'), (d.error = `The tables for ${LANGUAGES[typed].name} typed in Latin letters could not be downloaded. Check the connection, or untick "Typed in Latin letters".`))
       controller = null
       return render()
@@ -469,9 +428,8 @@ async function retry(i: number) {
   const d = doc()
   if (!d.units || busy()) return
   controller = new AbortController()
-  const complete = createClient({ endpoint: settings.endpoint, model: settings.model, apiKey })
-  const opts: TranslateOptions = { ...toOptions(settings), language: LANGUAGES[d.lang ?? settings.language], score: await scorer(), typed: typedOf(d.typed) }
-  opts.examples = settings.examples[opts.language.code] ?? opts.language.examples
+  const complete = client()
+  const opts: TranslateOptions = { ...(await runOptions(d.lang ?? settings.language)), typed: typedOf(d.typed) }
   render()
   try {
     await retryUnit(d.source, d.units, i, opts, complete, schedule, controller.signal)
@@ -605,9 +563,10 @@ function forgetImage(id: number) {
   imageUrls.delete(id)
 }
 
-/** Tesseract's progress, in the owner's words. */
-function readingStatus(status: string, lang: string, english: boolean): string {
-  if (status.startsWith('recognizing')) return 'Reading the image…'
+/** A reading's phase, in the owner's words. */
+function readingStatus(phase: ReadPhase, lang: string, english: boolean): string {
+  if (phase === 'layout') return 'Finding the layout…'
+  if (phase === 'reading') return 'Reading the image…'
   return `Getting ${LANGUAGES[lang].name}${english ? ' and English' : ''} letters, once…`
 }
 
@@ -634,9 +593,9 @@ async function readInto(d: Doc, lang: string, english: boolean) {
       text = r.text
       d.ocr = { lang, english, pdf: { pages: r.pages, read: r.read, damaged: r.damaged } }
     } else
-      text = await readImage(image, lang, english, (status) => {
+      text = await readImage(image, lang, english, (phase) => {
         if (!latest()) return
-        d.reading = readingStatus(status, lang, english)
+        d.reading = readingStatus(phase, lang, english)
         schedule()
       })
     if (!latest()) return
@@ -814,7 +773,7 @@ el.latin.onchange = () => {
   settings.latin = el.latin.checked
   saveSettings(storage, settings)
   // Ticked again after a failed load: try once more.
-  if (settings.latin) latinFailed.clear()
+  if (settings.latin) latinTables.retry()
   render()
 }
 el.follow.onclick = () => {
@@ -916,7 +875,7 @@ $('reset-settings').onclick = () => fillForm({ ...structuredClone(DEFAULTS), lan
 $('test-connection').onclick = async () => {
   el.connection.textContent = 'Connecting…'
   try {
-    const models = await listModels(field('endpoint').value, undefined, field('apiKey').value.trim())
+    const models = await listModels({ endpoint: field('endpoint').value, apiKey: field('apiKey').value.trim() })
     el.connection.textContent = models.length ? `Connected. Models: ${models.join(', ')}` : 'Connected.'
   } catch (e) {
     el.connection.textContent = e instanceof TypeError ? 'Could not reach that endpoint.' : `Error: ${(e as Error).message}`

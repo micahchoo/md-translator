@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { detect, looksTyped, prose, type Model } from '../src/detect'
+import { detect, looksTyped, mostlyLatin, prose, type Model } from '../src/detect'
 import model from '../src/typed-detect.json'
 
 const m = model as Model
@@ -13,6 +13,12 @@ test('English, text in a script, and a short line are not typed Indian text', ()
   expect(looksTyped(m, 'The meeting is at 10 tomorrow morning. The agenda has three bugs to look at and a report to write.')).toBe(null)
   expect(detect(m, 'कल सुबह 10 बजे मीटिंग है। एजेंडा में तीन बग देखने हैं।')).toBe(null)
   expect(detect(m, 'kal milte hain')).toBe(null)
+})
+
+test('mostlyLatin is the gate: typed text passes, a script and a short line do not', () => {
+  expect(mostlyLatin('Kal subah 10 baje meeting hai. Agenda mein teen bugs dekhna hai.')).toBe(true)
+  expect(mostlyLatin('कल सुबह 10 बजे मीटिंग है। एजेंडा में तीन बग देखने हैं।')).toBe(false)
+  expect(mostlyLatin('kal milte hain')).toBe(false)
 })
 
 test('code, addresses and front matter do not count', () => {
