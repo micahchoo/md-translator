@@ -388,7 +388,14 @@ held-out reads logged in its reads.log; `normalize-mt` and `typed` use the model
    "kal", so "Kal ka plan" became "Plan of the time" and "tomorrow" was lost from block 2; the
    third sentence (Dakshina) was perfect. Chat-style typing wants chat-frequency word lists, which
    indickit does not have. Heap: Hindi deromanizer ~60 MB on top of the romanizer's 143 MB (bun).
-   Not merged; not seen by a Hindi reader; languages to offer not decided (see bench/README table).
+   MERGED to main 2026-10-09 (780debf, fast-forward from `typed-source`): offered for the ten languages
+   within 5 chrF (src/typed.ts#TYPED); src/detect.ts + src/typed-detect.json (148 KB, char 1–4-gram
+   naive Bayes, built by bench/detect-typed.ts from Dakshina dev + IN22; TEST read once, in
+   reads.log) shows "Looks typed in Hindi. Convert as Hindi" beside the option when a mostly-Latin
+   paste looks typed; verified headless (English paste: no hint; Hinglish: hint, button ticks Hindi,
+   3 blocks in 1 s). NOT PUSHED: pushing main deploys the page and the README. Still open: no Hindi
+   reader has checked the answers; a Latin paste translated with the option off is still unchecked;
+   deromanize's Wikipedia word counts pick काल for "kal" (chat-style word lists would fix it: indickit).
    AUTO-DETECTION spike (scratchpad detect/, not in repo): char 1–4-gram naive Bayes, top 3000
    per language (~370 KB), trained on even lines of Dakshina dev typing + indickit-romanized IN22,
    tested on odd lines. English vs typed Indic 96–99% on human typing; which language 70–93% per
