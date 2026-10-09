@@ -20,7 +20,7 @@ print(json.dumps(pq.read_table('${PARQUET}').to_pylist()))`}`.text()
 }
 
 /** `n` rows taken evenly through the set, which is grouped by domain. */
-export function spread(rows: Row[], n: number): Row[] {
+export function spread<T>(rows: T[], n: number): T[] {
   const step = Math.max(1, Math.floor(rows.length / n))
   return rows.filter((_, i) => i % step === 0).slice(0, n)
 }
