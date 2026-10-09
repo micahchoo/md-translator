@@ -27,6 +27,8 @@ export interface Settings {
   imageEnglish: boolean
   /** Translations in Blocks show a line in Latin letters (src/latin.ts). */
   latin: boolean
+  /** The source is typed in Latin letters in this language (src/typed.ts); '' when it is not. */
+  typed: string
   /** Which one-time corrections the saved settings have had; see `loadSettings`. */
   revision: number
 }
@@ -46,6 +48,7 @@ export const DEFAULTS: Settings = {
   imageLanguage: 'hi',
   imageEnglish: false,
   latin: false,
+  typed: '',
   revision: 1,
 }
 
@@ -77,6 +80,7 @@ export function loadSettings(storage: Pick<Storage, 'getItem'>): Settings {
     if (typeof v === 'number' && !(Number.isFinite(v) && v >= 0)) continue
     if (key === 'language' && !(v as string in LANGUAGES)) continue
     if (key === 'imageLanguage' && !(v as string in LANGUAGES)) continue
+    if (key === 'typed' && v !== '' && !(v as string in LANGUAGES)) continue
     if (key === 'examples') {
       for (const [code, pairs] of Object.entries(v as Record<string, unknown>))
         if (code in LANGUAGES && Array.isArray(pairs)) out.examples[code] = pairs as Pair[]

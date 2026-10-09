@@ -8,6 +8,8 @@ export interface SavedDoc {
   source: string
   status: 'idle' | 'running' | 'done' | 'stopped' | 'error'
   lang?: string
+  /** The language the source was typed in, in Latin letters, when it was (src/typed.ts). */
+  typed?: string
   seconds?: number
   units?: UnitResult[]
   /** The blocks of the run before the source was edited, kept for the next run to reuse. */

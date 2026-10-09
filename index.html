@@ -67,6 +67,10 @@
           <span id="reading-note" class="hint"></span>
           <button id="show-image" class="small ghost" type="button" aria-pressed="false">Show image</button>
         </div>
+        <div class="typed">
+          <label class="latin-toggle" title="For text typed in Latin letters, such as 'kal meeting hai': each block is written in the language's script before the model reads it. The first time, this downloads 0.3–3.1 MB for the language."><input id="typed" type="checkbox" /> <span id="typed-text">Typed in Latin letters</span></label>
+          <select id="typed-lang" aria-label="The language the source is typed in" hidden></select>
+        </div>
         <div class="source-pane">
           <textarea id="source" spellcheck="false" aria-label="Source Markdown" placeholder="Paste Markdown here, or drop .md files, images of text or PDFs anywhere on the page."></textarea>
           <img id="image" alt="The attached image" hidden />

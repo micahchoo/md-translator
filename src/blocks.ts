@@ -88,7 +88,7 @@ export class BlockList {
       const hidden = onlyFlagged && !u.flags.length && u.status !== 'running'
       row.el.hidden = hidden
       if (u.status === 'running') running = row.el
-      const key = [u.status, u.output, u.flags.join(), u.edited, busy, lang, this.editing === i, this.playLabel(i), !!latin].join('\u0000')
+      const key = [u.status, u.output, u.flags.join(), u.edited, busy, lang, this.editing === i, this.playLabel(i), !!latin, u.typed ?? ''].join('\u0000')
       if (key === row.key) return
       row.key = key
       this.fill(row.el, u, i, lang, busy)
@@ -132,9 +132,17 @@ export class BlockList {
     }
 
     const source = h('div', 'cell source', unmask(u.unit.text, u.unit.restore))
-    // Into English the source may be any language; let the browser read it.
-    source.lang = lang === 'en' ? '' : 'en'
-    source.dir = lang === 'en' ? 'auto' : 'ltr'
+    // Into English the source may be any language, and a source typed in Latin
+    // letters is shown as the model read it, in its script; let the browser read it.
+    source.lang = lang === 'en' || u.typed ? '' : 'en'
+    source.dir = lang === 'en' || u.typed ? 'auto' : 'ltr'
+    if (u.typed) {
+      source.classList.add('indic-text')
+      const typed = h('span', 'latin', unmask(u.typed, u.unit.restore))
+      typed.title = 'As typed'
+      typed.dir = 'ltr'
+      source.append(typed)
+    }
     let target: HTMLElement
     if (this.editing === i) {
       target = this.editor(u, i, lang)

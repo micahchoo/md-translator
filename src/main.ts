@@ -14,7 +14,8 @@ import { downloadedBytes, removeDownloads } from './downloads'
 import { loadKey, originOf, saveKey, type KeyStores } from './key'
 import { speak } from './speech'
 import { loadDocs, loadMemory, remember, saveDocs, saveMemory, type SavedDoc } from './store'
-import { editUnit, machineNote, progressOf, retryUnit, translateDocument } from './translate'
+import { editUnit, machineNote, progressOf, retryUnit, sourceLanguage, translateDocument, type TranslateOptions } from './translate'
+import { deromanizer, hasTyped, typedText } from './typed'
 
 type View = 'source' | 'blocks' | 'markdown'
 
@@ -49,6 +50,9 @@ const el = {
   follow: $<HTMLButtonElement>('follow'),
   latin: $<HTMLInputElement>('latin'),
   latinText: $('latin-text'),
+  typed: $<HTMLInputElement>('typed'),
+  typedText: $('typed-text'),
+  typedLang: $<HTMLSelectElement>('typed-lang'),
   dialog: $<HTMLDialogElement>('settings'),
   form: $<HTMLFormElement>('settings-form'),
   connection: $('connection'),
@@ -123,7 +127,7 @@ const blocks = new BlockList(el.blocks, {
     const d = doc()
     if (!d.units) return
     const lang = d.lang ?? settings.language
-    editUnit(d.source, d.units, i, text, LANGUAGES[lang])
+    editUnit(d.source, d.units, i, text, sourceLanguage({ language: LANGUAGES[lang], typed: typedOf(d.typed) }))
     memory = remember(memory, lang, d.units[i].unit.text, d.units[i].output)
     saveMemory(storage, memory)
     persist()
@@ -181,6 +185,7 @@ function render() {
   el.latin.checked = settings.latin
   el.latinText.textContent =
     settings.latin && canLatin && !latin ? (latinFailed.has(lang) ? 'Latin letters could not load' : 'Latin letters: loading…') : 'Latin letters'
+  renderTyped()
   const voice = LANGUAGES[lang].voice
   const mine = playing?.doc === d.id ? playing : null
   const listening = voice
@@ -188,6 +193,66 @@ function render() {
     : undefined
   if (d.view === 'blocks' && units.length) blocks.show(units, lang, isBusy, el.onlyFlagged.checked, listening, latin && ((t) => latinText(latin, t)))
   el.follow.hidden = !(running && d.view === 'blocks' && !blocks.follow)
+}
+
+// ---- a source typed in Latin letters ---------------------------------------
+
+/** The languages a source can be typed in, for the select beside the source box. */
+const typedChoices = Object.values(LANGUAGES).filter((l) => hasTyped(l.code))
+el.typedLang.replaceChildren(...typedChoices.map((l) => new Option(l.name, l.code)))
+
+const typedFailed = new Set<string>()
+const typedLoading = new Set<string>()
+
+/** The typed language's tables, loading when first asked; a failed load shows and is tried again on the next tick. */
+function typedFor(lang: string): void {
+  if (typedFailed.has(lang) || typedLoading.has(lang)) return
+  typedLoading.add(lang)
+  deromanizer(lang)
+    .catch(() => typedFailed.add(lang))
+    .finally(() => {
+      typedLoading.delete(lang)
+      render()
+    })
+}
+
+/** The typed language this run's source is in, if it is typed and differs from the target. */
+const typedCode = (target: string) => (settings.typed && settings.typed !== target && hasTyped(settings.typed) ? settings.typed : '')
+
+/** The `typed` option for a document already run, with nothing left to convert: its label only. */
+const typedOf = (code: string | undefined): TranslateOptions['typed'] => (code && hasTyped(code) ? { language: LANGUAGES[code], convert: (t) => t } : undefined)
+
+function renderTyped() {
+  const code = settings.typed
+  el.typed.checked = !!code
+  el.typedLang.hidden = !code
+  if (code) {
+    el.typedLang.value = code
+    typedFor(code)
+  }
+  el.typedText.textContent = !code
+    ? 'Typed in Latin letters'
+    : typedFailed.has(code)
+      ? 'Typed in Latin letters: the tables could not load'
+      : typedLoading.has(code)
+        ? 'Typed in Latin letters: loading…'
+        : code === settings.language
+          ? 'Typed in Latin letters: same as the target, so left as typed'
+          : 'Typed in Latin letters'
+}
+
+el.typed.onchange = () => {
+  settings.typed = el.typed.checked ? el.typedLang.value || typedChoices[0].code : ''
+  saveSettings(storage, settings)
+  // Ticked again after a failed load: try once more.
+  if (settings.typed) typedFailed.clear()
+  render()
+}
+el.typedLang.onchange = () => {
+  settings.typed = el.typedLang.value
+  saveSettings(storage, settings)
+  typedFailed.clear()
+  render()
 }
 
 /** The one language whose romanizer is loaded (src/latin.ts keeps one at a time). */
@@ -288,17 +353,31 @@ async function scorer(): Promise<Score | undefined> {
 async function translate(targets: Doc[]) {
   controller = new AbortController()
   const complete = createClient({ endpoint: settings.endpoint, model: settings.model, apiKey })
-  const opts = { ...toOptions(settings), remembered: memory[settings.language], score: await scorer() }
+  const opts: TranslateOptions = { ...toOptions(settings), remembered: memory[settings.language], score: await scorer() }
+  const typed = typedCode(opts.language.code)
+  if (typed) {
+    // The source is typed in Latin letters: its tables must be here before the first block.
+    try {
+      const d = await deromanizer(typed)
+      opts.typed = { language: LANGUAGES[typed], convert: (t) => typedText(d, t) }
+    } catch {
+      typedFailed.add(typed)
+      for (const d of targets) ((d.status = 'error'), (d.error = `The tables for ${LANGUAGES[typed].name} typed in Latin letters could not be downloaded. Check the connection, or untick "Typed in Latin letters".`))
+      controller = null
+      return render()
+    }
+  }
   for (const d of targets) {
     if (controller.signal.aborted) break
     // A stopped run resumes; an edited source keeps its unchanged blocks; the
     // same source asked again is translated again from nothing.
     const earlier = d.status === 'stopped' ? d.units : d.previous
-    const resume = earlier && d.lang === opts.language.code ? earlier : undefined
+    const resume = earlier && d.lang === opts.language.code && (d.typed ?? '') === typed ? earlier : undefined
     d.previous = undefined
     delete d.units // the run reports the carried-over blocks at once, at their new places
     d.status = 'running'
     d.lang = opts.language.code
+    d.typed = typed || undefined
     d.error = undefined
     d.view = 'blocks'
     blocks.follow = true
@@ -342,7 +421,7 @@ async function retry(i: number) {
   if (!d.units || busy()) return
   controller = new AbortController()
   const complete = createClient({ endpoint: settings.endpoint, model: settings.model, apiKey })
-  const opts = { ...toOptions(settings), language: LANGUAGES[d.lang ?? settings.language], score: await scorer() }
+  const opts: TranslateOptions = { ...toOptions(settings), language: LANGUAGES[d.lang ?? settings.language], score: await scorer(), typed: typedOf(d.typed) }
   opts.examples = settings.examples[opts.language.code] ?? opts.language.examples
   render()
   try {
@@ -714,7 +793,7 @@ el.download.onclick = () => {
   const base = d.name.replace(/\.(md|markdown|txt|png|jpe?g|webp|pdf)$/i, '') || 'translation'
   const a = document.createElement('a')
   const flagged = (d.units ?? []).filter((u) => u.flags.length).length
-  const lang = LANGUAGES[d.lang ?? settings.language]
+  const lang = sourceLanguage({ language: LANGUAGES[d.lang ?? settings.language], typed: typedOf(d.typed) })
   const note = settings.noteOnDownload ? `\n${machineNote(lang, settings.model, new Date().toISOString().slice(0, 10), flagged)}\n` : ''
   a.href = URL.createObjectURL(new Blob([el.output.value.replace(/\n*$/, '\n') + note], { type: 'text/markdown;charset=utf-8' }))
   a.download = `${base}.${d.lang ?? settings.language}.md`

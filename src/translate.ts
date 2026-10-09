@@ -27,10 +27,15 @@ export interface TranslateOptions {
   /** Extra attempts after a flagged first answer. */
   retries: number
   skipKeys: string[]
+  /** The source is typed in Latin letters in this language (src/typed.ts):
+   *  `convert` writes a unit's prose in its script before the model sees it. */
+  typed?: { language: Language; convert: (text: string) => string }
 }
 
 export interface UnitResult {
   unit: Unit
+  /** The unit as the owner typed it, when `unit.text` was written in the script from Latin letters. */
+  typed?: string
   output: string
   flags: Flag[]
   attempts: number
@@ -52,8 +57,17 @@ const cost = (flags: Flag[]) => flags.reduce((s, f) => s + WEIGHT[f], 0)
 
 /** The document as it stands: finished units translated, the rest as written. */
 export function progressOf(md: string, units: UnitResult[]): Progress {
-  return { markdown: assemble(md, units.map((u) => u.unit), units.map((u) => u.output || u.unit.text)), units }
+  return { markdown: assemble(md, units.map((u) => u.unit), units.map((u) => u.output || u.typed || u.unit.text)), units }
 }
+
+/** The target language with its source label: the typed language's name when
+ *  the source was typed in Latin letters, so the prompt, the stop lines and the
+ *  checks take the source for that language, not for English. */
+export const sourceLanguage = (opts: Pick<TranslateOptions, 'language' | 'typed'>): Language =>
+  opts.typed ? { ...opts.language, from: opts.typed.language.name } : opts.language
+
+/** The examples are English pairs; under another source label they would mislead. */
+const examplesOf = (opts: TranslateOptions): Pair[] => (opts.typed ? [] : opts.examples)
 
 interface Attempts {
   /** Sampling only, as for a retry the owner asked for; otherwise greedy first. */
@@ -77,11 +91,13 @@ async function translateUnit(
 ): Promise<{ output: string; flags: Flag[] }> {
   const done: string[] = []
   const flags = new Set<Flag>()
+  const language = sourceLanguage(opts)
+  const examples = examplesOf(opts)
   for (const piece of splitPassage(u.unit.text, opts.passageLength)) {
     const prompt = buildPrompt({
-      language: opts.language,
+      language,
       preamble: opts.preamble,
-      examples: opts.examples,
+      examples,
       exampleLabel: opts.exampleLabel,
       context: opts.contextBlocks > 0 ? history.slice(-opts.contextBlocks) : [],
       source: piece,
@@ -91,16 +107,16 @@ async function translateUnit(
       if (signal?.aborted) throw new Error('stopped')
       const greedy = attempt === 0 && !how.sampleFirst
       const raw = await complete(
-        { prompt, temperature: greedy ? 0 : 0.6, seed: u.attempts, maxTokens: Math.max(256, piece.length * 2), stop: stopFor(opts.language) },
+        { prompt, temperature: greedy ? 0 : 0.6, seed: u.attempts, maxTokens: Math.max(256, piece.length * 2), stop: stopFor(language) },
         (soFar) => {
-          u.output = [...done, cleanOutput(soFar, opts.language)].join(' ')
+          u.output = [...done, cleanOutput(soFar, language)].join(' ')
           onText()
         },
         signal,
       )
       u.attempts++
-      const output = cleanOutput(raw, opts.language)
-      const f = check(piece, output, opts.language, [...opts.examples, ...earlier])
+      const output = cleanOutput(raw, language)
+      const f = check(piece, output, language, [...examples, ...earlier])
       if (!best || cost(f) < cost(best.flags)) best = { output, flags: f }
       if (f.length === 0) break
     }
@@ -114,7 +130,7 @@ async function translateUnit(
 /** How many blocks of a document get the related-language check: a wrong language is the whole document's. */
 const LANGUAGE_CHECKS = 3
 
-const judgeOf = (opts: TranslateOptions, score: Score) => ({ score, language: opts.language, preamble: opts.preamble, examples: opts.examples })
+const judgeOf = (opts: TranslateOptions, score: Score) => ({ score, language: sourceLanguage(opts), preamble: opts.preamble, examples: examplesOf(opts) })
 
 /** Every finished unit before `index`, as source and answer, clean or flagged. */
 const earlierBefore = (units: UnitResult[], index: number): Pair[] =>
@@ -131,13 +147,24 @@ const historyBefore = (units: UnitResult[], index: number): Pair[] =>
  * Translator keeps unchanged files for the same reason). The new unit keeps its
  * own links, so a moved link target still lands where the source puts it.
  */
-function carryOver(previous: UnitResult[] | undefined, fresh: Unit[]): UnitResult[] {
+function carryOver(previous: UnitResult[] | undefined, fresh: Unit[], typed?: string[]): UnitResult[] {
   const pool = new Map<string, UnitResult[]>()
   for (const u of previous ?? []) if (u.status === 'done' && u.output) pool.set(u.unit.text, [...(pool.get(u.unit.text) ?? []), u])
-  return fresh.map((unit) => {
+  return fresh.map((unit, i) => {
     const old = pool.get(unit.text)?.shift()
-    return old ? { ...old, unit } : { unit, output: '', flags: [], attempts: 0, status: 'waiting' }
+    const r: UnitResult = old ? { ...old, unit } : { unit, output: '', flags: [], attempts: 0, status: 'waiting' }
+    if (typed) r.typed = typed[i]
+    return r
   })
+}
+
+/** The units as the model will see them: their prose written in the script
+ *  when the source was typed in Latin letters, and what the owner typed beside. */
+function sourceUnits(md: string, opts: TranslateOptions): { units: Unit[]; typed?: string[] } {
+  const units = segment(md, { skipKeys: opts.skipKeys })
+  if (!opts.typed) return { units }
+  const convert = opts.typed.convert
+  return { units: units.map((u) => ({ ...u, text: convert(u.text) })), typed: units.map((u) => u.text) }
 }
 
 export async function translateDocument(
@@ -149,10 +176,12 @@ export async function translateDocument(
   /** Units from an earlier run; finished ones whose text is still in the source are kept. */
   previous?: UnitResult[],
 ): Promise<Progress> {
-  const units = carryOver(previous, segment(md, { skipKeys: opts.skipKeys }))
+  const fresh = sourceUnits(md, opts)
+  const units = carryOver(previous, fresh.units, fresh.typed)
   onProgress(progressOf(md, units))
   const history: Pair[] = []
   let languageChecks = 0
+  const language = sourceLanguage(opts)
 
   try {
     for (const [i, u] of units.entries()) {
@@ -164,7 +193,7 @@ export async function translateDocument(
       const kept = opts.remembered?.[u.unit.text]
       if (kept !== undefined) {
         // The owner's own words: checked so a lost link still shows, then trusted as context.
-        Object.assign(u, { output: kept, flags: check(u.unit.text, kept, opts.language, earlierBefore(units, i)), edited: true, status: 'done' })
+        Object.assign(u, { output: kept, flags: check(u.unit.text, kept, language, earlierBefore(units, i)), edited: true, status: 'done' })
         if (!u.flags.length) history.push([u.unit.text, kept])
         onProgress(progressOf(md, units))
         continue
