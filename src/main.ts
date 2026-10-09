@@ -203,13 +203,20 @@ el.typedLang.replaceChildren(...typedChoices.map((l) => new Option(l.name, l.cod
 
 const typedFailed = new Set<string>()
 const typedLoading = new Set<string>()
+/** The one language whose tables are here (src/typed.ts keeps one at a time). */
+let typedReady: string | null = null
 
-/** The typed language's tables, loading when first asked; a failed load shows and is tried again on the next tick. */
+/** The typed language's tables, loading when first asked; a failed load shows and
+ *  is tried again on the next tick. Once here, nothing more is asked: a settled
+ *  promise's callback would render again, and that render ask again, without end. */
 function typedFor(lang: string): void {
-  if (typedFailed.has(lang) || typedLoading.has(lang)) return
+  if (typedReady === lang || typedFailed.has(lang) || typedLoading.has(lang)) return
   typedLoading.add(lang)
   deromanizer(lang)
-    .catch(() => typedFailed.add(lang))
+    .then(
+      () => (typedReady = lang),
+      () => typedFailed.add(lang),
+    )
     .finally(() => {
       typedLoading.delete(lang)
       render()
