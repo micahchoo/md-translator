@@ -72,9 +72,45 @@ The rules cannot see meaning, so a lost "not" goes through. A related language i
 
 **Terms kept unchanged by showing them as inline code** (adapted from the glossaries in Co-op Translator and translation-agent, without an instruction to the model). In Hindi it worked. In Tamil, two runs each way, the wrapping made the model treat the text as technical: it put English verbs in backticks and left a short block in English both times, where without it both blocks were translated. And sarvam-30b already keeps names such as GitHub and Obsidian Sync unchanged without help. Removed.
 
-**A check that names come through** (indickit 0.4.2's `phonetic` key, which gives "Mohan" and மோகன் one key). Each title-case English word that does not open a sentence was taken as a name, and an answer whose words share no key with it was flagged. On the even rows of IN22, 20 languages, the check caught 85% of names swapped for another name in the human translation. But it also flagged 76.5% of the human translations that have a name. A stop list of 21 words mined from those rows (India, Minister, October…) left 57.9%; a 1 MB English word list, too large to ship, left 30.4%. The flags in the app raise 5–13%. On sarvam-30b's saved answers it flagged 51–79% of those with names. Most false alarms are words a translator rightly translates by meaning (Centre → केंद्र, Indian → भारतीय) and English endings (Sepoys → सिपाहियों); some are the key's own misses (Delhi, Howrah), which later key rules may fix. Rejected; the odd rows were not read, so they stay held out for another try. `bun bench/indickit.ts names dev` reproduces it.
+**A check that names come through** (indickit's `phonetic` key, which gives "Mohan" and மோகன் one key; rules 2026-10-07). Each title-case English word that does not open a sentence was taken as a name, and an answer whose words share no key with it was flagged. On the even rows of IN22, 20 languages, the check caught 85.4% of names swapped for another name in the human translation. But it also flagged 75.9% of the human translations that have a name. A stop list of 21 words mined from those rows (India, Minister, October…) left 57.3%; a 1 MB English word list, too large to ship, left 29.8%. The flags in the app raise 5–13%. On sarvam-30b's saved answers it flagged 51–79% of those with names. Most false alarms are words a translator rightly translates by meaning (Centre → केंद्र, Indian → भारतीय) and English endings (Sepoys → सिपाहियों). indickit 0.8.0's `phonetic-search`, a scorer that ranks an answer's words against the name from 0 to 100, was tried as the matcher in place of the key (2026-10-08): at its strict threshold (80) it flagged 77.2%, and with the stop list at its loose one (70) 59.3%, catching 84–87% of swaps; the words it still misses are Port, Medical, Caves, British. Matching was never the problem; telling a name from a capitalised term is. Rejected; the odd rows were not read, so they stay held out for another try. `bun bench/indickit.ts names dev` reproduces it.
+
+**Cleaning the source's hidden characters first** (indickit 0.4.2's `normalize`, which removes invisible joiners and writes one encoding without changing how text looks). Text read from images is full of them: Tesseract leaves a zero-width non-joiner in 25–50% of Dogri, Kannada and Nepali blocks. In PIB's own text, a third of Bengali and Punjabi sentences hold a letter stored in another encoding. sarvam-30b reads the cleaned text as different tokens, so each changed block went into English twice, as it was and cleaned. Mean chrF gain per sentence: OCR text +1.2 (46 blocks; 90% range −0.1 to +2.6), PIB +0.0 (374 sentences; −0.7 to +0.7). Per language it swung from −3 to +9 on 30 sentences, because a small change in the bytes makes the model choose other words. The edit memory would gain nothing either: in all the text here, at most 15 of 16,030 sentences become one key. Not adopted. If it is ever adopted for clean bytes, it must run after the checks: in any language but Assamese it writes ৰ as র, and the "letters never written" check catches Assamese in a Bengali answer by that ৰ. `bun bench/indickit.ts normalize` and `normalize-mt` reproduce it.
 
 **A list of negation words.** For each language, `negation.ts` learns the letter sequences that mark "not" from the human translations, and flags an answer that has none while its English source denies something. It works where "not" is its own word: Hindi, Urdu, Marathi, Odia and Malayalam catch 81–100% of lost negations at 5–13% false alarms. It fails where "not" is fused into the verb: Bengali, Kannada, Nepali, Tamil and Telugu reach 16–40% false alarms. Not adopted yet; the samples are small (14–16 pairs per language).
+
+## Text typed in Latin letters
+
+Many people type an Indian language in Latin letters: "kal meeting hai". The app takes such text for English, and the checks cannot tell: an answer that repeats it is in the source's letters and the target's at once. `bun bench/indickit.ts typed` measures what the model does with it (2026-10-08, indickit 0.8.0). Twenty IN22 sentences of each language were written in Latin letters by indickit's `romanize`, one common spelling and so cleaner than real typing; twenty Wikipedia sentences in each of 11 languages come typed by native speakers (Google's Dakshina, its dev split). Each sentence went into English three ways: as typed; written back in its script first by indickit's `deromanize`; and the original. IN22 has an English reference, scored by chrF. Dakshina has none, so there the original's answer stood as the reference, a weak measure. No retries, so each answer is the model's first.
+
+sarvam-30b does not read typed text. It gave the typed text back unchanged, or nearly so, for 30–85% of IN22's sentences and 40–80% of Dakshina's, and the checks flagged 2 of those 620 answers. Written back into its script first, the text scored within 5 chrF of the original in Assamese, Hindi, Kannada, Malayalam, Nepali, Punjabi, Sanskrit, Telugu, Urdu and Bengali, and 10–29 points under it in Odia, Dogri, Kashmiri, Tamil, Konkani, Gujarati, Marathi, Bodo and Maithili. IN22 writes Sindhi in Devanagari and indickit's Sindhi tables read Perso-Arabic, so Sindhi has Dakshina only. A row counts only when every word came back in Latin letters, so some languages have fewer than 20.
+
+| Language | Echo | As typed | Written back | Original |
+| --- | --- | --- | --- | --- |
+| Assamese | 70% | 20.7 | 53.7 | 57.6 |
+| Bengali | 47% | 31.6 | 51.5 | 44.8 |
+| Bodo | 75% | 19.5 | 41.8 | 50.5 |
+| Dogri | 62% | 20.9 | 32.7 | 60.9 |
+| Gujarati | 60% | 26.5 | 42.7 | 49.8 |
+| Hindi | 42% | 33.3 | 54.1 | 61.7 |
+| Kannada | 54% | 22.9 | 56.2 | 57.4 |
+| Kashmiri | 80% | 23.4 | 39.5 | 52.6 |
+| Konkani | 60% | 17.7 | 37.3 | 49.4 |
+| Maithili | 55% | 28.7 | 38.4 | 44.6 |
+| Malayalam | 33% | 36.8 | 42.4 | 42.5 |
+| Marathi | 35% | 23.7 | 50.7 | 59.8 |
+| Nepali | 55% | 26.4 | 56.5 | 52.9 |
+| Odia | 60% | 24.7 | 31.7 | 60.3 |
+| Punjabi | 85% | 29.7 | 38.9 | 41.7 |
+| Sanskrit | 74% | 19.5 | 36.5 | 31.6 |
+| Tamil | 30% | 25.9 | 42.3 | 53.2 |
+| Telugu | 44% | 20.8 | 43.0 | 36.8 |
+| Urdu | 60% | 25.1 | 60.0 | 62.3 |
+
+Echo: answers whose chrF against the typed text is 50 or more. chrF against IN22's English, 13–20 sentences a language.
+
+On Dakshina's real typing, `deromanize` restored 62–92% of the words (Hindi 91%, Malayalam 79%, Sindhi 68%, Urdu 62%), and the answer from the written-back text agreed with the original's answer at chrF 40–89, Sindhi 14. The IN22 arm flatters `deromanize`, since it undoes its sibling's own spelling; Dakshina is the honest side, and it says the same.
+
+Not built. It would need a source choice ("typed in Latin letters: Hindi"), the tables loaded as the Latin line loads them (0.3–3.1 MB a language, from jsDelivr), and an echo check for a Latin-script source, which the checks lack today. The answers are in `corpus/runs/indickit/typed-mt.jsonl`.
 
 ## The model as its own judge
 
@@ -259,7 +295,7 @@ uvx --from huggingface_hub hf download cis-lmu/glotlid model.bin --local-dir cor
 | `bun bench/ocr-designed.ts` | Screenshots of Indic news front pages with the text their DOM shows, into `corpus/ocr-designed/`. Needs Playwright's Chromium. |
 | `uv run bench/ocr-layout.py` | Tesseract's own layout against PP-DocLayout-S regions, and the routing rules, on designed pages and books. `--egret` adds docling-layout-egret-medium from `corpus/egret/`. |
 | `bun bench/ocr.ts synthetic` (or `pages`) | Reads the IN22 sentences, or the Wikisource pages, with Tesseract.js. Score with `uv run bench/score-ocr.py`. |
-| `bun bench/indickit.ts names dev` (or `names-runs`, `normalize`) | Tests indickit in the translator with no model: the name check on IN22's human pairs or on saved answers, and how often `normalize` changes text the translator handles. `names test` and `names pib` are held out and log each read in `corpus/runs/indickit/reads.log`. |
+| `bun bench/indickit.ts names dev` (or `names-runs`, `normalize`, `normalize-mt`, `typed`) | Tests indickit in the translator: the name check on IN22's human pairs or on saved answers, and how often `normalize` changes text the translator handles; these need no model. `normalize-mt` translates each changed block raw and cleaned with the model at `localhost:8086`, and scores both. `typed` writes IN22 sentences in Latin letters and takes Dakshina's typed ones, and translates each as typed, written back by `deromanize`, and as the original. `names test` and `names pib` are held out and log each read in `corpus/runs/indickit/reads.log`. |
 | `bun bench/pib-bench.ts <sentences.jsonl> 200` | sarvam-30b and Google Translate on PIB sentence pairs, English into each language: LaBSE similarity at least 0.85, numbers agreeing, at most 5 pairs from one release. `GT_BUDGET` caps the characters sent to Google; `PIB_DIR` writes somewhere other than `corpus/runs/pib-bench`. Score with `uv run bench/score-pib.py`, which sets the PIB scores beside IN22's and counts pairs older than sarvam-30b. |
 
 The PIB data comes from [pib-parallel](https://github.com/micahchoo/pib-parallel), which fetches PIB's releases and their official translations from all 29 offices, aligns them into sentence pairs and measures how much is Google Translate. Its November 2025 output is published as [micahchoo/pib-parallel](https://huggingface.co/datasets/micahchoo/pib-parallel). So PIB covers 15 of the 22 scheduled languages, and three more (Mizo, Khasi, Tenyidei) that no other corpus here has. No office publishes Bodo, Dogri, Kashmiri, Maithili, Sanskrit, Santali or Sindhi. Regional offices also write original releases in their own language, which may have no English version. Mizo, Khasi and Tenyidei are written in Latin script, so their language comes from the feed, never the script.

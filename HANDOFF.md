@@ -334,9 +334,9 @@ Rejected: line markers and block counts (code rebuilds the document); LLM severi
   rejected (Tamil got worse; sarvam keeps names unaided) — see bench/README.
 
 ## indickit in the translator — rig and plan (2026-10-07, session translator-3c)
-Question: can indickit (../indickit, npm 0.4.2) give the translator a new feature? Rig: `bench/indickit.ts`
-(no model; outputs in corpus/runs/indickit/; held-out reads logged in its reads.log). indickit@0.4.2 is a
-devDependency only. Nothing committed.
+Question: can indickit (../indickit, npm 0.4.2; 0.8.0 since 2026-10-08, the dependency the Latin line
+uses) give the translator a new feature? Rig: `bench/indickit.ts` (outputs in corpus/runs/indickit/;
+held-out reads logged in its reads.log; `normalize-mt` and `typed` use the model at :8086).
 
 1. **"Name changed" flag (phonetic): rejected on DEV.** IN22 even rows, 20 languages: catches 85% of planted
    name swaps, but false alarms on human pairs with names are 76.5% (title-case words), 57.9% with the
@@ -356,12 +356,46 @@ devDependency only. Nothing committed.
    October, Howrah: left to the scorer (candidates one sound away). A frozen scorer,
    score(latin_name, native_word, lang) -> 0..100 with integer tables, comes after phonetic's held-out
    read; add it to the rig as a matcher variant then. Name extraction is still the main blocker.
+   DONE 2026-10-08 (translator, indickit 0.8.0): `phonetic-search` is in the rig as variants
+   search80/all, stop+search80/all, stop+search70/all (carrier() indexes the answer's words as a text).
+   DEV: alarms 77.2% / 70.9% / 59.3%, swaps caught 84–87%; the key alone 75.9%, stop+affix 57.3%.
+   Rejected again; the misses are Port, Medical, Caves, British. TEST and PIB still unread.
 2. **normalize: rejected (2026-10-07 13:19, `normalize-mt`).** Every changed block tokenizes differently, but
    chrF into English does not move: OCR +1.2 per sentence (90% range −0.1..+2.6, n 46), PIB +0.0 (−0.7..+0.7,
    n 374). Edit-memory keys merged: at most 15 of 16,030. In bench/README "Tried and rejected". If ever adopted
    for clean bytes: run it AFTER the checks (it writes ৰ as র outside Assamese, blinding "letters never written").
    Side finding, not fixed: into English (no examples) sarvam sometimes adds "\nMarkdown: <answer again>";
    stopFor/cleanOutput miss that label (4 of 840 answers). Fix candidate: add "\nMarkdown:" to both.
+5. **Typed Latin letters as a source: POSITIVE (2026-10-08, `typed` stage, bench/README "Text typed in
+   Latin letters").** sarvam-30b echoes Latin-typed Indic text 30–85% of the time and the checks flag 2 of
+   620 echoes (a Latin source looks like English; the open GlotLID echo-check gap). `deromanize` first
+   brings 10 languages within 5 chrF of the original; Odia, Dogri, Kashmiri, Tamil, Konkani, Gujarati,
+   Marathi, Bodo, Maithili stay 10–29 under. Dakshina (human typing, dev split; indickit measured on
+   test) agrees. NEXT, if the owner wants it built: (a) a source choice "typed in Latin letters: <lang>"
+   in Settings/top bar; (b) src/latin.ts-style loader for `indickit/deromanize` (`load(code, 'words',
+   { base: CDN })`, 0.3–3.1 MB, one language at a time); (c) deromanize each block before segment/
+   translate, show the written-back text in Source; (d) an echo check for Latin-script sources;
+   (e) README "Languages"/"Settings" rows and test/readme.test.ts. Sindhi: indickit's tables are
+   Perso-Arabic; the app's Sindhi is Devanagari (IN22), so Sindhi gets no typed source.
+   PROTOTYPE 2026-10-08: branch `typed-source` in worktree .claude/worktrees/agent-a4c82c4729ec33b0d,
+   4 commits (96826df converter src/typed.ts; c2902ba source choice + conversion before prompt +
+   label/checks; ecd2049 README; a66023a loader fix). 228 tests pass there. Demo (demo-typed.ts,
+   untracked in the worktree; headless Chromium against :8086) WORKS: the 3-block Hindi sample in the
+   handoff above converted and translated in 2 s, no flags, code/URL/numbers kept; screenshots in the
+   session scratchpad typed-proto/. Bug found and fixed (a66023a): main.ts#typedFor was asked on every
+   render and re-rendered from a settled promise, a microtask loop that froze the page after the
+   download. Finding for the feature: deromanize's words mode picked काल (Wikipedia-frequent) for
+   "kal", so "Kal ka plan" became "Plan of the time" and "tomorrow" was lost from block 2; the
+   third sentence (Dakshina) was perfect. Chat-style typing wants chat-frequency word lists, which
+   indickit does not have. Heap: Hindi deromanizer ~60 MB on top of the romanizer's 143 MB (bun).
+   Not merged; not seen by a Hindi reader; languages to offer not decided (see bench/README table).
+   AUTO-DETECTION spike (scratchpad detect/, not in repo): char 1–4-gram naive Bayes, top 3000
+   per language (~370 KB), trained on even lines of Dakshina dev typing + indickit-romanized IN22,
+   tested on odd lines. English vs typed Indic 96–99% on human typing; which language 70–93% per
+   sentence (16–80% at ≤6 words); confusions hi→doi/mai, ur→doi/ks, mr→gom. Verdict: detect and
+   suggest, let the owner confirm the language. Not measured: whole-document vote, text off Wikipedia.
+   Rig notes: the typed stage retries a model call twice (the server resets an idle kept-alive socket,
+   ECONNRESET, about every 100 sentences); a row counts only when `romanize` wrote every word in Latin.
 3. **is_well_formed in place of pdf.ts#damage: blocked.** Job 17 in linguistic-utilities is "extend
    normalize, not ported". When the TS port ships, add a `wellformed` stage: pdf.ts#damage and
    is_well_formed against HarfBuzz labels on PDF words. Those labels are job 17's held-out data: ask the

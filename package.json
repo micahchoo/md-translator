@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "espeak-ng": "1.0.2",
-    "indickit": "0.6.0",
+    "indickit": "0.8.0",
     "mdast-util-from-markdown": "^2.0.3",
     "mdast-util-frontmatter": "^2.0.1",
     "mdast-util-gfm": "^3.1.0",
