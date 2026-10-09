@@ -6,7 +6,7 @@
       "name": "md-translator",
       "dependencies": {
         "espeak-ng": "1.0.2",
-        "indickit": "0.6.0",
+        "indickit": "0.8.0",
         "mdast-util-from-markdown": "^2.0.3",
         "mdast-util-frontmatter": "^2.0.1",
         "mdast-util-gfm": "^3.1.0",
@@ -150,7 +150,7 @@
 
     "idb-keyval": ["idb-keyval@6.3.0", "", {}, "sha512-um+2dgAWmYsu615EXpWVwSmapJhON0G43t3Ka/EVaohzPQXSMqKEqeDK/oIW3Ow+BXaF2PvSc+oBTFp793A5Ow=="],
 
-    "indickit": ["indickit@0.6.0", "", {}, "sha512-IYEZcDjHnIayH/qEyJ/QS+4oe5U7s86I+ZCpLGE52C0CriG5dXXfE1seqoQq1Bh4FZtTZVWHriKoQMbIaGRsxA=="],
+    "indickit": ["indickit@0.8.0", "", {}, "sha512-b4naFDREANyn0IEn3AOMXzAEmyHr05xaRg0E73kezZB+GmzXMyuz8f77J42qQ3rMOeF6dfsOBhoAY5neRxjHEg=="],
 
     "is-url": ["is-url@1.2.4", "", {}, "sha512-ITvGim8FhRiYe4IQ5uHSkj7pVaPDrCTkNd3yq3cV7iZAcJdHTUMPMEHcqSOy9xZ9qFenQCvi+2wjH9a1nXqHww=="],
 
