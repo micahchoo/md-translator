@@ -6,9 +6,13 @@
 import type { Deromanizer } from 'indickit/deromanize'
 import { LANGUAGES } from './languages'
 
-/** Every target language but Sindhi has tables (test/typed.test.ts): the app
- *  writes Sindhi in Devanagari and the tables read Perso-Arabic. */
-export const hasTyped = (lang: string) => lang !== 'en' && lang !== 'sd' && lang in LANGUAGES
+/** The languages a source can be typed in: those where the translation of the
+ *  written-back text came within 5 chrF of the original's (bench/README, "Text
+ *  typed in Latin letters"). Odia, Dogri, Kashmiri, Tamil, Konkani, Gujarati,
+ *  Marathi, Bodo and Maithili fell 10 to 29 points short; Sindhi has no tables in
+ *  the app's script. Each has deromanize tables (test/typed.test.ts). */
+export const TYPED = ['as', 'bn', 'hi', 'kn', 'ml', 'ne', 'pa', 'sa', 'te', 'ur']
+export const hasTyped = (lang: string) => TYPED.includes(lang) && lang in LANGUAGES
 
 /** One language at a time: a language's tables take tens of MB of heap parsed. */
 let loaded: { lang: string; d: Promise<Deromanizer> } | null = null

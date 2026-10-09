@@ -16,6 +16,7 @@ import { speak } from './speech'
 import { loadDocs, loadMemory, remember, saveDocs, saveMemory, type SavedDoc } from './store'
 import { editUnit, machineNote, progressOf, retryUnit, sourceLanguage, translateDocument, type TranslateOptions } from './translate'
 import { deromanizer, hasTyped, typedText } from './typed'
+import { detector, looksTyped, type Model } from './detect'
 
 type View = 'source' | 'blocks' | 'markdown'
 
@@ -53,6 +54,9 @@ const el = {
   typed: $<HTMLInputElement>('typed'),
   typedText: $('typed-text'),
   typedLang: $<HTMLSelectElement>('typed-lang'),
+  typedHint: $('typed-hint'),
+  typedHintLang: $('typed-hint-lang'),
+  typedHintUse: $<HTMLButtonElement>('typed-hint-use'),
   dialog: $<HTMLDialogElement>('settings'),
   form: $<HTMLFormElement>('settings-form'),
   connection: $('connection'),
@@ -229,6 +233,30 @@ const typedCode = (target: string) => (settings.typed && settings.typed !== targ
 /** The `typed` option for a document already run, with nothing left to convert: its label only. */
 const typedOf = (code: string | undefined): TranslateOptions['typed'] => (code && hasTyped(code) ? { language: LANGUAGES[code], convert: (t) => t } : undefined)
 
+/** The detector's model, fetched (50 KB) with the first source that is mostly Latin letters. */
+let detectModel: Model | null | undefined
+/** The last source looked at, and the language it looked typed in. */
+let detected: { text: string; lang: string | null } = { text: '', lang: null }
+
+/** The language a source looks typed in while the option is off (src/detect.ts):
+ *  a guess the owner confirms with the button. Null while the model loads, for
+ *  English, for text in a script, and when it would be the target itself. */
+function suggested(): string | null {
+  const d = doc()
+  if (settings.typed || d.status === 'running' || d.ocr) return null
+  if (d.source !== detected.text) {
+    if (detectModel === undefined) {
+      detectModel = null
+      detector().then(
+        (m) => ((detectModel = m), render()),
+        () => {},
+      )
+    }
+    detected = { text: d.source, lang: detectModel ? looksTyped(detectModel, d.source) : null }
+  }
+  return detected.lang && detected.lang !== settings.language ? detected.lang : null
+}
+
 function renderTyped() {
   const code = settings.typed
   el.typed.checked = !!code
@@ -236,6 +264,13 @@ function renderTyped() {
   if (code) {
     el.typedLang.value = code
     typedFor(code)
+  }
+  const hint = suggested()
+  el.typedHint.hidden = !hint
+  if (hint) {
+    el.typedHintLang.textContent = LANGUAGES[hint].name
+    el.typedHintUse.textContent = `Convert as ${LANGUAGES[hint].name}`
+    el.typedHintUse.dataset.lang = hint
   }
   el.typedText.textContent = !code
     ? 'Typed in Latin letters'
@@ -249,10 +284,17 @@ function renderTyped() {
 }
 
 el.typed.onchange = () => {
-  settings.typed = el.typed.checked ? el.typedLang.value || typedChoices[0].code : ''
+  // Ticked by hand: the language the source looks typed in, else the last chosen.
+  settings.typed = el.typed.checked ? suggested() || el.typedLang.value || typedChoices[0].code : ''
   saveSettings(storage, settings)
   // Ticked again after a failed load: try once more.
   if (settings.typed) typedFailed.clear()
+  render()
+}
+el.typedHintUse.onclick = () => {
+  settings.typed = el.typedHintUse.dataset.lang ?? ''
+  saveSettings(storage, settings)
+  typedFailed.clear()
   render()
 }
 el.typedLang.onchange = () => {

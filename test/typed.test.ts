@@ -4,16 +4,17 @@ import { LANGUAGES } from '../src/languages'
 import type { Completion } from '../src/llm'
 import { mask } from '../src/segment'
 import { translateDocument, type TranslateOptions } from '../src/translate'
-import { hasTyped, typedText } from '../src/typed'
+import { hasTyped, TYPED, typedText } from '../src/typed'
 
 /** A converter that writes each run of Latin letters in capitals, as the real one writes a script. */
 const caps = { text: (t: string) => t.replace(/[A-Za-z]+/g, (w) => w.toUpperCase()) }
 
-test('every language offered as a target but Sindhi can be typed in Latin letters; English cannot', () => {
-  const targets = Object.keys(LANGUAGES).filter((c) => c !== 'en')
-  expect(targets.filter((c) => !hasTyped(c))).toEqual(['sd'])
-  expect(targets.filter((c) => c !== 'sd' && !languages('words').includes(c))).toEqual([])
+test('the typed languages are offered targets with tables; English and Sindhi cannot be typed', () => {
+  expect(TYPED.filter((c) => !(c in LANGUAGES))).toEqual([])
+  expect(TYPED.filter((c) => !languages('words').includes(c))).toEqual([])
+  expect(TYPED.every(hasTyped)).toBe(true)
   expect(hasTyped('en')).toBe(false)
+  expect(hasTyped('sd')).toBe(false)
 })
 
 describe('typedText', () => {

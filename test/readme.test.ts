@@ -7,6 +7,7 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { CANDIDATES } from '../bench/candidates'
 import { FLAG_TEXT } from '../src/blocks'
 import { LANGUAGES } from '../src/languages'
+import { TYPED } from '../src/typed'
 
 const readme = readFileSync('README.md', 'utf8')
 const bench = readFileSync('bench/README.md', 'utf8')
@@ -31,6 +32,10 @@ describe('README', () => {
   test('names exactly the languages that can be read from images', () => {
     const read = Object.values(LANGUAGES).filter((l) => l.code !== 'en' && l.ocr).map((l) => l.name).sort()
     expect(named(section(readme, 'Reading images and PDFs').trim().split('\n\n')[0])).toEqual(read)
+  })
+
+  test('names exactly the languages a source can be typed in', () => {
+    expect(named(section(readme, 'Typed in Latin letters').trim().split('\n\n')[0])).toEqual(TYPED.map((c) => LANGUAGES[c].name).sort())
   })
 
   test('explains every flag the app shows, by its label', () => {

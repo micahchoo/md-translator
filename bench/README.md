@@ -110,7 +110,21 @@ Echo: answers whose chrF against the typed text is 50 or more. chrF against IN22
 
 On Dakshina's real typing, `deromanize` restored 62–92% of the words (Hindi 91%, Malayalam 79%, Sindhi 68%, Urdu 62%), and the answer from the written-back text agreed with the original's answer at chrF 40–89, Sindhi 14. The IN22 arm flatters `deromanize`, since it undoes its sibling's own spelling; Dakshina is the honest side, and it says the same.
 
-Not built. It would need a source choice ("typed in Latin letters: Hindi"), the tables loaded as the Latin line loads them (0.3–3.1 MB a language, from jsDelivr), and an echo check for a Latin-script source, which the checks lack today. The answers are in `corpus/runs/indickit/typed-mt.jsonl`.
+Built on 2026-10-09 (`src/typed.ts`): a source choice "Typed in Latin letters", the tables loaded as the Latin line loads them (0.3–3.1 MB a language, from jsDelivr), and the written text shown as the source in Blocks. Offered for the ten languages that came within 5 chrF of the original; the other nine are not. In the browser the three-block Hindi sample in HANDOFF.md ran in 2 s with no flags, code, link and numbers kept; "kal" was written काल, an era, not कल, tomorrow, since the tables rank spellings by how often Wikipedia writes them. Once the source is in its script, the "Not translated" check sees an echo again; a Latin-letter paste translated with the option off is still unchecked. The answers are in `corpus/runs/indickit/typed-mt.jsonl`.
+
+**Telling a typed paste from English** (`src/detect.ts`, built by `bench/detect-typed.ts`). A naive Bayes model over character 1- to 4-grams, the 1,500 most common per language, for the ten typed languages and English: 148 KB, fetched with the first source that is mostly Latin letters. Trained on two of every four lines of Dakshina's dev split (Wikipedia sentences typed by native speakers, 7 of the ten languages; its test split is indickit's held-out data and was never read), of IN22 written in Latin letters by indickit's `romanize` (all ten), and of IN22's English. The third line of every four is DEV, which chose the size (the smallest within a point of the best on five-sentence paragraphs of human typing: 800 n-grams gave 94.0%, 1,500 99.0%, 3,000 99.8%) and the margin (the lead over English at which at most 1% of English DEV sentences pass as typed: 0, so any lead counts). The fourth line is TEST, read once (2026-10-09, `reads.log`):
+
+| TEST, human typing (Dakshina) | Sentences named right | Sentences caught | Paragraphs of 5 named right |
+| --- | --- | --- | --- |
+| Bengali | 72.2% | 86.8% | 96.4% |
+| Hindi | 72.2% | 88.9% | 98.4% |
+| Kannada | 86.4% | 92.5% | 99.2% |
+| Malayalam | 83.2% | 88.2% | 100% |
+| Punjabi | 86.2% | 91.0% | 100% |
+| Telugu | 72.4% | 83.7% | 98.8% |
+| Urdu | 77.3% | 80.3% | 99.2% |
+
+On IN22's program-written typing every language is named right in 89–100% of sentences and 100% of paragraphs; of 256 English sentences 2 passed as typed, and no paragraph did. A sentence the detector misses is usually short (under 20 letters it says nothing) or full of English names. The app runs it on the whole paste, so the paragraph column is the one that applies.
 
 ## The model as its own judge
 
@@ -295,6 +309,7 @@ uvx --from huggingface_hub hf download cis-lmu/glotlid model.bin --local-dir cor
 | `bun bench/ocr-designed.ts` | Screenshots of Indic news front pages with the text their DOM shows, into `corpus/ocr-designed/`. Needs Playwright's Chromium. |
 | `uv run bench/ocr-layout.py` | Tesseract's own layout against PP-DocLayout-S regions, and the routing rules, on designed pages and books. `--egret` adds docling-layout-egret-medium from `corpus/egret/`. |
 | `bun bench/ocr.ts synthetic` (or `pages`) | Reads the IN22 sentences, or the Wikisource pages, with Tesseract.js. Score with `uv run bench/score-ocr.py`. |
+| `bun bench/detect-typed.ts` (or `test`) | Builds `src/typed-detect.json`, the model that tells a typed paste from English and names its language, from Dakshina's dev split (`LU_DIR` points at linguistic-utilities when it is not beside this repository) and IN22; chooses its size and margin on DEV. `test` reads the TEST lines once and logs the read in `corpus/runs/indickit/reads.log`. |
 | `bun bench/indickit.ts names dev` (or `names-runs`, `normalize`, `normalize-mt`, `typed`) | Tests indickit in the translator: the name check on IN22's human pairs or on saved answers, and how often `normalize` changes text the translator handles; these need no model. `normalize-mt` translates each changed block raw and cleaned with the model at `localhost:8086`, and scores both. `typed` writes IN22 sentences in Latin letters and takes Dakshina's typed ones, and translates each as typed, written back by `deromanize`, and as the original. `names test` and `names pib` are held out and log each read in `corpus/runs/indickit/reads.log`. |
 | `bun bench/pib-bench.ts <sentences.jsonl> 200` | sarvam-30b and Google Translate on PIB sentence pairs, English into each language: LaBSE similarity at least 0.85, numbers agreeing, at most 5 pairs from one release. `GT_BUDGET` caps the characters sent to Google; `PIB_DIR` writes somewhere other than `corpus/runs/pib-bench`. Score with `uv run bench/score-pib.py`, which sets the PIB scores beside IN22's and counts pairs older than sarvam-30b. |
 
@@ -306,7 +321,7 @@ The packet's text is this project's public README, never the owner's documents. 
 
 ## Data
 
-[IN22-Gen](https://huggingface.co/datasets/ai4bharat/IN22-Gen) (AI4Bharat, CC BY 4.0), [GlotLID](https://huggingface.co/cis-lmu/glotlid). [FLORES+](https://huggingface.co/datasets/openlanguagedata/flores_plus) (CC BY-SA 4.0) was used in the first trial only. Its terms forbid re-hosting it where web crawlers can reach it, so no part of it is in this repository.
+[IN22-Gen](https://huggingface.co/datasets/ai4bharat/IN22-Gen) (AI4Bharat, CC BY 4.0), [GlotLID](https://huggingface.co/cis-lmu/glotlid). [Dakshina](https://github.com/google-research-datasets/dakshina) (Google, CC BY-SA 4.0) gives the typed-text tests their human typing and the detector its training lines; only letter-sequence counts from it ship, in `src/typed-detect.json`, and it stays in linguistic-utilities beside this repository. [FLORES+](https://huggingface.co/datasets/openlanguagedata/flores_plus) (CC BY-SA 4.0) was used in the first trial only. Its terms forbid re-hosting it where web crawlers can reach it, so no part of it is in this repository.
 
 Wikisource's transcriptions are under CC BY-SA 4.0 and its scans are mostly in the public domain; both stay in the git-ignored `corpus/`. The news screenshots and their text belong to their publishers and stay there too.
 
