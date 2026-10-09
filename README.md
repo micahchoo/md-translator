@@ -67,6 +67,10 @@ Voices and the letters for reading images stay in your browser after the first d
 
 For a reader who speaks the language but does not read its script, tick **Latin letters** in **Blocks**: each translation gets a line under it, such as "bharat ke pradhaanmantri" under भारत के प्रधानमंत्री. It works for all twenty languages. The first tick in a language downloads its tables from jsDelivr, 0.2–1.8 MB; your text goes nowhere. The spelling is one common way of writing each word, not a standard: on Wikipedia sentences in 11 of the languages, romanized by native speakers, the line's spelling is theirs for about half the words (61% in Hindi, 29% in Sindhi); the other nine were not measured. The line is only for reading. Copy and Download give the translation alone.
 
+## Typed in Latin letters
+
+Many people type an Indian language in Latin letters: "kal meeting hai". The model gives such text back unchanged about half the time, so tick **Typed in Latin letters** above the source box and choose the language: each block is written in the language's script before the model reads it, and **Blocks** shows the written form with your typing under it. It works for every language but Sindhi, whose tables are in another script. The first run in a language downloads its tables from jsDelivr, 0.3–3.1 MB; your text goes nowhere. English words inside the text are written in the script too ("meeting" becomes मीटिंग), as the language itself writes them; a name that must stay in English goes in code, as `Obsidian`. Code, link addresses and numbers stay as typed. Measured on sentences typed by native speakers, the writing restores about nine words in ten; the translation then comes within a few points of one from the script itself in ten languages, and further behind in Odia, Dogri and Kashmiri (see `bench/README.md`, "Text typed in Latin letters").
+
 ## What stays unchanged
 
 Code, link addresses, numbers, emphasis marks, and the front matter keys named in Settings (`notion-id, base, tags, aliases, cssclasses` by default).
